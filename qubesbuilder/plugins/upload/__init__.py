@@ -93,10 +93,10 @@ class UploadPlugin(DistributionPlugin):
                         self.dist, repository_publish
                     )
                 )
+                directories_to_upload.append(f"{self.dist.package_set}/pool")
                 directories_to_upload.append(
                     f"{self.dist.package_set}/dists/{debian_suite}"
                 )
-                directories_to_upload.append(f"{self.dist.package_set}/pool")
 
             if not directories_to_upload:
                 raise UploadError(
