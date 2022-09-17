@@ -236,12 +236,6 @@ class DEBSourcePlugin(DEBDistributionPlugin, SourcePlugin):
             # Init command with .qubesbuilder command entries
             cmd = parameters.get("source", {}).get("commands", [])
 
-            # Update changelog
-            cmd += [
-                f"{executor.get_plugins_dir()}/source_deb/scripts/modify-changelog-for-build "
-                f"{source_dir} {directory} {self.dist.name} {self.dist.tag}",
-            ]
-
             if package_type == "quilt":
                 if self.component.is_salt():
                     copy_in += [
@@ -271,6 +265,12 @@ class DEBSourcePlugin(DEBDistributionPlugin, SourcePlugin):
                     cmd.append(
                         f"mv {executor.get_distfiles_dir() / self.component.name / fn} {executor.get_builder_dir()}/{source_orig}"
                     )
+
+            # Update changelog, after create-archive
+            cmd += [
+                f"{self.manager.entities['source_deb'].directory}/scripts/modify-changelog-for-build "
+                f"{source_dir} {directory} {self.dist.name} {self.dist.tag}",
+            ]
 
             gen_packages_list_cmd = [
                 f"{executor.get_plugins_dir()}/source_deb/scripts/debian-get-packages-list",
