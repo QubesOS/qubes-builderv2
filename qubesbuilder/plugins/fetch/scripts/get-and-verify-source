@@ -264,7 +264,11 @@ if [[ -d "$REPO" ]]; then
     fi
     rev="$(git rev-parse -q --verify FETCH_HEAD)"
     if [ "$FETCH_VERSIONS_ONLY" == "1" ]; then
-        git tag --points-at "$rev" | grep -q '^v'
+        if ! git tag --points-at "$rev" | grep -q '^v'; then
+            echo "No version tag"
+            rm -f .git/FETCH_HEAD
+            exit 0
+        fi
     fi
     VERIFY_REF="$rev"
     fresh_clone=false
