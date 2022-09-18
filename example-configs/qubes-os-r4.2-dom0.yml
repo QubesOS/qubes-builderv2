@@ -15,7 +15,7 @@ verbose: true
 qubes-release: r4.2
 timeout: 3600
 
-do-merge: true
+skip-git-fetch: false
 fetch-versions-only: true
 
 distributions:

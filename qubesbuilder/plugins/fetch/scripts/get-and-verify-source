@@ -40,7 +40,6 @@ Options:
     --component                              Component to clone.
     --clean                                  Remove previous sources (use git up vs git clone).
     --fetch-only                             Fetch sources but do not merge.
-    --do-merge                               Merge fetched commits
     --fetch-versions-only                    Fetch only version tags
     --ignore-missing                         Exit with code 0 if remote branch doesn't exists.
     --repo                                   Specify repository directory, component will be guessed based on basename.
@@ -91,9 +90,9 @@ exit_clean() {
 
 unset GETOPT_COMPATIBLE fresh_clone GIT_CLONE_FAST GIT_BASEURL GIT_PREFIX GIT_SUFFIX GIT_URL GIT_REMOTE BRANCH \
     COMPONENT CLEAN FETCH_ONLY IGNORE_MISSING REPO KEYS_DIR KEYRING_DIR_GIT INSECURE_SKIP_CHECKING LESS_SECURE_SIGNED_COMMITS_SUFFICIENT \
-    DO_MERGE FETCH_VERSIONS_ONLY MAINTAINERS
+    FETCH_VERSIONS_ONLY MAINTAINERS
 
-if ! OPTS=$(getopt -o '' -l help,git-baseurl:,git-prefix:,git-suffix:,git-url:,git-remote:,git-branch:,component:,clean,fetch-only,ignore-missing,repo:,keys-dir:,keyring-dir-git:,insecure-skip-checking,less-secure-signed-commits-sufficient,do-merge,fetch-versions-only,maintainer: -n "$0" -- "$@"); then
+if ! OPTS=$(getopt -o '' -l help,git-baseurl:,git-prefix:,git-suffix:,git-url:,git-remote:,git-branch:,component:,clean,fetch-only,ignore-missing,repo:,keys-dir:,keyring-dir-git:,insecure-skip-checking,less-secure-signed-commits-sufficient,fetch-versions-only,maintainer: -n "$0" -- "$@"); then
     echo "ERROR: Failed while parsing options."
     exit 1
 fi
@@ -157,9 +156,6 @@ while [[ $# -gt 0 ]]; do
         ;;
     --less-secure-signed-commits-sufficient)
         LESS_SECURE_SIGNED_COMMITS_SUFFICIENT=1
-        ;;
-    --do-merge)
-        DO_MERGE=1
         ;;
     --fetch-versions-only)
         FETCH_VERSIONS_ONLY=1
@@ -250,10 +246,6 @@ elif ! [[ "$REPO" =~ ^[A-Za-z][A-Za-z0-9-]*$ ]]; then
     exit 1
 fi
 
-if [ "${FETCH_ONLY}" == "1" ] && [ "${DO_MERGE}" == "1" ]; then
-    echo "WARNING: Both fetch only and do merge are requested. Merging will be ignored."
-fi
-
 trap 'exit_clean' 0 1 2 3 6 15
 
 fresh_clone=false
@@ -267,19 +259,14 @@ if [[ -d "$REPO" ]]; then
         GIT_OPTIONS+=("--unshallow")
     fi
     print_headers
-    if [ "$DO_MERGE" == "1" ]; then
-        git fetch
-        rev="$(git rev-parse -q --verify FETCH_HEAD)"
-        if [ "$FETCH_VERSIONS_ONLY" == "1" ]; then
-            git tag --points-at "$rev" | grep -q '^v'
-        fi
-        VERIFY_REF="$rev"
-    else
-        if ! git fetch "${GIT_OPTIONS[@]}" -q --tags -- "$GIT_URL" "$BRANCH"; then
-            if [ "$IGNORE_MISSING" = "1" ]; then exit 0; else exit 1; fi
-        fi
-        VERIFY_REF=FETCH_HEAD
+    if ! git fetch "${GIT_OPTIONS[@]}" -q --tags -- "$GIT_URL" "$BRANCH"; then
+        if [ "$IGNORE_MISSING" = "1" ]; then exit 0; else exit 1; fi
     fi
+    rev="$(git rev-parse -q --verify FETCH_HEAD)"
+    if [ "$FETCH_VERSIONS_ONLY" == "1" ]; then
+        git tag --points-at "$rev" | grep -q '^v'
+    fi
+    VERIFY_REF="$rev"
     fresh_clone=false
     # shellcheck disable=SC2103
     cd - >/dev/null
@@ -423,16 +410,11 @@ if [ "$CURRENT_BRANCH" != "$BRANCH" ] || "$fresh_clone"; then
 fi
 
 if ! "$fresh_clone"; then
-    if [ "$DO_MERGE" = "1" ]; then
-        echo "Merging FETCH_HEAD into $REPO"
-        git -c merge.verifySignatures=false merge "${GIT_MERGE_OPTS[@]}" --no-edit "$VERIFY_REF"
-    else
-        echo "--> Merging..."
-        git -c merge.verifySignatures=no merge "${GIT_MERGE_OPTS[@]}" --commit -q "$VERIFY_REF"
-        tracking_branch="refs/remotes/$GIT_REMOTE/$BRANCH"
-        if [ -f ".git/$tracking_branch" ]; then
-            git update-ref -- "$tracking_branch" "$VERIFY_REF"
-        fi
+    echo "--> Merging..."
+    git -c merge.verifySignatures=no merge "${GIT_MERGE_OPTS[@]}" --commit -q "$VERIFY_REF"
+    tracking_branch="refs/remotes/$GIT_REMOTE/$BRANCH"
+    if [ -f ".git/$tracking_branch" ]; then
+        git update-ref -- "$tracking_branch" "$VERIFY_REF"
     fi
 fi
 
