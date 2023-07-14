@@ -130,6 +130,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 "PACKAGES_DIR": str(executor.get_repository_dir()),
                 "DISCARD_PREPARED_IMAGE": "1",
                 "BUILDER_TURBO_MODE": "1",
+                "QUBES_BUILDER": "1",
                 "CACHE_DIR": str(executor.get_cache_dir() / f"cache_{self.dist.name}"),
                 "RELEASE": parsed_release.group(1),
                 "TEMPLATE_SCRIPTS_DIR": str(
