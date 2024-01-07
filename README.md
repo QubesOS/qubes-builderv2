@@ -717,7 +717,8 @@ Options available in `builder.yml`:
   - `type: str` --- Executor type: qubes, docker, podman or local.
   - `options: Dict`:
     - `image: str` --- Container image to use. Specific to docker or podman type.
-    - `dispvm: str` --- Disposable template VM to use (NOT IMPLEMENTED YET. HARDCODED TO 'qubes-builder-dvm').
+    - `dispvm: str` --- Disposable template VM to use (if set to dom0, will
+      use the calling qube property default_dispvm).
     - `directory: str` --- Base directory for local executor to create temporary directories.
     - `clean: bool` --- Do not clean container, disposable qube or temporary local folder.
 
