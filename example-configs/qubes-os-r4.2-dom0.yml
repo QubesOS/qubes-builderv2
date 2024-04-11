@@ -28,7 +28,7 @@ distributions:
 executor:
   type: qubes
   options:
-    dispvm: "qubes-builder-dvm"
+    dispvm: "dom0"
 
 stages:
   - fetch
