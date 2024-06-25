@@ -110,7 +110,16 @@ Then, clone the disposable template based on Fedora 39, `fedora-39-dvm`, to
 
 Let's assume that the qube hosting `qubes-builder` is called `work-qubesos`.
 (If you're using a different name, make sure to adjust your policies.) In
-`dom0`, copy `rpc/policy/50-qubesbuilder.policy` to `/etc/qubes/policy.d`.
+`dom0`, copy `rpc/policy/50-qubesbuilder.policy` to `/etc/qubes/policy.d`
+and make sure to adjust its filesystem owner, group and permissions
+appropriately - you can do this with commands similar to these:
+
+```bash
+$ qvm-run --pass-io work-qubesos 'cat /home/user/qubes-builderv2/rpc/policy/50-qubesbuilder.policy' > /home/user/50-qubesbuilder.policy
+$ sudo mv /home/user/50-qubesbuilder.policy /etc/qubes/policy.d/
+$ sudo chown root:qubes /etc/qubes/policy.d/50-qubesbuilder.policy
+$ sudo chmod 664 /etc/qubes/policy.d/50-qubesbuilder.policy
+```
 
 Now, start the disposable template `qubes-builder-dvm` and create the following
 directories:
