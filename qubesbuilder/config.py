@@ -492,7 +492,7 @@ class Config:
     def get_component_from_dict_or_string(
         self, component_name: Union[str, Dict]
     ) -> QubesComponent:
-        baseurl = self.get("git", {}).get("baseurl", "https://github.com")
+        baseurl = self.get("git", {}).get("baseurl", "https://github.com/")
         prefix = self.get("git", {}).get("prefix", "QubesOS/qubes-")
         suffix = self.get("git", {}).get("suffix", ".git")
         branch = self.get("git", {}).get("branch", "main")
@@ -505,7 +505,7 @@ class Config:
 
         name, options = next(iter(component_name.items()))
         source_dir = self.artifacts_dir / "sources" / name
-        url = f"{baseurl}/{options.get('prefix', prefix)}{name}{options.get('suffix', suffix)}"
+        url = f"{baseurl}{options.get('prefix', prefix)}{name}{options.get('suffix', suffix)}"
         verification_mode = VerificationMode.SignedTag
         if name in self._conf.get("insecure-skip-checking", []):
             verification_mode = VerificationMode.Insecure

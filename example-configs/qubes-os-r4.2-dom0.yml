@@ -5,7 +5,7 @@ include:
 #  - example-configs/github-maintainers.yml
 
 git:
-  baseurl: https://github.com
+  baseurl: https://github.com/
   prefix: QubesOS/qubes-
   branch: main
 

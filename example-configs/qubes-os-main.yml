@@ -1,7 +1,7 @@
 # Config for most recent development version ("main" aka "master" branch)
 
 git:
-  baseurl: https://github.com
+  baseurl: https://github.com/
   prefix: QubesOS/qubes-
   branch: main
   maintainers:

@@ -1,5 +1,5 @@
 git:
-  baseurl: https://github.com
+  baseurl: https://github.com/
   prefix: qubesos/qubes-
   branch: main
 
