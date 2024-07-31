@@ -67,6 +67,7 @@ def get_archchroot_cmd(
 
     mkarchchroot_cmd = [
         "sudo",
+        "--preserve-env=GPG_TTY",
         "mkarchroot",
         "-C",
         str(pacman_conf),
@@ -81,7 +82,8 @@ def get_archchroot_cmd(
         "sudo pacman-key --init",
         "sudo pacman-key --populate",
         f"sudo mkdir -p {chroot_dir.parent}",
-        " ".join(mkarchchroot_cmd) + " | cat",
+        "export GPG_TTY=$(tty)",
+        " ".join(mkarchchroot_cmd) + " <<< $(GPG_TTY)",
     ]
 
     return cmd
@@ -131,6 +133,7 @@ class ArchlinuxChrootPlugin(ArchlinuxDistributionPlugin, ChrootPlugin):
             {
                 "DIST": self.dist.name,
                 "PACKAGE_SET": self.dist.package_set,
+                "TERM": "dumb"
             }
         )
         copy_out = [
