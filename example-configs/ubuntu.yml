@@ -25,6 +25,9 @@ templates:
       flavor: minimal
 
 components:
+  - builderv2:
+      packages: False
+      branch: main
   - builder-debian:
       packages: False
   - vmm-xen-guest
