@@ -54,3 +54,4 @@ else
     debchange -t -l+"$DIST_TAG" "Build for $DIST_NAME"
     debchange -t --force-distribution -r -D "$DIST_NAME" "$DIST_NAME"
     "${SCRIPTS_DIR}"/clamp-changelog-entry-date "${SOURCE_DIR}/${DEBIAN_DIRECTORY}/changelog"
+fi
