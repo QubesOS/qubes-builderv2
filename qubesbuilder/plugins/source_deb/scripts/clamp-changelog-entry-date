@@ -34,7 +34,7 @@ fi
 if [ -z "$SOURCE_DATE_EPOCH" ]; then
     CURRENT_DATE=$(date -u +"%Y-%m-%d %H:%M:%S")
 else
-    CURRENT_DATE=$(date -u -d @$SOURCE_DATE_EPOCH +"%Y-%m-%d %H:%M:%S")
+    CURRENT_DATE=$(date -u -d @"$SOURCE_DATE_EPOCH" +"%Y-%m-%d %H:%M:%S")
 fi
 
 # Get previous date from changelog
