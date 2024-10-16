@@ -73,6 +73,8 @@ gzip -9c "dists/$SUITE/main/binary-amd64/Packages" > "dists/$SUITE/main/binary-a
 
 DATE=$(LC_ALL=C date -u -d @"$SOURCE_DATE_EPOCH" +"%a, %d %b %Y %H:%M:%S %Z")
 
+# Use the SOURCE_DATE_EPOCH if set, or default to a fixed date
+SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(date -d '2024-10-14' +%s)}"
 
 cat > "dists/$SUITE/Release" <<EOF
 Label: Qubes builder repo
