@@ -45,7 +45,7 @@ fix_up := $(shell TEMPLATE_NAME=$(TEMPLATE_NAME) TEMPLATE_LABEL="$(TEMPLATE_LABE
 	$(BUILDER_DIR)/scripts/builder-fix-filenames)
 
 TEMPLATE_NAME := $(word 1,$(fix_up))
-TEMPLATE_TIMESTAMP ?= $(shell date -u -d @$SOURCE_DATE_EPOCH +%Y%m%d%H%MZ)
+TEMPLATE_TIMESTAMP ?= $(shell date -u -d @"$SOURCE_DATE_EPOCH" +%Y%m%d%H%MZ)
 
 
 .PHONY: template-name prepare build build-rootimg build-rpm
