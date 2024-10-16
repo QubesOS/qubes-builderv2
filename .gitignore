@@ -10,4 +10,5 @@ test.py
 builder.lock
 *.html
 *.txt
+*.xml
 
