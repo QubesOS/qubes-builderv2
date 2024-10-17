@@ -37,10 +37,17 @@ else
     CURRENT_DATE=$(date -u -d @"$SOURCE_DATE_EPOCH" +"%Y-%m-%d %H:%M:%S")
 fi
 
-# Get previous date from changelog
-#PREVIOUS_DATE=$(grep '^ --' "$CHANGELOG_PATH" | head -n 2 | tail -n 1 | grep -o '  .*')
+# Get previous date from the changelog
+PREVIOUS_DATE=$(grep '^ --' "$CHANGELOG_PATH" | head -n 2 | tail -n 1 | grep -o '  .*')
 
-# Replace the topmost date with the CURRENT_DATE
+# Set CURRENT_DATE based on SOURCE_DATE_EPOCH or use PREVIOUS_DATE as fallback
+if [ -n "$SOURCE_DATE_EPOCH" ]; then
+    CURRENT_DATE=$(date -u -d @"$SOURCE_DATE_EPOCH" +"%Y-%m-%d %H:%M:%S")
+else
+    CURRENT_DATE="$PREVIOUS_DATE"
+fi
+
+# Replace the topmost date with CURRENT_DATE
 sed -e "0,/^ --/s/^\( --.*\)\(  .*\)/\1$CURRENT_DATE/" -i "$CHANGELOG_PATH"
 touch --date="$CURRENT_DATE" "$CHANGELOG_PATH"
 

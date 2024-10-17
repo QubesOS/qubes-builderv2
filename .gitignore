@@ -8,7 +8,6 @@ builder.yml
 builder.yml.bak
 test.py
 builder.lock
-*.html
 
 
 
