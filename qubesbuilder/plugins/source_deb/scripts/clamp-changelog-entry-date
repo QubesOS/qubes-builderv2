@@ -30,9 +30,10 @@ if [ ! -r "$CHANGELOG_PATH" ]; then
     exit 1
 fi
 
-# get previous date
+# Get previous date from the changelog
 PREVIOUS_DATE=$(grep '^ --' "$CHANGELOG_PATH" | head -n 2 | tail -n 1 | grep -o '  .*')
 
-# replace topmost date
+# Replace the topmost date with the PREVIOUS_DATE
 sed -e "0,/^ --/s/^\( --.*\)\(  .*\)/\1$PREVIOUS_DATE/" -i "$CHANGELOG_PATH"
 touch --date="$PREVIOUS_DATE" "$CHANGELOG_PATH"
+
