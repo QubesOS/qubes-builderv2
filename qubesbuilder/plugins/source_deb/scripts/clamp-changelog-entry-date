@@ -33,10 +33,7 @@ fi
 # Get previous date from the changelog
 PREVIOUS_DATE=$(grep '^ --' "$CHANGELOG_PATH" | head -n 2 | tail -n 1 | grep -o '  .*')
 
-# Use SOURCE_DATE_EPOCH if available; otherwise, use PREVIOUS_DATE
-CURRENT_DATE=$(date -u -d "@${SOURCE_DATE_EPOCH:-$PREVIOUS_DATE}" +"%Y-%m-%d %H:%M:%S")
-
-# Replace the topmost date with CURRENT_DATE
-sed -e "0,/^ --/s/^\( --.*\)\(  .*\)/\1$CURRENT_DATE/" -i "$CHANGELOG_PATH"
-touch --date="$CURRENT_DATE" "$CHANGELOG_PATH"
+# Replace the topmost date with the PREVIOUS_DATE
+sed -e "0,/^ --/s/^\( --.*\)\(  .*\)/\1$PREVIOUS_DATE/" -i "$CHANGELOG_PATH"
+touch --date="$PREVIOUS_DATE" "$CHANGELOG_PATH"
 
