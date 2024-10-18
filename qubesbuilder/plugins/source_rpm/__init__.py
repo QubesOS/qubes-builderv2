@@ -22,7 +22,11 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from qubesbuilder.common import is_filename_valid, get_archive_name
+from qubesbuilder.common import (
+    is_filename_valid,
+    get_archive_name,
+    extract_lines_before,
+)
 from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
@@ -291,6 +295,7 @@ class RPMSourcePlugin(RPMDistributionPlugin, SourcePlugin):
             mock_cmd = [
                 f"sudo --preserve-env=DIST,PACKAGE_SET,USE_QUBES_REPO_VERSION",
                 f"/usr/libexec/mock/mock",
+                "--verbose",
                 "--buildsrpm",
                 f"--spec {source_dir / build}",
                 f"--root {executor.get_plugins_dir()}/chroot_rpm/mock/{mock_conf}",
@@ -304,8 +309,6 @@ class RPMSourcePlugin(RPMDistributionPlugin, SourcePlugin):
                 mock_cmd.append("--isolation=simple")
             else:
                 mock_cmd.append("--isolation=nspawn")
-            if self.config.verbose:
-                mock_cmd.append("--verbose")
             if chroot_cache.exists():
                 mock_cmd.append("--plugin-option=root_cache:age_check=False")
             if self.config.increment_devel_versions:
@@ -327,8 +330,16 @@ class RPMSourcePlugin(RPMDistributionPlugin, SourcePlugin):
                     files_inside_executor_with_placeholders=files_inside_executor_with_placeholders,
                 )
             except ExecutorError as e:
-                msg = f"{self.component}:{self.dist}:{build}: Failed to generate SRPM: {str(e)}."
-                raise SourceError(msg) from e
+                msg = f"{self.component}:{self.dist}:{build}: Failed to generate SRPM ({str(e)})"
+                errors, start_line = extract_lines_before(
+                    self.log.get_log_file(), "EXCEPTION:.*/usr/bin/rpmbuild -bs"
+                )
+                additional_info = {
+                    "log_file": self.log.get_log_file().name,
+                    "start_line": start_line,
+                    "lines": errors,
+                }
+                raise SourceError(msg, additional_info=additional_info) from e
 
             # Save package information we parsed for next stages
             try:

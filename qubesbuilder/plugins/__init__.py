@@ -63,7 +63,9 @@ class PluginError(QubesBuilderError):
     Base plugin exception
     """
 
-    pass
+    def __init__(self, *args, additional_info=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.additional_info = additional_info or {}
 
 
 class Plugin:

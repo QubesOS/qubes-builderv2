@@ -20,6 +20,8 @@ import os
 import re
 import shutil
 import tempfile
+import subprocess
+
 from enum import Enum
 from pathlib import Path
 from string import digits, ascii_letters
@@ -156,3 +158,42 @@ def sed(pattern, replace, source, destination=None):
             fd.write(sed_data)
             fd.flush()
         shutil.move(fd.name, source)
+
+
+def extract_lines_before(
+    file_path, search_string, num_lines_before=10, max_split=4
+):
+    if file_path and file_path.exists():
+        try:
+            # Run grep to find the line number with the search string
+            grep_result = subprocess.run(
+                ["grep", "-n", search_string, file_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            # Check if grep found the string
+            if grep_result.returncode == 0:
+                # Extract the line number from grep's output
+                line_number = int(grep_result.stdout.split(":")[0])
+
+                # Calculate the starting line (10 lines before the found line)
+                start_line = max(1, line_number - num_lines_before)
+
+                # Use sed to extract the range of lines (from start_line to line_number - 1)
+                sed_result = subprocess.run(
+                    ["sed", "-n", f"{start_line},{line_number}p", file_path],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+
+                # Return the lines extracted by sed
+                return [
+                    line.split(" ", max_split)[-1]
+                    for line in sed_result.stdout.splitlines()
+                ], start_line
+        except Exception:
+            pass
+    return None, None

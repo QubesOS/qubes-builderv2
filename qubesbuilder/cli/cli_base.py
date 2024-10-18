@@ -88,6 +88,18 @@ class AliasedGroup(click.Group):
                     QubesBuilderLogger.error(
                         "\n" + formatted_traceback.rstrip("\n")
                     )
+                if (
+                    hasattr(exc, "additional_info")
+                    and isinstance(exc.additional_info, dict)
+                    and exc.additional_info.get("log_file", None)
+                    and exc.additional_info.get("start_line", None)
+                    and exc.additional_info.get("lines", None)
+                ):
+                    QubesBuilderLogger.error(
+                        f"Additional information from {exc.additional_info['log_file']} line {exc.additional_info['start_line']}:"
+                    )
+                    for line in exc.additional_info["lines"]:
+                        QubesBuilderLogger.error(f">>> {line}")
                 if isinstance(exc, click.ClickException):
                     # pylint: disable=no-member
                     rc = exc.exit_code

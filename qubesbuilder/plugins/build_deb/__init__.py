@@ -23,6 +23,8 @@ import shutil
 from pathlib import Path
 from typing import List
 
+from qubesbuilder.common import extract_lines_before
+
 from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
@@ -319,8 +321,18 @@ class DEBBuildPlugin(DEBDistributionPlugin, BuildPlugin):
                     files_inside_executor_with_placeholders=files_inside_executor_with_placeholders,
                 )
             except ExecutorError as e:
-                msg = f"{self.component}:{self.dist}:{directory}: Failed to build packages: {str(e)}."
-                raise BuildError(msg) from e
+                msg = f"{self.component}:{self.dist}:{directory}: Failed to build packages: {str(e)}"
+                errors, start_line = extract_lines_before(
+                    self.log.get_log_file(),
+                    "dpkg-buildpackage: error:",
+                    max_split=3,
+                )
+                additional_info = {
+                    "log_file": self.log.get_log_file().name,
+                    "start_line": start_line,
+                    "lines": errors,
+                }
+                raise BuildError(msg, additional_info=additional_info) from e
 
             # Get packages list that have been actually built from predicted ones
             packages_list = []

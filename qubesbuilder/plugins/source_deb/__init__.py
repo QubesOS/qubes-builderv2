@@ -21,7 +21,11 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from qubesbuilder.common import is_filename_valid, get_archive_name
+from qubesbuilder.common import (
+    is_filename_valid,
+    get_archive_name,
+    extract_lines_before,
+)
 from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
@@ -309,8 +313,16 @@ class DEBSourcePlugin(DEBDistributionPlugin, SourcePlugin):
                     cmd, copy_in, copy_out, environment=self.environment
                 )
             except ExecutorError as e:
-                msg = f"{self.component}:{self.dist}:{directory}: Failed to generate source: {str(e)}."
-                raise SourceError(msg) from e
+                msg = f"{self.component}:{self.dist}:{directory}: Failed to generate source: {str(e)}"
+                errors, start_line = extract_lines_before(
+                    self.log.get_log_file(), "dpkg-source: error:", max_split=3
+                )
+                additional_info = {
+                    "log_file": self.log.get_log_file().name,
+                    "start_line": start_line,
+                    "lines": errors,
+                }
+                raise SourceError(msg, additional_info=additional_info) from e
 
             # Read packages list
             packages_list = []
