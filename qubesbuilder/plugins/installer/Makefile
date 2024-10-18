@@ -26,7 +26,9 @@ INSTALLER_DIR ?= $(PLUGINS_DIR)/installer
 SOURCES_DIR ?= $(BUILDER_DIR)/sources
 INSTALLER_KICKSTART ?= $(SOURCES_DIR)/qubes-release/conf/qubes-kickstart.cfg
 CREATEREPO := $(shell which createrepo_c createrepo 2>/dev/null |head -1)
-ISO_VERSION ?= $(shell date +%Y%m%d)
+
+
+ISO_VERSION ?= $(shell date -d @"$(SOURCE_DATE_EPOCH)" +%Y%m%d 2>/dev/null || date +%Y%m%d)
 COMPS_FILE ?= $(SOURCES_DIR)/qubes-release/comps/comps-dom0.xml
 QUBES_VERSION ?= $(shell cat $(SOURCES_DIR)/qubes-release/version)
 
