@@ -31,14 +31,15 @@ if [ ! -r "$CHANGELOG_PATH" ]; then
     exit 1
 fi
 
-# Set CURRENT_DATE based on SOURCE_DATE_EPOCH or fallback to previous date
 if [ -n "$SOURCE_DATE_EPOCH" ]; then
-    CURRENT_DATE=$(date -R -u -d "@$SOURCE_DATE_EPOCH")  # RFC 2822 format (e.g., Wed, 02 Oct 2002 15:00:00 +0200)
+    # Use SOURCE_DATE_EPOCH as the reference if it's set
+    CURRENT_DATE=$(date -R -u -d "@$SOURCE_DATE_EPOCH")
 else
-    # Get previous date from changelog
+    # Get previous date from the changelog as a fallback
     CURRENT_DATE=$(grep '^ --' "$CHANGELOG_PATH" | head -n 2 | tail -n 1 | grep -o '  .*')
 fi
 
 # Replace the topmost date with CURRENT_DATE
-sed -e "0,/^ --/s/^\( --.*\)\(  .*\)/\1 $CURRENT_DATE/" -i "$CHANGELOG_PATH"
+sed -e "0,/^ --/s/^\( --.*\)\(  .*\)/\1$CURRENT_DATE/" -i "$CHANGELOG_PATH"
 touch --date="$CURRENT_DATE" "$CHANGELOG_PATH"
+
