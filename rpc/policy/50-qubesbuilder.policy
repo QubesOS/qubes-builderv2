@@ -11,3 +11,6 @@ qubesbuilder.FileCopyOut * work-qubesos @tag:disp-created-by-work-qubesos allow
 qubes.Filecopy * work-qubesos @tag:disp-created-by-work-qubesos allow
 qubes.WaitForSession * work-qubesos @tag:disp-created-by-work-qubesos allow
 qubes.VMShell * work-qubesos @tag:disp-created-by-work-qubesos allow
+
+admin.vm.Start * work-qubesos win-build allow target=dom0
+admin.vm.device.block.Attach * work-qubesos win-build allow target=dom0
