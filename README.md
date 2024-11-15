@@ -153,7 +153,7 @@ A separate vault-type qube is needed for code-signing Windows binaries. Let's as
 `vault-sign`. This qube has access to actual signing keys used, either production ones (TODO:
 in a HSM), or ephemeral self-signed keys. Communication with the `vault-sign` qube goes through
 Qubes RPC: install RPC service scripts from `rpc/qubes.WinSign.*` in the vault qube (make sure
-they are permanent in `/etc/qubes-rpc`, see [bind dirs](https://www.qubes-os.org/doc/bind-dirs/).
+they are permanent in `/etc/qubes-rpc`, see [bind dirs](https://www.qubes-os.org/doc/bind-dirs/)).
 You also need to configure RPC policy in `dom0`, copy `rpc/policy/51-qubesbuilder-windows.policy`
 to `/etc/qubes/policy.d` there (make sure the qube names are correct).
 
@@ -819,11 +819,12 @@ Options available in `builder.yml`:
     - `clean: bool` --- Clean container, disposable qube or temporary local folder (default `true`).
     - `clean-on-error: bool` --- Clean container, disposable qube or temporary local folder if any error occurred. Default is value set by `clean`.
 
-options specific to the `windows` executor (see `example-configs/windows-tools.yml`):
+- Options specific to the `windows` executor (see `example-configs/windows-tools.yml`):
   - `vm: str` --- name of the worker Windows qube (default: `win-build`)
   - `ssh-key: str` --- path to the private ssh key used for communication with the worker qube (default: `~/.ssh/win-build.key`)
   - `ewdk: str` --- device specification for the EWDK iso that will be attached to the worker qube, must be in the `qube:loopX` format (TODO: allow normal files and mount if needed)
   - `threads: int` --- number of parallel threads to use for MSBuild (default: 1)
+
 
 - `stages: List[str, Dict]` --- List of stages to trigger.
   - `<stage_name>: str` --- Stage name.
