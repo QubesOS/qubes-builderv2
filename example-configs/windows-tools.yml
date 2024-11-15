@@ -33,16 +33,18 @@ distributions:
   - vm-win10:
       stages:
         - build:
+            configuration: release
+            sign-qube: vault-sign
+            sign-key-name: "Qubes Windows Tools"
+            test-sign: true
             executor:
               type: windows
               options:
                 vm: win-build
                 ssh-key: /home/user/.ssh/win-build.key
                 # TODO: put iso path here, mount if needed
-                ewdk: "dev:loop1"
+                ewdk: "work-qubesos:loop1"
                 threads: 1
-                # TODO: this should be a build stage option
-                configuration: release
 
 components:
   - vmm-xen-windows-pvdrivers

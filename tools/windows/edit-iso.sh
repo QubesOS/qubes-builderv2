@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ef
+set -efo pipefail
 
 unset INPUT OUTPUT FILES OPTS GETOPT_COMPATIBLE INPUT_DIR OUTPUT_DIR LODEV
 

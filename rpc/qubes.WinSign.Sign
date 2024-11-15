@@ -1,0 +1,60 @@
+#!/bin/bash
+
+set -efo pipefail
+
+. /etc/qubes-rpc/qubes.WinSign.common
+
+usage() {
+    >&2 echo "Usage: $(basename $0)+<key-name>
+
+Sign a binary with the given key. Input = stdin, output = stdout.
+"
+    exit 1
+}
+
+if [ $# -ne 1 ]; then
+    usage
+fi
+
+ensure_db
+
+KEY_NAME="${1//__/ }"
+
+set +e
+check_key_exists "${KEY_NAME}"
+if [ "$?" -ne "0" ]; then
+    >&2 echo "Key '$1' does not exist"
+    exit 1
+fi
+set -e
+
+PAYLOAD_DIR="$(mktemp -d)"
+
+cleanup() {
+    local payload_dir="$1"
+    if [ -n "${payload_dir}" ]; then
+        rm -rf "${payload_dir}"
+    fi
+}
+
+trap "cleanup ${PAYLOAD_DIR}" EXIT
+
+payload="${PAYLOAD_DIR}/payload"
+
+# Limit stdin size
+head --bytes=100MB > "$payload"
+
+if [ "$(stat --format=%s "$payload")" -ge $((100 * 1024 * 1024)) ]; then
+   >&2  echo "Input size must be less than 100MiB."
+   exit 1
+fi
+
+osslsigncode sign \
+    -certs "${KEYS_DIR}/${KEY_NAME}.crt" \
+    -key "${KEYS_DIR}/${KEY_NAME}.key" \
+    -h sha256 \
+    -in "$payload" \
+    -out "$payload".signed \
+    > /dev/null 2>&1
+
+cat "$payload".signed

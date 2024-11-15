@@ -345,6 +345,12 @@ class DistributionPlugin(Plugin):
         return instances
 
 
+def get_stage_options(stage: str, options: dict):
+    stages = options.get("stages", [])
+    s = next((s for s in stages if stage in s), {})
+    return s.get(stage, {})
+
+
 class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
     """
     Distribution Component plugin
@@ -410,6 +416,12 @@ class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
             raise PluginError(
                 f"{self.component}:{self.dist}: Conflicting build paths"
             )
+
+    def get_config_stage_options(self, stage: str):
+        stage_options = {}
+        stage_options.update(get_stage_options(stage, self.dist.kwargs))
+        stage_options.update(get_stage_options(stage, self.component.kwargs))
+        return stage_options
 
     def get_dist_component_artifacts_dir_history(self, stage: str):
         path = (

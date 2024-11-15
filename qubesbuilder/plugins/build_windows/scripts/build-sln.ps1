@@ -22,8 +22,9 @@
 param(
     [Parameter(Mandatory=$true)] [string]$solution,
     [string]$configuration = "Release",
-    [string]$repo = "",  # root of local builder repository with dependencies
+    [string]$repo = "",  # root of local builder repository with dependencies, sets QUBES_REPO env variable
     [int]$threads = 1,
+    [switch]$testsign = $false,  # used to set TEST_SIGN env variable so the installer can bundle public certs
     [switch]$noisy = $false,
     [switch]$log = $false
 )
@@ -99,6 +100,10 @@ if (! $noisy) {
 
 if ($log) {
     $build_args += "-bl:$log_file"
+}
+
+if ($testsign) {
+    $env:TEST_SIGN = 1
 }
 
 # Iterate over builder's local repository to collect dependencies

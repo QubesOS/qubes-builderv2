@@ -1,0 +1,5 @@
+qubes.WinSign.QueryKey +Qubes__Windows__Tools work-qubesos vault-sign allow
+qubes.WinSign.CreateKey +Qubes__Windows__Tools work-qubesos vault-sign allow
+qubes.WinSign.DeleteKey +Qubes__Windows__Tools work-qubesos vault-sign allow
+qubes.WinSign.GetCert +Qubes__Windows__Tools work-qubesos vault-sign allow
+qubes.WinSign.Sign +Qubes__Windows__Tools work-qubesos vault-sign allow

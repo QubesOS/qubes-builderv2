@@ -149,6 +149,14 @@ in the firewall, this is configured by the `create-vm.sh` script. An ssh key is 
 `generate-iso.sh` script, the private part is saved in `~/.ssh/win-build.key` by default while
 the public part is copied to the generated Windows installation image.
 
+A separate vault-type qube is needed for code-signing Windows binaries. Let's assume it's named
+`vault-sign`. This qube has access to actual signing keys used, either production ones (TODO:
+in a HSM), or ephemeral self-signed keys. Communication with the `vault-sign` qube goes through
+Qubes RPC: install RPC service scripts from `rpc/qubes.WinSign.*` in the vault qube (make sure
+they are permanent in `/etc/qubes-rpc`, see [bind dirs](https://www.qubes-os.org/doc/bind-dirs/).
+You also need to configure RPC policy in `dom0`, copy `rpc/policy/51-qubesbuilder-windows.policy`
+to `/etc/qubes/policy.d` there (make sure the qube names are correct).
+
 
 ## Build stages
 
@@ -456,6 +464,11 @@ Here is a non-exhaustive list of distribution-specific keys:
 - `bin` --- binaries (`.exe`, `.dll`, `.sys` and all files that can be PE-signed)
 - `inc` --- devel header files that are dependencies for other components
 - `lib` --- linker libraries that are dependencies for other components
+
+`skip-test-sign` option can be specified to provide a list of binaries that should not be
+signed with a test key (only used for the final installer binary currently, since
+the self-signed certificate is in the installer itself so the binary can't be verified
+if test-signed).
 
 Inside each top level, it defines what plugin entry points like `rpm`, `deb`,
 and `source` will take as input. Having both `PACKAGE_SET` and
@@ -811,8 +824,6 @@ options specific to the `windows` executor (see `example-configs/windows-tools.y
   - `ssh-key: str` --- path to the private ssh key used for communication with the worker qube (default: `~/.ssh/win-build.key`)
   - `ewdk: str` --- device specification for the EWDK iso that will be attached to the worker qube, must be in the `qube:loopX` format (TODO: allow normal files and mount if needed)
   - `threads: int` --- number of parallel threads to use for MSBuild (default: 1)
-  - `configuration: str` --- build configuration (`debug` / `release`) (default: `release`). TODO: move this out of executor options
-  - TODO: PE signing
 
 - `stages: List[str, Dict]` --- List of stages to trigger.
   - `<stage_name>: str` --- Stage name.
@@ -923,3 +934,31 @@ For the `fetch` stage, the Qubes executor with disposable template `qubes-builde
 For the `build` stage of `vm-fc42`, the Podman executor with container image `fedoraimg` will be used.
 For the `sign` stage, the Qubes executor with disposable template `signing-access-dvm` will be used for both `vm-fc42` and `vm-jammy`
 For the `prep` stage of `vm-jammy`, the Local executor with base directory `/some/path` will be used.
+
+### Windows-specific build stage options
+
+Options related to Qubes Windows Tools can be specified under the `build` stage of a Windows distribution, like this:
+
+```yaml
+distributions:
+  - vm-win10:
+      stages:
+        - build:
+            configuration: release
+            sign-qube: vault-sign
+            sign-key-name: "Qubes Windows Tools"
+            test-sign: true
+            executor:
+              type: windows
+              options:
+                vm: win-build
+                ssh-key: /home/user/.ssh/win-build.key
+                ewdk: "dev:loop1"
+                threads: 1
+```
+
+  - `configuration: str` --- build configuration (`debug` / `release`) (default: `release`).
+  - `sign-qube: str` --- name of the vault qube performing code signing, see the Windows executor description above.
+  - `sign-key-name: str` --- name of the signing key to use. For test keys this becomes the subject of the self-signed certificate.
+  - `test-sign: bool` --- code signing type, `true` (default) or `false`. Test signing generates ephemeral self-signed
+    keys for each component. Production signing uses an already existing key signed by a public CA (TODO: HSM).

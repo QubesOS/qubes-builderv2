@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -efo pipefail
+
+. /etc/qubes-rpc/qubes.WinSign.common
+
+usage() {
+    >&2 echo "Usage: $(basename $0)+<key-name>
+
+Delete a signing key and certificate.
+"
+    exit 1
+}
+
+if [ $# -ne 1 ]; then
+    usage
+fi
+
+ensure_db
+
+KEY_NAME="${1//__/ }"
+
+set +e
+check_key_exists "${KEY_NAME}"
+if [ "$?" -ne "0" ]; then
+    >&2 echo "Key '$1' does not exist"
+    exit 1
+fi
+set -e
+
+sudo rm -f \
+    "${KEYS_DIR}/${KEY_NAME}.key" \
+    "${KEYS_DIR}/${KEY_NAME}.crt"

@@ -21,11 +21,14 @@ import logging
 import os.path
 import re
 import shutil
+import subprocess
 import yaml
 from enum import StrEnum
 from pathlib import Path
 from typing import Dict, List
 
+from qubesadmin import Qubes
+from qubesadmin.exc import QubesException
 from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
@@ -96,6 +99,7 @@ def provision_local_repository(
     target: str,
     artifacts: WinArtifactSet,
     build_artifacts_dir: Path,
+    test_sign: bool,
 ):
     """
     Provision local builder repository.
@@ -112,6 +116,11 @@ def provision_local_repository(
                 pkg_path = build_artifacts_dir / kind / file
                 target_path = target_dir / kind / file
                 os.link(pkg_path, target_path)
+        if test_sign:
+            target_path = target_dir / "sign.crt"
+            src_path = build_artifacts_dir / "sign.crt"
+            os.link(src_path, target_path)
+
     except (ValueError, PermissionError, NotImplementedError, FileExistsError) as e:
         msg = f"{component}:{dist}:{target}: Failed to provision local repository."
         raise BuildError(msg) from e
@@ -141,6 +150,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         **kwargs,
     ):
         super().__init__(component=component, dist=dist, config=config, manager=manager)
+        self.app = Qubes()
 
     def update_parameters(self, stage: str):
         super().update_parameters(stage)
@@ -150,6 +160,91 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         parameters = self.component.get_parameters(self.get_placeholders(stage))
         self._parameters.update(parameters.get(self.dist.package_set, {}).get("source", {}))
         self._parameters.update(parameters.get(self.dist.distribution, {}).get("source", {}))
+
+    # Generate self-signed key if test-signing, get public cert
+    def sign_prep(self, qube: str, key_name: str, test_sign: bool) -> str:
+        key = key_name.replace(" ", "__")
+        try:
+            if test_sign:
+                self.log.debug(f"creating key '{key_name}' in qube '{qube}'")
+                proc = self.app.run_service(
+                    qube,
+                    f"qubes.WinSign.CreateKey+{key}",
+                    stdin=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                )
+
+                _, stderr = proc.communicate()
+                if proc.returncode != 0:
+                    msg = f"Failed to create signing key '{key_name}' in qube '{qube}'.\n"
+                    msg += stderr.decode("utf-8")
+                    raise BuildError(f"{self.component}:{self.dist}: " + msg)
+
+            proc = self.app.run_service(
+                qube,
+                f"qubes.WinSign.GetCert+{key}",
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            stdout, stderr = proc.communicate()
+            if proc.returncode != 0:
+                msg = f"Failed to get certificate for signing key '{key_name}' in qube '{qube}'.\n"
+                msg += stderr.decode("utf-8")
+                raise BuildError(f"{self.component}:{self.dist}: " + msg)
+
+            return stdout
+        except QubesException as e:
+            msg = f"Failed to run qubes.WinSign service in qube '{qube}'."
+            raise BuildError(f"{self.component}:{self.dist}: " + msg) from e
+
+    # Sign a file and return signed bytes
+    def sign_sign(self, qube: str, key_name: str, file: Path) -> bytes:
+        key = key_name.replace(" ", "__")
+        self.log.debug(f"signing '{file}' with '{key_name}'")
+        try:
+            with open(file, "rb") as f:
+                proc = self.app.run_service(
+                    qube,
+                    f"qubes.WinSign.Sign+{key}",
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                stdout, stderr = proc.communicate(f.read())
+                if proc.returncode != 0:
+                    msg = f"Failed to sign '{file}' with key '{key_name}' in qube '{qube}'.\n"
+                    msg += stderr.decode("utf-8")
+                    raise BuildError(f"{self.component}:{self.dist}: " + msg)
+
+                return stdout
+        except QubesException as e:
+            msg = f"Failed to run qubes.WinSign.Sign service in qube '{qube}'."
+            raise BuildError(f"{self.component}:{self.dist}: " + msg) from e
+
+    # Delete signing key
+    def sign_delete_key(self, qube: str, key_name: str):
+        key = key_name.replace(" ", "__")
+        self.log.debug(f"deleting key '{key_name}' in qube '{qube}'")
+        try:
+            proc = self.app.run_service(
+                qube,
+                f"qubes.WinSign.DeleteKey+{key}",
+                stdin=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+            )
+
+            _, stderr = proc.communicate()
+            if proc.returncode != 0:
+                msg = f"Failed to delete signing key '{key_name}' in qube '{qube}'.\n"
+                msg += stderr.decode("utf-8")
+                raise BuildError(f"{self.component}:{self.dist}: " + msg)
+
+        except QubesException as e:
+            msg = f"Failed to run qubes.WinSign.DeleteKey service in qube '{qube}'."
+            raise BuildError(f"{self.component}:{self.dist}: " + msg) from e
 
     def run(self, stage: str):
         """
@@ -171,6 +266,8 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         artifacts_dir = self.get_dist_component_artifacts_dir(stage)
 
         self.log.debug(f"{parameters=}")
+        stage_options = self.get_config_stage_options(stage)
+        self.log.debug(f"{stage_options=}")
 
         # Compare previous artifacts hash with current source hash
         hash = self.get_dist_artifacts_info(stage, self.component.name).get("source-hash", None)
@@ -214,6 +311,22 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         # Read information from source stage
         source_info = self.get_dist_artifacts_info(stage="prep", basename=self.component.name)
 
+        # Authenticode signing prep
+        test_sign = stage_options.get("test-sign", True)
+        sign_qube = stage_options.get("sign-qube")
+        if not sign_qube:
+            raise BuilderError("'sign-qube' option not configured")
+        sign_key_name = stage_options.get("sign-key-name", "Qubes Windows Tools")
+
+        sign_cert = self.sign_prep(
+            qube=sign_qube,
+            key_name=sign_key_name,
+            test_sign=test_sign,
+        )
+
+        with open(artifacts_dir / "sign.crt", "wb") as f:
+            f.write(sign_cert)
+
         for target in parameters["build"]:
             self.log.debug(f"building {target}")
 
@@ -246,9 +359,12 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                     "-executionpolicy", "bypass",
                     f"{ executor.get_plugins_dir() / self.name / 'scripts' / 'build-sln.ps1' }",
                     "-solution", str(executor.get_build_dir() / self.component.name / target),
-                    "-configuration", executor.get_configuration(),
                     "-repo", str(executor.get_repository_dir() / self.dist.distribution),
+                    "-testsign", "$true" if test_sign else "$false",
                 ]
+
+                build_cfg = stage_options.get("configuration", "Release")
+                cmd += ["-configuration", build_cfg]
 
                 if self.config.debug:
                     cmd += ["-log"]  # generate msbuild log
@@ -262,7 +378,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                 cmd = ["exit 0"]
 
             # TODO: failed builds don't get caught here due to msbuild/powershell weirdness
-            # see scripts/build_sln.ps1
+            # see scripts/build-sln.ps1
             # this is only a problem if a target has no outputs (then copy_out fails)
             try:
                 executor.run(
@@ -274,6 +390,34 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                 msg = f"{self.component}:{self.dist}:{target}: Failed to build solution: {str(e)}."
                 raise BuildError(msg) from e
 
+            # authenticode sign the binaries
+            # TODO timestamp
+            skip_test_sign = parameters.get("skip-test-sign", [])
+            for file in artifacts.get_kind(WinArtifactKind.BIN):
+                if not Path(file).suffix in [".cat", ".dll", ".exe", ".sys"]:
+                    continue
+                if test_sign and file in skip_test_sign:
+                    continue
+
+                path = artifacts_dir / "bin" / file
+                signed_data = self.sign_sign(
+                    qube=sign_qube,
+                    key_name=sign_key_name,
+                    file=path,
+                )
+
+                # TODO: should we keep unsigned binaries?
+                signed_path = str(path) + ".signed"
+                with open(signed_path, "wb") as f:
+                    f.write(signed_data)
+                os.replace(signed_path, path)
+
+            if test_sign:
+                self.sign_delete_key(
+                    qube=sign_qube,
+                    key_name=sign_key_name,
+                )
+
             provision_local_repository(
                 log=self.log,
                 repository_dir=repository_dir,
@@ -282,6 +426,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                 target=target,
                 artifacts=artifacts,
                 build_artifacts_dir=artifacts_dir,
+                test_sign=test_sign,
             )
 
             info = source_info

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ef
+set -efo pipefail
 
 EDITED_ISO="win-build.iso"
 SCRIPT_DIR=$(dirname "$0")

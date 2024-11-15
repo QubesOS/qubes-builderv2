@@ -1,0 +1,46 @@
+#!/bin/bash
+
+set -efo pipefail
+
+. /etc/qubes-rpc/qubes.WinSign.common
+
+usage() {
+    >&2 echo "Usage: $(basename $0)+<key-name>
+
+Create a new self-signed key and certificate.
+"
+    exit 1
+}
+
+if [ $# -ne 1 ]; then
+    usage
+fi
+
+ensure_db
+
+KEY_NAME="${1//__/ }"
+
+set +e
+check_key_exists "${KEY_NAME}"
+if [ "$?" -eq "0" ]; then
+    >&2 echo "Key '$1' exists"
+    exit 1
+fi
+set -e
+
+# Generate self-signed certificate and key
+openssl req \
+    -nodes \
+    -new \
+    -x509 \
+    -newkey rsa:4096 \
+    -sha256 \
+    -keyout "${KEYS_DIR}/${KEY_NAME}.key" \
+    -out "${KEYS_DIR}/${KEY_NAME}.crt" \
+    -days "${DAYS}" \
+    -subj "/CN=${KEY_NAME}/" \
+    -addext "basicConstraints=CA:FALSE" \
+    > /dev/null 2>&1
+
+# Verify that the key got added
+check_key_exists "${KEY_NAME}"
