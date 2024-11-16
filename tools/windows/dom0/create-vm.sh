@@ -20,17 +20,19 @@ This script creates a Windows builder qube.
 
 Options:
     --iso            Path to Windows image prepared for unattended setup (required)
-    --name           Qube name (default: "$VM_NAME")
-    --label          Qube label (default: "$VM_LABEL")
-    --memory         RAM amount (MiB) (default: "$VM_MEMORY")
-    --cpus           Number of vcpus (default: "$VM_CPUS")
-    --build-vm-name  Name of the main builder qube (default: "$BUILD_VM_NAME")
+    --name           Qube name (default: '$VM_NAME')
+    --label          Qube label (default: '$VM_LABEL')
+    --memory         RAM amount (MiB) (default: $VM_MEMORY)
+    --cpus           Number of vcpus (default: $VM_CPUS)
+    --build-vm-name  Name of the main builder qube (default: '$BUILD_VM_NAME')
 "
 }
 
 if ! OPTS=$(getopt -o hi:n:l:m:c:b: --long help,iso:,name:,label:,memory:,cpus:,build-vm-name: -n "$0" -- "$@"); then
     exit 1
 fi
+
+eval set -- "$OPTS"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -50,9 +52,8 @@ if [ -z "$ISO" ]; then
 fi
 
 set +e
-qvm-check "$VM_NAME" 2> /dev/null
 
-if [ $? -eq 0 ]; then
+if qvm-check "$VM_NAME" 2> /dev/null; then
     echo "[!] Qube $VM_NAME already exists!"
     exit 1
 fi
@@ -84,8 +85,8 @@ VM_IP=$(qvm-prefs "$VM_NAME" ip)
 
 # TODO: use a custom fw chain
 set +e
-qvm-run -p "$FW_VM_NAME" "sudo nft list chain ip qubes custom-forward" | grep "ip saddr $BUILD_VM_IP ip daddr $VM_IP .* accept"
-if [ $? -ne 0 ]; then
+
+if ! qvm-run -p "$FW_VM_NAME" "sudo nft list chain ip qubes custom-forward" | grep "ip saddr $BUILD_VM_IP ip daddr $VM_IP .* accept"; then
     qvm-run -p "$FW_VM_NAME" "sudo nft add rule ip qubes custom-forward ip saddr $BUILD_VM_IP ip daddr $VM_IP ct state new,established,related counter accept"
 fi
 set -e
@@ -104,10 +105,8 @@ qvm-start --cdrom="$ISO" "$VM_NAME"
 FINISHED=0
 set +e
 while [ "$FINISHED" == "0" ]; do
-    qvm-check --running "$VM_NAME" 2> /dev/null
-    if [ $? -eq 0 ]; then
-        ssh_check
-        if [ $? -eq 0 ]; then
+    if qvm-check --running "$VM_NAME" 2> /dev/null; then
+        if ssh_check; then
             FINISHED=1
         fi
     else

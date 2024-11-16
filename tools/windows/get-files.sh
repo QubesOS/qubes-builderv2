@@ -27,9 +27,8 @@ verify() {(
     fi
 
     echo -n "[*] Verifying $2 ... "
-    echo "$1 $2" | sha256sum --check --status
 
-    if [[ $? -eq 0 ]]; then
+    if echo "$1 $2" | sha256sum --check --status; then
         echo "OK"
     else
         echo "Failed!"
@@ -42,6 +41,8 @@ verify() {(
 if ! OPTS=$(getopt -o ho: --long help,output-dir: -n "$0" -- "$@"); then
     exit 1
 fi
+
+eval set -- "$OPTS"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in

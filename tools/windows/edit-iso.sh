@@ -21,6 +21,8 @@ if ! OPTS=$(getopt -o hi:o:f: --long help,input:,output:,files: -n "$0" -- "$@")
     exit 1
 fi
 
+eval set -- "$OPTS"
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h | --help) usage; exit 0 ;;
