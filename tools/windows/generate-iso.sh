@@ -37,7 +37,7 @@ if [ -z "$ISO" ]; then
 fi
 
 # download/verify prerequisites
-"$SCRIPT_DIR/get-files.sh" "-o $SCRIPT_DIR" "$SCRIPT_DIR/deps.txt"
+"$SCRIPT_DIR/get-files.sh" -o "$SCRIPT_DIR" "$SCRIPT_DIR/deps.txt"
 
 # sshd installer
 cp -f "${SCRIPT_DIR}/win-opensshd.msi" "${SCRIPT_DIR}/iso-files/sources/\$OEM\$/\$1/qubes"
