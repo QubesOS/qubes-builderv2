@@ -38,7 +38,6 @@ if [ -z "${INPUT}" ] || [ -z "${OUTPUT}" ] || [ -z "${FILES}" ]; then
     exit 1
 fi
 
-# extract original iso
 echo "[*] Extracting unmodified iso..."
 LODEV=$(losetup -f)
 sudo losetup "${LODEV}" "${INPUT}"
@@ -55,8 +54,26 @@ rmdir "${INPUT_DIR}"
 echo "[*] Adding files..."
 sudo cp -r "${FILES}/." "${OUTPUT_DIR}"
 
+# Generate random password for the Windows user
+set +e  # `head` below causes SEGPIPE...
+WIN_PASS=$(tr -dc 'A-Za-z0-9!"#$%&'\''()*+,-.:;<=>?@[\]^_`{|}~' </dev/urandom | head -c 16)
+set -e
+sudo sed -i -e "s/@PASSWORD@/${WIN_PASS}/g" "${OUTPUT_DIR}/autounattend.xml"
+
 echo "[*] Generating final image..."
-genisoimage -quiet -bboot/etfsboot.com -no-emul-boot -boot-load-seg 1984 -boot-load-size 8 -iso-level 2 -J -l -D -N -joliet-long -allow-limited-size -relaxed-filenames -o "${OUTPUT}" "${OUTPUT_DIR}"
+genisoimage \
+    -quiet \
+    -bboot/etfsboot.com \
+    -no-emul-boot \
+    -boot-load-seg 1984 \
+    -boot-load-size 8 \
+    -iso-level 2 \
+    -J -l -D -N \
+    -joliet-long \
+    -allow-limited-size \
+    -relaxed-filenames \
+    -o "${OUTPUT}" \
+    "${OUTPUT_DIR}"
 
 sudo rm -rf "${OUTPUT_DIR}"
 echo "[*] Done!"

@@ -175,7 +175,7 @@
                         <Name>user</Name>
                         <Group>Administrators</Group>
                         <Password>
-                            <Value>WinBuild#1</Value>
+                            <Value><![CDATA[@PASSWORD@]]></Value>
                             <PlainText>true</PlainText>
                         </Password>
                     </LocalAccount>
@@ -186,7 +186,7 @@
                 <Enabled>true</Enabled>
                 <LogonCount>10000</LogonCount>
                 <Password>
-                    <Value>WinBuild#1</Value>
+                    <Value><![CDATA[@PASSWORD@]]></Value>
                     <PlainText>true</PlainText>
                 </Password>
             </AutoLogon>
