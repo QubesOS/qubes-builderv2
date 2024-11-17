@@ -66,7 +66,7 @@ readarray -t LINES < "${FILE_LIST}"
 for ROW in "${LINES[@]}"; do
     read -r SHA256 FILE_NAME FILE_URL <<< "${ROW}"
     [[ "${SHA256}" = "#"* ]] && continue
-    if [ -f "${FILE_NAME}" ]; then
+    if [ -f "${OUTDIR}/${FILE_NAME}" ]; then
         echo "[*] File ${FILE_NAME} already exists"
         verify "${SHA256}" "${OUTDIR}/${FILE_NAME}" || exit 1
     else
