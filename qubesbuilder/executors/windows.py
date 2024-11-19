@@ -58,17 +58,6 @@ class WindowsExecutor(Executor):
         return self._kwargs.get("threads", 1)
 
 
-    def get_configuration(self) -> str:
-        # TODO: this should be a build stage option
-        return self._kwargs.get("configuration", "release")
-
-
-    def get_placeholders(self):
-        ph = super().get_placeholders()
-        ph["@CONFIGURATION@"] = self.get_configuration()
-        return ph
-
-
     def run_cmd(self, cmd: List[str]):
         try:
             result = subprocess.run(cmd, check=True)

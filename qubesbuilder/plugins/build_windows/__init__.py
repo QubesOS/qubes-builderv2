@@ -161,6 +161,15 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         self._parameters.update(parameters.get(self.dist.package_set, {}).get("source", {}))
         self._parameters.update(parameters.get(self.dist.distribution, {}).get("source", {}))
 
+    def update_placeholders(self, stage: str):
+        super().update_placeholders(stage)
+        stage_options = self.get_config_stage_options(stage)
+        self._placeholders[stage].update(
+            {
+                "@CONFIGURATION@": stage_options.get("configuration", "Release"),
+            }
+        )
+
     # Generate self-signed key if test-signing, get public cert
     def sign_prep(self, qube: str, key_name: str, test_sign: bool) -> str:
         key = key_name.replace(" ", "__")
@@ -363,8 +372,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                     "-testsign", "$true" if test_sign else "$false",
                 ]
 
-                build_cfg = stage_options.get("configuration", "Release")
-                cmd += ["-configuration", build_cfg]
+                cmd += ["-configuration", self._placeholders[stage]["@CONFIGURATION@"]]
 
                 if self.config.debug:
                     cmd += ["-log"]  # generate msbuild log
