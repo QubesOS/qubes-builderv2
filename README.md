@@ -823,7 +823,7 @@ Options available in `builder.yml`:
   - `vm: str` --- name of the worker Windows qube (default: `win-build`)
   - `user: str` --- name of the user account in the worker Windows qube (default: `user`)
   - `ssh-key: str` --- path to the private ssh key used for communication with the worker qube (default: `~/.ssh/win-build.key`)
-  - `ewdk: str` --- device specification for the EWDK iso that will be attached to the worker qube, must be in the `qube:loopX` format (TODO: allow normal files and mount if needed)
+  - `ewdk: str` --- path to the EWDK iso file that will be attached to the worker qube
   - `threads: int` --- number of parallel threads to use for MSBuild (default: 1)
 
 

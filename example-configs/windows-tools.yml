@@ -42,8 +42,7 @@ distributions:
               options:
                 vm: win-build
                 ssh-key: /home/user/.ssh/win-build.key
-                # TODO: put iso path here, mount if needed
-                ewdk: "work-qubesos:loop1"
+                ewdk: tools/windows/ewdk.iso
                 threads: 1
 
 components:

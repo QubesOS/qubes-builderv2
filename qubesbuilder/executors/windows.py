@@ -20,10 +20,11 @@
 
 import subprocess
 from pathlib import Path, PurePath, PureWindowsPath
-from typing import List, Tuple, Union
+from time import sleep
+from typing import List, Optional, Tuple, Union
 
 from qubesadmin import Qubes
-from qubesadmin.devices import DeviceAssignment
+from qubesadmin.devices import DeviceAssignment, UnknownDevice
 from qubesadmin.exc import DeviceAlreadyAttached
 from qubesadmin.vm import QubesVM
 from qubesbuilder.common import sanitize_line
@@ -35,11 +36,12 @@ log = get_logger("WindowsExecutor")
 
 
 class WindowsExecutor(Executor):
-    def __init__(self, vm: str = "win-build", user: str = "user", **kwargs):
+    def __init__(self, ewdk: str, vm: str = "win-build", user: str = "user", **kwargs):
         log.debug(f"Windows executor init: {vm=}, {user=}, params: {kwargs}")
         super().__init__(**kwargs)
         self.vm_name = vm
         self.user = user
+        self.ewdk_path = ewdk
         self.app = Qubes()
         self.vm = QubesVM(self.app, self.vm_name)
         self.ssh_host = f"{self.user}@{self.vm.ip}"
@@ -81,20 +83,68 @@ class WindowsExecutor(Executor):
         ] + cmd)
 
 
+    # Get loop device id for the EWDK iso if mounted, otherwise None
+    def _get_ewdk_loop(self) -> Optional[str]:
+        try:
+            proc = subprocess.run(
+                ["losetup", "-j", self.ewdk_path],
+                check=True,
+                capture_output=True,
+            )
+            stdout = proc.stdout.decode()
+            if "/dev/loop" in stdout:
+                loop_dev = stdout.split(":", 1)[0]
+                loop_id = loop_dev.removeprefix("/dev/")
+                log.debug(f"ewdk loop id: {loop_id}")
+                return loop_id
+            else:
+                return None
+
+        except subprocess.CalledProcessError as e:
+            raise ExecutorError(f"Failed to run losetup: {proc.stderr.decode()}") from e
+
     def _get_ewdk_assignment(self) -> DeviceAssignment:
-        # TODO: perform losetup if not mounted etc
-        ident = self._kwargs["ewdk"].split(':')
-        backend_domain = ident[0]
-        backend_loop = ident[1]
+        if not Path(self.ewdk_path).is_file():
+            raise ExecutorError(f"EWDK image not found at '{self.ewdk_path}'")
+
+        loop_id = self._get_ewdk_loop()
+        if not loop_id:
+            # mount the image
+            try:
+                log.debug(f"mounting ewdk from '{self.ewdk_path}'")
+                proc = subprocess.run(
+                    ["sudo", "losetup", "-f", self.ewdk_path],
+                    check=True,
+                    capture_output=True,
+                )
+            except subprocess.CalledProcessError as e:
+                raise ExecutorError(f"Failed to run losetup: {proc.stderr.decode()}") from e
+
+            loop_id = self._get_ewdk_loop()
+            if not loop_id:
+                raise ExecutorError(f"Failed to mount EWDK ({self.ewdk_path})")
+
+            log.debug(f"mounted ewdk as '{loop_id}'")
+
+        # wait for device to appear
+        self_vm = QubesVM(self.app, self.app.local_name)
+        timeout = 10
+        while isinstance(self_vm.devices['block'][loop_id], UnknownDevice):
+            if timeout == 0:
+                raise ExecutorError(f"Failed to mount EWDK ({self.ewdk_path}): "
+                    f"wait for loopback device timed out")
+            timeout -= 1
+            sleep(1)
+
         return DeviceAssignment(
-            backend_domain = ident[0],
-            ident = ident[1],
-            devclass = "block",
-            options = {
+            backend_domain=self.app.local_name,
+            ident=loop_id,
+            devclass="block",
+            options={
                 "devtype": "cdrom",
                 "read-only": True,
             },
-            persistent = True)
+            persistent=True)
 
 
     def ensure_vm(self):
