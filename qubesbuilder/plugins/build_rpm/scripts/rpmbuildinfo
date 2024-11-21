@@ -71,7 +71,6 @@ Version: $(rpm -qp --queryformat '%{version}-%{release}' "$SRPM")
 Architecture: $(rpm -qp --queryformat '%{arch}' "$SRPM")
 Binary: $(printf '%s' "$RPMS" | xargs rpm -qp --qf "%{name} ")
 Build-Origin: $(getos)
-Build-Date: $(date -R)
 Build-Path: $(rpm --eval '%{_builddir}')
 EOF
 
