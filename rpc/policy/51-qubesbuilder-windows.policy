@@ -1,5 +1,15 @@
-qubes.WinSign.QueryKey +Qubes__Windows__Tools work-qubesos vault-sign allow
-qubes.WinSign.CreateKey +Qubes__Windows__Tools work-qubesos vault-sign allow
-qubes.WinSign.DeleteKey +Qubes__Windows__Tools work-qubesos vault-sign allow
-qubes.WinSign.GetCert +Qubes__Windows__Tools work-qubesos vault-sign allow
-qubes.WinSign.Sign +Qubes__Windows__Tools work-qubesos vault-sign allow
+admin.vm.device.block.Attach  *  work-qubesos  @tag:disp-created-by-work-qubesos  allow  target=dom0
+
+admin.vm.property.Get            *  work-qubesos  work-qubesos  allow  target=dom0
+admin.vm.device.block.Available  *  work-qubesos  work-qubesos  allow  target=dom0
+
+admin.vm.Start                   *  work-qubesos  win-build     allow  target=dom0
+admin.vm.CurrentState            *  work-qubesos  win-build     allow  target=dom0
+admin.vm.property.Get            *  work-qubesos  win-build     allow  target=dom0
+admin.vm.device.block.Attach     *  work-qubesos  win-build     allow  target=dom0
+
+qubes.WinSign.QueryKey   +Qubes__Windows__Tools  work-qubesos  vault-sign  allow
+qubes.WinSign.CreateKey  +Qubes__Windows__Tools  work-qubesos  vault-sign  allow
+qubes.WinSign.DeleteKey  +Qubes__Windows__Tools  work-qubesos  vault-sign  allow
+qubes.WinSign.GetCert    +Qubes__Windows__Tools  work-qubesos  vault-sign  allow
+qubes.WinSign.Sign       +Qubes__Windows__Tools  work-qubesos  vault-sign  allow
