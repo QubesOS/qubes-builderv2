@@ -2,8 +2,6 @@
 
 set -efo pipefail
 
-unset INPUT OUTPUT FILES OPTS GETOPT_COMPATIBLE INPUT_DIR OUTPUT_DIR LODEV
-
 usage() {
     echo "Usage: $(basename "$0") [OPTIONS]
 
@@ -38,42 +36,51 @@ if [ -z "${INPUT}" ] || [ -z "${OUTPUT}" ] || [ -z "${FILES}" ]; then
     exit 1
 fi
 
-echo "[*] Extracting unmodified iso..."
+# qvm-run requires more RPC permissions
+# $1=target, $2=service, $3=input
+qrexec_call() {
+    readarray -t result <<< "$(echo -n "$3" | qrexec-client-vm "$1" "$2" | sed "s/\x00/\n/g")"
+    if [ "${result[0]}" != "0" ]; then
+        >&2 echo "qrexec call '$2' to '$1' failed: ${result[0]} ${result[1]}"
+        exit 1
+    fi
+    echo "${result[1]}"
+}
+
+# $1=target, $2=input
+shell_call() {
+    echo "$2" | qrexec-client-vm "$1" qubes.VMShell
+}
+
+SCRIPT_DIR=$(dirname "$0")
+SCRIPT_DIR=$(readlink -f "${SCRIPT_DIR}")
+
+echo "[*] Setting up a loop device for the ISO..."
 LODEV=$(losetup -f)
 sudo losetup "${LODEV}" "${INPUT}"
+LOOP_ID="${LODEV#'/dev/'}"
 
-INPUT_DIR="$(mktemp -d -p .)"
-OUTPUT_DIR="$(mktemp -d -p .)"
+echo "[*] Preparing a DispVM..."
+SELF=$(qubesdb-read /name)
+read -r -a result <<< "$(qrexec_call "${SELF}" admin.vm.property.Get+default_dispvm)"
+dispvm_template="${result[2]}"  # default=False type=vm vm-name
+DISPVM=$(qrexec_call "$dispvm_template" admin.vm.CreateDisposable)
 
-sudo mount -r "${LODEV}" "${INPUT_DIR}"
-cp -rp "${INPUT_DIR}/." "${OUTPUT_DIR}"
-sudo umount "${LODEV}"
+qrexec_call "${DISPVM}" "admin.vm.Start"
+qrexec_call "${DISPVM}" "admin.vm.device.block.Attach+${SELF}+${LOOP_ID}" "read-only=true"
+qvm-copy-to-vm --without-progress "${DISPVM}" "${SCRIPT_DIR}/edit-iso-dispvm.sh"
+qvm-copy-to-vm --without-progress "${DISPVM}" "${FILES}"
+shell_call "${DISPVM}" "mv ~/QubesIncoming/${SELF}/edit-iso-dispvm.sh ~"
+shell_call "${DISPVM}" "mv ~/QubesIncoming/${SELF}/$(basename "$(realpath "${FILES}")") ~/iso"
+shell_call "${DISPVM}" "chmod +x ~/edit-iso-dispvm.sh"
+# shellcheck disable=SC2088  # (~ expansion)
+shell_call "${DISPVM}" "~/edit-iso-dispvm.sh"
+
 sudo losetup -d "${LODEV}"
-rmdir "${INPUT_DIR}"
 
-echo "[*] Adding files..."
-sudo cp -r "${FILES}/." "${OUTPUT_DIR}"
+echo "[*] Copying the final iso from '${DISPVM}' to '${OUTPUT}'..."
 
-# Generate random password for the Windows user
-set +e  # `head` below causes SEGPIPE...
-WIN_PASS=$(tr -dc 'A-Za-z0-9!"#$%&'\''()*+,-.:;<=>?@[\]^_`{|}~' </dev/urandom | head -c 16)
-set -e
-sudo sed -i -e "s/@PASSWORD@/${WIN_PASS}/g" "${OUTPUT_DIR}/autounattend.xml"
+shell_call "${DISPVM}" "cat ~/win-build.iso" | cat > "${OUTPUT}"
+qrexec_call "${DISPVM}" "admin.vm.Kill"
 
-echo "[*] Generating final image..."
-genisoimage \
-    -quiet \
-    -bboot/etfsboot.com \
-    -no-emul-boot \
-    -boot-load-seg 1984 \
-    -boot-load-size 8 \
-    -iso-level 2 \
-    -J -l -D -N \
-    -joliet-long \
-    -allow-limited-size \
-    -relaxed-filenames \
-    -o "${OUTPUT}" \
-    "${OUTPUT_DIR}"
-
-sudo rm -rf "${OUTPUT_DIR}"
 echo "[*] Done!"

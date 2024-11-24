@@ -133,15 +133,18 @@ $ qvm-prefs work-qubesos default_dispvm qubes-builder-dvm
 
 ## Windows executor and building Windows Tools
 
+Prerequisites for the Windows executor are a superset of the Qubes executor (see above).
+In addition, install `qubes-core-admin-client` in the builder qube, and `genisoimage` in the
+disposable template (`qubes-builder-dvm`).
+
 Building Qubes Windows Tools requires a dedicated Windows qube that will be used by the Windows
 executor. Scripts that can automatically create it are found in the `tools/windows` directory.
-You will need an unmodified Windows 10 installation iso and about 60GiB disk space. TODO: deps
-(`qubes-core-admin-client`, `genisoimage`). First, create an edited iso by running
-`generate-iso.sh`. This script downloads prerequisites (OpenSSH server for Windows and Microsoft
-EWDK iso) and prepares the installation image for unattended Windows installation. After the image
-is generated, run `dom0/create-vm.sh` in dom0 to actually create and configure the worker qube
-(passing the generated installation image as a `--iso` parameter). After the script finishes,
-the worker qube is ready to use by the builder.
+You will need an unmodified Windows 10 installation iso and about 50GiB disk space. First, create
+an edited iso by running `generate-iso.sh`. This script downloads prerequisites (OpenSSH server
+for Windows and Microsoft EWDK iso) and prepares the installation image for unattended Windows
+installation. After the image is generated, run `dom0/create-vm.sh` in dom0 to actually create
+and configure the worker qube (passing the generated installation image as a `--iso` parameter).
+After the script finishes, the worker qube is ready to use by the builder.
 
 The Windows builder executor communicates with the worker qube via ssh (TODO: detect if QWT
 is installed and use qrexec then). The worker qube has outbound network connections blocked
