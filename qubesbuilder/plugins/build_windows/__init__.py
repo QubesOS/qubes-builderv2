@@ -126,6 +126,10 @@ def provision_local_repository(
         raise BuildError(msg) from e
 
 
+def mangle_key_name(key_name: str) -> str:
+        return key_name.replace(" ", "__")
+
+
 class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
     """
     WindowsBuildPlugin manages Windows distribution build.
@@ -170,90 +174,68 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
             }
         )
 
-    # Generate self-signed key if test-signing, get public cert
-    def sign_prep(self, qube: str, key_name: str, test_sign: bool) -> str:
-        key = key_name.replace(" ", "__")
+    def run_rpc_service(
+        self,
+        target: str,
+        service: str,
+        description: str,
+        stdin: bytes = b"",
+    ) -> bytes:
         try:
-            if test_sign:
-                self.log.debug(f"creating key '{key_name}' in qube '{qube}'")
-                proc = self.app.run_service(
-                    qube,
-                    f"qubes.WinSign.CreateKey+{key}",
-                    stdin=subprocess.DEVNULL,
-                    stderr=subprocess.PIPE,
-                )
-
-                _, stderr = proc.communicate()
-                if proc.returncode != 0:
-                    msg = f"Failed to create signing key '{key_name}' in qube '{qube}'.\n"
-                    msg += stderr.decode("utf-8")
-                    raise BuildError(f"{self.component}:{self.dist}: " + msg)
-
             proc = self.app.run_service(
-                qube,
-                f"qubes.WinSign.GetCert+{key}",
-                stdin=subprocess.DEVNULL,
+                target,
+                service,
+                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
 
-            stdout, stderr = proc.communicate()
+            stdout, stderr = proc.communicate(stdin)
             if proc.returncode != 0:
-                msg = f"Failed to get certificate for signing key '{key_name}' in qube '{qube}'.\n"
+                msg = f"Failed to {description}.\n"
                 msg += stderr.decode("utf-8")
                 raise BuildError(f"{self.component}:{self.dist}: " + msg)
-
-            return stdout
         except QubesException as e:
-            msg = f"Failed to run qubes.WinSign service in qube '{qube}'."
+            msg = f"Failed to {description}: failed to run service '{service}' in qube '{qube}'."
             raise BuildError(f"{self.component}:{self.dist}: " + msg) from e
+
+        return stdout
+
+    # Generate self-signed key if test-signing, get public cert
+    def sign_prep(self, qube: str, key_name: str, test_sign: bool) -> str:
+        if test_sign:
+            self.log.debug(f"creating key '{key_name}' in qube '{qube}'")
+            self.run_rpc_service(
+                target=qube,
+                service=f"qubes.WinSign.CreateKey+{mangle_key_name(key_name)}",
+                description=f"create signing key '{key_name}'",
+            )
+
+        return self.run_rpc_service(
+            target=qube,
+            service=f"qubes.WinSign.GetCert+{mangle_key_name(key_name)}",
+            description=f"get certificate for signing key '{key_name}'",
+        )
 
     # Sign a file and return signed bytes
     def sign_sign(self, qube: str, key_name: str, file: Path) -> bytes:
-        key = key_name.replace(" ", "__")
         self.log.debug(f"signing '{file}' with '{key_name}'")
-        try:
-            with open(file, "rb") as f:
-                proc = self.app.run_service(
-                    qube,
-                    f"qubes.WinSign.Sign+{key}",
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-
-                stdout, stderr = proc.communicate(f.read())
-                if proc.returncode != 0:
-                    msg = f"Failed to sign '{file}' with key '{key_name}' in qube '{qube}'.\n"
-                    msg += stderr.decode("utf-8")
-                    raise BuildError(f"{self.component}:{self.dist}: " + msg)
-
-                return stdout
-        except QubesException as e:
-            msg = f"Failed to run qubes.WinSign.Sign service in qube '{qube}'."
-            raise BuildError(f"{self.component}:{self.dist}: " + msg) from e
+        with open(file, "rb") as f:
+            return self.run_rpc_service(
+                target=qube,
+                service=f"qubes.WinSign.Sign+{mangle_key_name(key_name)}",
+                description=f"sign '{file}' with key '{key_name}'",
+                stdin=f.read(),
+            )
 
     # Delete signing key
     def sign_delete_key(self, qube: str, key_name: str):
-        key = key_name.replace(" ", "__")
         self.log.debug(f"deleting key '{key_name}' in qube '{qube}'")
-        try:
-            proc = self.app.run_service(
-                qube,
-                f"qubes.WinSign.DeleteKey+{key}",
-                stdin=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-            )
-
-            _, stderr = proc.communicate()
-            if proc.returncode != 0:
-                msg = f"Failed to delete signing key '{key_name}' in qube '{qube}'.\n"
-                msg += stderr.decode("utf-8")
-                raise BuildError(f"{self.component}:{self.dist}: " + msg)
-
-        except QubesException as e:
-            msg = f"Failed to run qubes.WinSign.DeleteKey service in qube '{qube}'."
-            raise BuildError(f"{self.component}:{self.dist}: " + msg) from e
+        self.run_rpc_service(
+            target=qube,
+            service=f"qubes.WinSign.DeleteKey+{mangle_key_name(key_name)}",
+            description=f"delete signing key '{key_name}'",
+        )
 
     def run(self, stage: str):
         """
