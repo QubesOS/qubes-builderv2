@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -efo pipefail
+
+TS_URL="http://timestamp.digicert.com"
+PAYLOAD_DIR="$(mktemp -d)"
+
+cleanup() {
+    local payload_dir="$1"
+    if [ -n "${payload_dir}" ]; then
+        rm -rf "${payload_dir}"
+    fi
+}
+
+trap "cleanup ${PAYLOAD_DIR}" EXIT
+
+payload="${PAYLOAD_DIR}/payload"
+
+# Limit stdin size
+head --bytes=100MB > "$payload"
+
+if [ "$(stat --format=%s "$payload")" -ge $((100 * 1024 * 1024)) ]; then
+   >&2  echo "Input size must be less than 100MiB."
+   exit 1
+fi
+
+osslsigncode add \
+    -ts "${TS_URL}" \
+    -in "$payload" \
+    -out "$payload".signed \
+    > /dev/null 2>&1
+
+cat "$payload".signed

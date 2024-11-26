@@ -135,7 +135,8 @@ $ qvm-prefs work-qubesos default_dispvm qubes-builder-dvm
 
 Prerequisites for the Windows executor are a superset of the Qubes executor (see above).
 In addition, install `qubes-core-admin-client` in the builder qube, and `genisoimage` in the
-disposable template (`qubes-builder-dvm`).
+disposable template (`qubes-builder-dvm`). For code signing you need `osslsigncode` installed
+in the disposable template and the signing vault qube (see below).
 
 Building Qubes Windows Tools requires a dedicated Windows qube that will be used by the Windows
 executor. Scripts that can automatically create it are found in the `tools/windows` directory.

@@ -26,7 +26,7 @@ from typing import List, Optional, Tuple, Union
 from qubesadmin import Qubes
 from qubesadmin.devices import DeviceAssignment, UnknownDevice
 from qubesadmin.exc import DeviceAlreadyAttached
-from qubesadmin.vm import QubesVM
+from qubesadmin.vm import DispVM, QubesVM
 from qubesbuilder.common import sanitize_line
 from qubesbuilder.log import get_logger
 from qubesbuilder.executors import Executor, ExecutorError
@@ -145,6 +145,10 @@ class WindowsExecutor(Executor):
                 "read-only": True,
             },
             persistent=True)
+
+
+    def create_dispvm(self) -> QubesVM:
+        return DispVM.from_appvm(self.app, self._kwargs.get("dispvm"))
 
 
     def ensure_vm(self):

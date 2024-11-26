@@ -318,6 +318,9 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         with open(artifacts_dir / "sign.crt", "wb") as f:
             f.write(sign_cert)
 
+        dvm = executor.create_dispvm()
+        dvm.start()
+
         for target in parameters["build"]:
             self.log.debug(f"building {target}")
 
@@ -381,7 +384,6 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                 raise BuildError(msg) from e
 
             # authenticode sign the binaries
-            # TODO timestamp
             skip_test_sign = parameters.get("skip-test-sign", [])
             for file in artifacts.get_kind(WinArtifactKind.BIN):
                 if not Path(file).suffix in [".cat", ".dll", ".exe", ".sys"]:
@@ -396,10 +398,16 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                     file=path,
                 )
 
+                io = dvm.run_service_for_stdio(
+                    service="qubes.WinSign.Timestamp",
+                    input=signed_data,
+                )
+
                 # TODO: should we keep unsigned binaries?
                 signed_path = str(path) + ".signed"
                 with open(signed_path, "wb") as f:
-                    f.write(signed_data)
+                    f.write(io[0])
+
                 os.replace(signed_path, path)
 
             if test_sign:
@@ -428,5 +436,6 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
             )
             self.save_dist_artifacts_info(stage=stage, basename=self.component.name, info=info)
 
+        dvm.kill()
 
 PLUGINS = [WindowsBuildPlugin]
