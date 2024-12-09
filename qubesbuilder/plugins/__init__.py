@@ -527,24 +527,18 @@ class TemplatePlugin(DistributionPlugin):
         if info_path.exists():
             info_path.unlink()
 
-    def get_template_timestamp(self) -> str:
+    def get_template_timestamp(self, stage="build") -> str:
         if not self.template.timestamp:
-            # Read information from build stage
-            if not (
-                self.config.templates_dir
-                / f"build_timestamp_{self.template.name}"
-            ).exists():
+            # Read information from build stage. We need info from 'prep' stage
+            # only when retrying timestamp information in 'build' stage if the
+            # build occurs in two calls instead of one.
+            info = self.get_template_artifacts_info(stage)
+            if not info.get("timestamp", None):
                 raise PluginError(
-                    f"{self.template}: Cannot find build timestamp."
+                    f"{self.template}: Cannot determine template timestamp. Missing '{stage}' stage?"
                 )
-            with open(
-                self.config.templates_dir
-                / f"build_timestamp_{self.template.name}"
-            ) as f:
-                data = f.read().splitlines()
-
             try:
-                self.template.timestamp = parsedate(data[0]).strftime(
+                self.template.timestamp = parsedate(info["timestamp"]).strftime(
                     "%Y%m%d%H%M"
                 )
             except (dateutil.parser.ParserError, IndexError) as e:

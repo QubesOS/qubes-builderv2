@@ -1886,8 +1886,16 @@ repository-upload-remote-host:
         ).exists()
 
 
+def _get_template_timestamp(artifacts_dir, template_name, stage):
+    assert (artifacts_dir / f"templates/{template_name}.{stage}.yml").exists()
+    with open(artifacts_dir / f"templates/{template_name}.{stage}.yml") as f:
+        data = yaml.safe_load(f.read())
+    assert data.get("timestamp", None)
+    return parsedate(data["timestamp"]).strftime("%Y%m%d%H%M")
+
+
 #
-# Pipeline for Fedora 40  template
+# Pipeline for Fedora 40 template
 #
 
 
@@ -1912,9 +1920,7 @@ def test_template_fedora_40_prep(artifacts_dir):
         "prep",
     )
 
-    assert (
-        artifacts_dir / "templates/build_timestamp_fedora-40-minimal"
-    ).exists()
+    assert (artifacts_dir / "templates/fedora-40-minimal.prep.yml").exists()
     assert (
         artifacts_dir / "templates/qubeized_images/fedora-40-minimal/root.img"
     ).exists()
@@ -1934,15 +1940,16 @@ def test_template_fedora_40_build(artifacts_dir):
         "build",
     )
 
-    assert (
-        artifacts_dir / "templates/build_timestamp_fedora-40-minimal"
-    ).exists()
+    template_prep_timestamp = _get_template_timestamp(
+        artifacts_dir, "fedora-40-minimal", "prep"
+    )
 
-    with open(
-        artifacts_dir / "templates/build_timestamp_fedora-40-minimal"
-    ) as f:
-        data = f.read().splitlines()
-    template_timestamp = parsedate(data[0]).strftime("%Y%m%d%H%M")
+    template_timestamp = _get_template_timestamp(
+        artifacts_dir, "fedora-40-minimal", "build"
+    )
+
+    assert template_timestamp == template_prep_timestamp
+
     rpm_path = (
         artifacts_dir
         / f"templates/rpm/qubes-template-fedora-40-minimal-4.2.0-{template_timestamp}.noarch.rpm"
@@ -1976,11 +1983,10 @@ def test_template_fedora_40_minimal_sign(artifacts_dir):
     dbpath = artifacts_dir / "templates/rpmdb"
     assert dbpath.exists()
 
-    with open(
-        artifacts_dir / "templates/build_timestamp_fedora-40-minimal"
-    ) as f:
-        data = f.read().splitlines()
-    template_timestamp = parsedate(data[0]).strftime("%Y%m%d%H%M")
+    template_timestamp = _get_template_timestamp(
+        artifacts_dir, "fedora-40-minimal", "build"
+    )
+
     rpm_path = (
         artifacts_dir
         / f"templates/rpm/qubes-template-fedora-40-minimal-4.2.0-{template_timestamp}.noarch.rpm"
@@ -2022,11 +2028,9 @@ def test_template_fedora_40_minimal_publish(artifacts_dir):
         ) as f:
             info = yaml.safe_load(f.read())
 
-        with open(
-            artifacts_dir / "templates/build_timestamp_fedora-40-minimal"
-        ) as f:
-            data = f.read().splitlines()
-        template_timestamp = parsedate(data[0]).strftime("%Y%m%d%H%M")
+        template_timestamp = _get_template_timestamp(
+            artifacts_dir, "fedora-40-minimal", "build"
+        )
 
         assert info.get("timestamp", []) == template_timestamp
         assert ["templates-itl-testing"] == [
@@ -2098,20 +2102,23 @@ def test_template_fedora_40_minimal_publish_new(artifacts_dir):
         env["GNUPGHOME"] = gnupghome
         env["HOME"] = tmpdir
 
-        with open(
-            artifacts_dir / "templates/build_timestamp_fedora-40-minimal"
-        ) as f:
-            data = f.read().splitlines()
-        template_timestamp = parsedate(data[0]).strftime("%Y%m%d%H%M")
+        assert (
+            artifacts_dir / "templates/fedora-40-minimal.build.yml"
+        ).exists()
+        with open(artifacts_dir / "templates/fedora-40-minimal.build.yml") as f:
+            data = yaml.safe_load(f.read())
+        assert data.get("timestamp", None)
+        template_timestamp = parsedate(data["timestamp"]).strftime("%Y%m%d%H%M")
 
         # bump timestamp, without re-running "prep" stage
         new_timestamp = (
-            parsedate(data[0]) + datetime.timedelta(minutes=1)
+            parsedate(data["timestamp"]) + datetime.timedelta(minutes=1)
         ).strftime("%Y%m%d%H%M")
+        data["timestamp"] = new_timestamp
         with open(
-            artifacts_dir / "templates/build_timestamp_fedora-40-minimal", "w"
+            artifacts_dir / "templates/fedora-40-minimal.prep.yml", "w"
         ) as f:
-            f.write(new_timestamp)
+            f.write(yaml.dump(data))
 
         qb_call(
             DEFAULT_BUILDER_CONF,
@@ -2220,11 +2227,9 @@ def test_template_fedora_40_minimal_unpublish(artifacts_dir):
         env["GNUPGHOME"] = gnupghome
         env["HOME"] = tmpdir
 
-        with open(
-            artifacts_dir / "templates/build_timestamp_fedora-40-minimal"
-        ) as f:
-            data = f.read().splitlines()
-        template_timestamp = parsedate(data[0]).strftime("%Y%m%d%H%M")
+        template_timestamp = _get_template_timestamp(
+            artifacts_dir, "fedora-40-minimal", "build"
+        )
 
         # unpublish from templates-itl
         qb_call(
@@ -2279,11 +2284,9 @@ def test_template_fedora_40_minimal_unpublish(artifacts_dir):
 def test_template_fedora_for_iso(artifacts_dir):
     env = os.environ.copy()
     with tempfile.TemporaryDirectory() as tmpdir:
-        with open(
-            artifacts_dir / "templates/build_timestamp_fedora-40-minimal"
-        ) as f:
-            data = f.read().splitlines()
-        template_timestamp = parsedate(data[0]).strftime("%Y%m%d%H%M")
+        template_timestamp = _get_template_timestamp(
+            artifacts_dir, "fedora-40-minimal", "build"
+        )
         rpm = f"qubes-template-fedora-40-minimal-4.2.0-{template_timestamp}.noarch.rpm"
 
         qb_call(
@@ -2365,9 +2368,7 @@ def test_template_debian_12_minimal_prep(artifacts_dir):
         "prep",
     )
 
-    assert (
-        artifacts_dir / "templates/build_timestamp_debian-12-minimal"
-    ).exists()
+    assert (artifacts_dir / "templates/debian-12-minimal.prep.yml").exists()
     assert (
         artifacts_dir / "templates/qubeized_images/debian-12-minimal/root.img"
     ).exists()
@@ -2387,15 +2388,15 @@ def test_template_debian_12_minimal_build(artifacts_dir):
         "build",
     )
 
-    assert (
-        artifacts_dir / "templates/build_timestamp_debian-12-minimal"
-    ).exists()
+    template_prep_timestamp = _get_template_timestamp(
+        artifacts_dir, "debian-12-minimal", "prep"
+    )
 
-    with open(
-        artifacts_dir / "templates/build_timestamp_debian-12-minimal"
-    ) as f:
-        data = f.read().splitlines()
-    template_timestamp = parsedate(data[0]).strftime("%Y%m%d%H%M")
+    template_timestamp = _get_template_timestamp(
+        artifacts_dir, "debian-12-minimal", "build"
+    )
+
+    assert template_timestamp == template_prep_timestamp
     rpm_path = (
         artifacts_dir
         / f"templates/rpm/qubes-template-debian-12-minimal-4.2.0-{template_timestamp}.noarch.rpm"
@@ -2429,11 +2430,10 @@ def test_template_debian_12_minimal_sign(artifacts_dir):
     dbpath = artifacts_dir / "templates/rpmdb"
     assert dbpath.exists()
 
-    with open(
-        artifacts_dir / "templates/build_timestamp_debian-12-minimal"
-    ) as f:
-        data = f.read().splitlines()
-    template_timestamp = parsedate(data[0]).strftime("%Y%m%d%H%M")
+    template_timestamp = _get_template_timestamp(
+        artifacts_dir, "debian-12-minimal", "build"
+    )
+
     rpm_path = (
         artifacts_dir
         / f"templates/rpm/qubes-template-debian-12-minimal-4.2.0-{template_timestamp}.noarch.rpm"
@@ -2475,11 +2475,9 @@ def test_template_debian_12_minimal_publish(artifacts_dir):
         ) as f:
             info = yaml.safe_load(f.read())
 
-        with open(
-            artifacts_dir / "templates/build_timestamp_debian-12-minimal"
-        ) as f:
-            data = f.read().splitlines()
-        template_timestamp = parsedate(data[0]).strftime("%Y%m%d%H%M")
+        template_timestamp = _get_template_timestamp(
+            artifacts_dir, "debian-12-minimal", "build"
+        )
 
         assert info.get("timestamp", []) == template_timestamp
         assert ["templates-community-testing"] == [

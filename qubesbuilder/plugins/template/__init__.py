@@ -22,6 +22,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 from dateutil.parser import parse as parsedate
 
@@ -544,10 +545,10 @@ class TemplateBuilderPlugin(TemplatePlugin):
     def run(
         self,
         stage: str,
-        repository_publish: str = None,
+        repository_publish: Optional[str] = None,
         ignore_min_age: bool = False,
         unpublish: bool = False,
-        template_timestamp: str = None,
+        template_timestamp: Optional[str] = None,
     ):
         self.update_parameters(stage)
         executor = self.get_executor_from_config(stage)
@@ -574,13 +575,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
                     datetime.UTC
                 ).strftime("%Y%m%d%H%M")
 
-            with open(
-                template_artifacts_dir
-                / f"build_timestamp_{self.template.name}",
-                "w",
-            ) as f:
-                f.write(template_timestamp)
-
+            self.template.timestamp = template_timestamp
             self.environment.update({"TEMPLATE_TIMESTAMP": template_timestamp})
 
             copy_in = self.default_copy_in(
@@ -620,16 +615,25 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 msg = f"{self.template}: Failed to prepare template."
                 raise TemplateError(msg) from e
 
+            # Save package information we built
+            prep_info = {
+                "timestamp": self.template.timestamp,
+            }
+            self.save_artifacts_info(stage, prep_info)
+
         #
         # Build
         #
 
         if stage == "build":
-            template_timestamp = self.get_template_timestamp()
-            template_version = self.get_template_version()
-            self.environment.update({"TEMPLATE_TIMESTAMP": template_timestamp})
+            if not self.template.timestamp:
+                self.template.timestamp = self.get_template_timestamp("prep")
 
-            rpm_fn = f"qubes-template-{self.template.name}-{template_version}-{template_timestamp}.noarch.rpm"
+            self.environment.update(
+                {"TEMPLATE_TIMESTAMP": self.template.timestamp}
+            )
+
+            rpm_fn = f"qubes-template-{self.template.name}-{self.get_template_version()}-{self.template.timestamp}.noarch.rpm"
 
             copy_in = self.default_copy_in(
                 executor.get_plugins_dir(), executor.get_sources_dir()
@@ -679,19 +683,12 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 msg = f"{self.template}: Failed to build template."
                 raise TemplateError(msg) from e
 
-            with open(
-                template_artifacts_dir
-                / f"build_timestamp_{self.template.name}",
-                "w",
-            ) as f:
-                f.write(template_timestamp)  # type: ignore
-
             # Save package information we built
-            info = {
+            build_info = {
                 "rpms": [str(rpm_fn)],
-                "timestamp": template_timestamp,
+                "timestamp": self.template.timestamp,
             }
-            self.save_artifacts_info(stage, info)
+            self.save_artifacts_info(stage, build_info)
 
         # Check that we have LocalExecutor for next stages
         if stage in ("sign", "publish", "upload") and not isinstance(
