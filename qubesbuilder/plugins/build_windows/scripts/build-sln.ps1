@@ -21,8 +21,11 @@
 
 param(
     [Parameter(Mandatory=$true)] [string]$solution,
+    # root of local builder repository with dependencies, sets QUBES_REPO env variable
+    [Parameter(Mandatory=$true)] [string]$repo,
+    # directory with distfiles (additional downloaded source files), sets QUBES_DISTFILES env variable
+    [Parameter(Mandatory=$true)] [string]$distfiles,
     [string]$configuration = "Release",
-    [string]$repo = "",  # root of local builder repository with dependencies, sets QUBES_REPO env variable
     [int]$threads = 1,
     [switch]$testsign = $false,  # used to set TEST_SIGN env variable so the installer can bundle public certs
     [switch]$noisy = $false,
@@ -32,65 +35,42 @@ param(
 $ErrorActionPreference = "Stop"
 
 $arch = "x64"
-$ewdk_arch = "x86_amd64"
-$log_file = "msbuild.binlog"
+$log_file = (Split-Path -Parent -Resolve $solution) + "\msbuild.binlog"
 
-Write-Host "Building $solution, $configuration, $arch, $threads thread(s)"
+. $PSScriptRoot\common.ps1
 
-# Get EWDK root from the environment or find it if not set
-if (Test-Path -Path env:EWDK_PATH) {
-    $ewdk_path = $env:EWDK_PATH
-} else {
-    foreach ($drive in Get-PSDrive) {
-        if ($drive.Provider.Name -eq "FileSystem") {
-            $root = $drive.Root
-            $path = "$root\LaunchBuildEnv.cmd"
-            if (Test-Path -Path $path) {
-                $ewdk_path = $root
-                $env:EWDK_PATH = $ewdk_path
-                break
-            }
-        }
-    }
+LogStart
+LogInfo "Building $solution, $configuration, $arch, $threads thread(s)"
+
+$ewdk = Find-EWDK
+
+if ($ewdk -eq $null) {
+    LogError "EWDK not found. If it's not attached as a drive, set its location in the EWDK_PATH environment variable."
 }
 
-if ($ewdk_path -eq $null) {
-    Write-Error "EWDK not found. If it's not attached as a drive, set its location in the EWDK_PATH environment variable."
-}
-
-$msbuild = "$ewdk_path\Program Files\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
+$env:EWDK_PATH = $ewdk
+$msbuild = "$env:EWDK_PATH\Program Files\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 if (! (Test-Path -Path $msbuild)) {
-    Write-Error "$msbuild not found."
-}
-
-# Launch EWDK's environment setup script and grab variables that were set
-$ewdk_env_cmd = "$ewdk_path\BuildEnv\SetupBuildEnv.cmd"
-$ewdk_vars_txt = cmd /c "$ewdk_env_cmd $ewdk_arch > nul & set"
-
-foreach ($line in $ewdk_vars_txt) {
-    $kv = $line.split("=")
-    $var_name = $kv[0]
-    $var_value = $kv[1]
-    if (! (Test-Path -Path "env:$var_name")) {
-        Set-Item -Path "env:$var_name" -Value $var_value
-    }
+    LogError "$msbuild not found."
 }
 
 # Prepare environment for build
+Launch-EWDK
+
 $ewdk_version = $env:Version_Number
 if ($ewdk_version -eq $null) {
-    Write-Error "EWDK environment initialization failed."
+    LogError "EWDK environment initialization failed."
 }
 
-$ewdk_inc_dir = "$ewdk_path\Program Files\Windows Kits\10\Include\$ewdk_version"
+$ewdk_inc_dir = "$env:EWDK_PATH\Program Files\Windows Kits\10\Include\$ewdk_version"
 $ewdk_inc = "$ewdk_inc_dir\shared;$ewdk_inc_dir\um;$ewdk_inc_dir\ucrt"
 
-$ewdk_lib_dir = "$ewdk_path\Program Files\Windows Kits\10\Lib\$ewdk_version"
+$ewdk_lib_dir = "$env:EWDK_PATH\Program Files\Windows Kits\10\Lib\$ewdk_version"
 $ewdk_lib = "$ewdk_lib_dir\um\$arch;$ewdk_lib_dir\ucrt\$arch"
 
 $env:WindowsSDK_IncludePath = $ewdk_inc
 Set-Item -Path "env:WindowsSDK_LibraryPath_$arch" -Value $ewdk_lib
-$env:PATH += ";$ewdk_path\Program Files\Windows Kits\10\bin\$ewdk_version\$arch"
+$env:PATH += ";$env:EWDK_PATH\Program Files\Windows Kits\10\bin\$ewdk_version\$arch"
 
 $build_args = @("$solution", "-restore", "-t:Rebuild", "-p:Platform=$arch", "-p:Configuration=$configuration", "-m:$threads", "-nologo")
 
@@ -107,25 +87,36 @@ if ($testsign) {
 }
 
 # Iterate over builder's local repository to collect dependencies
-if ($repo -ne "") {
-	$env:QUBES_REPO = $repo
-	foreach ($dep in Get-ChildItem -Path $repo) {
-		# strip version numbers from directories so projects can use constant paths for deps
-		if ($dep.name.lastindexof('_') -ge 0) {
-			$new_dep = $dep.name.substring(0, $dep.name.lastindexof('_'))
-			mv "$repo\$dep" "$repo\$new_dep"
-			$dep = $new_dep
-		}
-		$inc_path = "$repo\$dep\inc"
-		if (Test-Path -Path $inc_path) {
-			$env:QUBES_INCLUDES += ";$inc_path"
-		}
-		$lib_path = "$repo\$dep\lib"
-		if (Test-Path -Path $lib_path) {
-			$env:QUBES_LIBS += ";$lib_path"
-		}
-	}
+if (! (Test-Path $repo -PathType Container)) {
+    LogError "Invalid repository directory: $repo"
 }
+
+$env:QUBES_REPO = Resolve-Path $repo
+foreach ($dep in Get-ChildItem -Path $repo) {
+    # strip version numbers from directories so projects can use constant paths for deps
+    if ($dep.name.lastindexof('_') -ge 0) {
+        $new_dep = $dep.name.substring(0, $dep.name.lastindexof('_'))
+        mv "$repo\$dep" "$repo\$new_dep"
+        $dep = $new_dep
+    }
+
+    $inc_path = "$repo\$dep\inc"
+    if (Test-Path -Path $inc_path) {
+        $env:QUBES_INCLUDES += ";$inc_path"
+    }
+
+    $lib_path = "$repo\$dep\lib"
+    if (Test-Path -Path $lib_path) {
+        $env:QUBES_LIBS += ";$lib_path"
+    }
+}
+
+if (! (Test-Path $distfiles -PathType Container)) {
+    LogError "Invalid distfiles directory: $distfiles"
+}
+$env:QUBES_DISTFILES = Resolve-Path $distfiles
+
+LogDebug "msbuild args: $build_args"
 
 # Start-Process -Wait hangs here for some reason, but waiting separately works properly
 # seems to be related to msbuild leaving some worker processes running

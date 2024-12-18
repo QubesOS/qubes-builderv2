@@ -1,0 +1,1 @@
+c:\windows\system32\cmd.exe /c powershell.exe -executionpolicy bypass -noninteractive -file "%QUBES_TOOLS%\qubes-rpc-services\qubesbuilder-file-copy-out.ps1" "%1"
