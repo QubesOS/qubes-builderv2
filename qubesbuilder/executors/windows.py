@@ -37,16 +37,6 @@ from qubesbuilder.executors import Executor, ExecutorError
 
 log = get_logger("WindowsExecutor")
 
-def encode_for_vmexec(input_string: str):
-    def encode(part):
-        if part.group(0) == b"-":
-            return b"--"
-        return "-{:02X}".format(ord(part.group(0))).encode("ascii")
-
-    part = re.sub(rb"[^a-zA-Z0-9_.]", encode, input_string.encode("utf-8"))
-
-    return part.decode("ascii")
-
 ESCAPE_RE = re.compile(rb"--|-([A-F0-9]{2})")
 
 def decode_part(part):
@@ -235,7 +225,7 @@ class WindowsExecutor(Executor):
         log.debug(f"copy_in: {src} -> {dst}")
 
         if self.use_qrexec:
-            encoded_dst = encode_for_vmexec(dst)
+            encoded_dst = encode_for_vmexec([dst])
 
             try:
                 proc = self.vm.run_service(
@@ -270,7 +260,7 @@ class WindowsExecutor(Executor):
         dst = str(destination_dir.expanduser().resolve())
 
         if self.use_qrexec:
-            encoded_src = encode_for_vmexec(src)
+            encoded_src = encode_for_vmexec([src])
 
             unpacker_path = "/usr/lib/qubes/qfile-unpacker"
             new_unpacker_path = "/usr/bin/qfile-unpacker"
