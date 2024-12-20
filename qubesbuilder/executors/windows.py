@@ -140,10 +140,10 @@ class WindowsExecutor(Executor):
 
         loop_id = self._get_ewdk_loop()
         if not loop_id:
-            # mount the image
+            # attach the image
             proc = None
             try:
-                log.debug(f"mounting ewdk from '{self.ewdk_path}'")
+                log.debug(f"attaching ewdk from '{self.ewdk_path}'")
                 proc = subprocess.run(
                     ["sudo", "losetup", "-f", self.ewdk_path],
                     check=True,
@@ -154,16 +154,16 @@ class WindowsExecutor(Executor):
 
             loop_id = self._get_ewdk_loop()
             if not loop_id:
-                raise ExecutorError(f"Failed to mount EWDK ({self.ewdk_path})")
+                raise ExecutorError(f"Failed to attach EWDK ({self.ewdk_path})")
 
-            log.debug(f"mounted ewdk as '{loop_id}'")
+            log.debug(f"attached ewdk as '{loop_id}'")
 
         # wait for device to appear
         self_vm = QubesVM(self.app, self.app.local_name)
         timeout = 10
         while isinstance(self_vm.devices['block'][loop_id], UnknownDevice):
             if timeout == 0:
-                raise ExecutorError(f"Failed to mount EWDK ({self.ewdk_path}): "
+                raise ExecutorError(f"Failed to attach EWDK ({self.ewdk_path}): "
                     f"wait for loopback device timed out")
             timeout -= 1
             sleep(1)
