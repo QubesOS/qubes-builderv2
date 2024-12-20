@@ -376,10 +376,12 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                         "-solution", str(executor.get_build_dir() / self.component.name / target),
                         "-repo", str(executor.get_repository_dir() / self.dist.distribution),
                         "-distfiles", str(executor.get_distfiles_dir() / self.component.name),
-                        "-testsign", "$true" if test_sign else "$false",
                     ]
 
                     cmd += ["-configuration", self._placeholders[stage]["@CONFIGURATION@"]]
+
+                    if test_sign:
+                        cmd += ["-testsign"]
 
                     if self.config.debug:
                         cmd += ["-log"]  # generate msbuild log
