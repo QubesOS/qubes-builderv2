@@ -69,9 +69,10 @@ class WindowsExecutor(Executor):
         self.vm = QubesVM(self.app, self.vm_name)
         self.ssh_host = f"{self.user}@{self.vm.ip}"
         self.ssh_key = kwargs.get("ssh-key", "/home/user/.ssh/win-build.key")
-        self.start_vm()
+        self.start_worker()
         self.use_qrexec = self.check_qrexec()
         log.debug(f"{self.use_qrexec=}")
+        self.ensure_worker()
 
 
     def get_builder_dir(self):
@@ -192,7 +193,7 @@ class WindowsExecutor(Executor):
             return False
 
 
-    def start_vm(self):
+    def start_worker(self):
         if not self.vm.is_running():
             ewdk_assignment = self._get_ewdk_assignment()
 
@@ -207,8 +208,7 @@ class WindowsExecutor(Executor):
             self.vm.start()
 
 
-    def ensure_vm(self):
-        self.start_vm()
+    def ensure_worker(self):
         try:
             if self.use_qrexec:
                 assert self.check_qrexec()
@@ -296,8 +296,6 @@ class WindowsExecutor(Executor):
         copy_in: List[Tuple[Path, PurePath]] = None,
         copy_out: List[Tuple[PurePath, Path]] = None,
     ):
-        self.ensure_vm()
-
         if self.use_qrexec:
             # copy the rpc handlers
             files = [
