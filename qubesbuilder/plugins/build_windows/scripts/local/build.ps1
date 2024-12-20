@@ -36,12 +36,12 @@ Import-Module powershell-yaml
 
 $yaml = ConvertFrom-Yaml (Get-Content "$dir\.qubesbuilder" -Raw)
 
-# for local builds, keep distfiles in the source dir
-$distfiles = "$dir\.distfiles"
-New-Item -Path $distfiles -ItemType Directory -Force
-
 # download distfiles
 if ($yaml.ContainsKey('source') -and $yaml['source'].ContainsKey('files')) {
+    # for local builds, keep distfiles in the source dir for easy access by the component
+    $distfiles = "$dir\.distfiles"
+    New-Item -Path $distfiles -ItemType Directory -Force
+
     foreach ($entry in $yaml['source']['files']) {
         $url = $entry['url']
         $file = Split-Path $url -Leaf
@@ -56,7 +56,7 @@ if ($yaml.ContainsKey('source') -and $yaml['source'].ContainsKey('files')) {
         $hash = (Get-FileHash $out_path -Algorithm SHA256).Hash
         if ($hash -ne $expected) {
             Remove-Item $out_path
-            Write-Error "Invalid hash for downloaded '$file', aborting: got $hash, expected $expected"
+            Write-Error "Invalid sha256 for downloaded '$file', aborting: got $hash, expected $expected"
         }
     }
 }

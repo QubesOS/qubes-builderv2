@@ -24,7 +24,7 @@ param(
     # root of local builder repository with dependencies, sets QUBES_REPO env variable
     [Parameter(Mandatory=$true)] [string]$repo,
     # directory with distfiles (additional downloaded source files), sets QUBES_DISTFILES env variable
-    [Parameter(Mandatory=$true)] [string]$distfiles,
+    [string]$distfiles = $null,
     [string]$configuration = "Release",
     [int]$threads = 1,
     [switch]$testsign = $false,  # used to set TEST_SIGN env variable so the installer can bundle public certs
@@ -111,10 +111,18 @@ foreach ($dep in Get-ChildItem -Path $repo) {
     }
 }
 
-if (! (Test-Path $distfiles -PathType Container)) {
-    LogError "Invalid distfiles directory: $distfiles"
+LogDebug "QUBES_INCLUDES = $env:QUBES_INCLUDES"
+LogDebug "QUBES_LIBS = $env:QUBES_LIBS"
+
+if ($distfiles -ne $null) {
+    if (! (Test-Path $distfiles -PathType Container)) {
+        LogError "Invalid distfiles directory: $distfiles"
+    }
+    $env:QUBES_DISTFILES = Resolve-Path $distfiles
+    LogDebug "QUBES_DISTFILES = $env:QUBES_DISTFILES"
+} else {
+    LogDebug "no distfiles"
 }
-$env:QUBES_DISTFILES = Resolve-Path $distfiles
 
 LogDebug "msbuild args: $build_args"
 

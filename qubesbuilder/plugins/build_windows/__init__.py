@@ -357,15 +357,17 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                         artifacts.add(kind, Path(file).name)
 
                 if do_build:
-                    # create component-local link to distfiles, local build compatibility
-                    cmd = [
-                        "mklink",
-                        "/d",
-                        str(executor.get_build_dir() / self.component.name / ".distfiles"),
-                        str(executor.get_distfiles_dir() / self.component.name),
-                    ]
+                    cmds = []
+                    if "source" in parameters and "files" in parameters["source"]:
+                        # create component-local link to distfiles, local build compatibility
+                        cmd = [
+                            "mklink",
+                            "/d",
+                            str(executor.get_build_dir() / self.component.name / ".distfiles"),
+                            str(executor.get_distfiles_dir() / self.component.name),
+                        ]
+                        cmds += [" ".join(cmd)]
 
-                    cmds = [" ".join(cmd)]
                     cmd = [
                         "powershell",
                         "-noninteractive",
