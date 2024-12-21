@@ -19,8 +19,7 @@ DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder-ci.yml"
 HASH_RE = re.compile(r"[a-f0-9]{40}")
 
 
-@pytest.fixture(scope="session")
-def artifacts_dir():
+def _artifacts_dir():
     if os.environ.get("BASE_ARTIFACTS_DIR"):
         tmpdir = tempfile.mktemp(
             prefix="github-", dir=os.environ.get("BASE_ARTIFACTS_DIR")
@@ -31,6 +30,16 @@ def artifacts_dir():
     if not artifacts_dir.exists():
         artifacts_dir.mkdir(parents=True)
     yield artifacts_dir
+
+
+@pytest.fixture
+def artifacts_dir_single():
+    yield from _artifacts_dir()
+
+
+@pytest.fixture(scope="session")
+def artifacts_dir():
+    yield from _artifacts_dir()
 
 
 def qb_call(builder_conf, artifacts_dir, *args, **kwargs):
@@ -314,6 +323,60 @@ def test_common_component_fetch_inplace_updating(artifacts_dir):
         assert os.listdir(infos_after[component]["fd"]) == os.listdir(
             infos_before[component]["fd"]
         )
+
+
+def test_common_component_fetch_skip_files(artifacts_dir_single):
+    artifacts_dir = artifacts_dir_single
+
+    result = qb_call_output(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "--option",
+        "skip-files-fetch=true",
+        "package",
+        "fetch",
+    ).decode()
+
+    infos = _get_infos(artifacts_dir)
+
+    for component in [
+        "core-qrexec",
+        "core-vchan-xen",
+        "desktop-linux-xfce4-xfwm4",
+        "python-qasync",
+        "app-linux-split-gpg",
+    ]:
+        assert (
+            artifacts_dir / "sources" / component / ".qubesbuilder"
+        ).exists()
+        assert not list((artifacts_dir / "distfiles" / component).iterdir())
+    assert (
+        "Enough distinct tag signatures. Found 3, mandatory minimum is 3."
+        in result
+    )
+
+def test_common_component_fetch_commit_fresh(artifacts_dir_single):
+    artifacts_dir = artifacts_dir_single
+    commit_sha = "0589ae8a242b3be6a1b8985c6eb8900e5236152a"
+    result = qb_call_output(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "core-qrexec",
+        "-o",
+        f"+components+core-qrexec:branch={commit_sha}",
+        "package",
+        "fetch",
+    ).decode()
+
+    fetch_artifact = (
+        artifacts_dir /
+        "components/core-qrexec/4.2.20-1/nodist/fetch/source.fetch.yml"
+    )
+    assert fetch_artifact.exists()
+    with open(fetch_artifact) as f:
+        info = yaml.safe_load(f.read())
+    assert info["git-commit-hash"] == commit_sha
 
 
 #
