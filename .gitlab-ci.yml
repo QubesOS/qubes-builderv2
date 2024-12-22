@@ -20,6 +20,8 @@ variables:
     description: "Run components jobs, default: 0"
   CI_RUN_TEMPLATE_JOBS:
     description: "Run template jobs, default: 0"
+  CI_RUN_CACHE_JOBS:
+    description: "Run cache jobs, subset of CI_RUN_COMPONENT_JOBS, default: 0"
   CI_RUN_ISO_JOBS:
     description: "Run ISO jobs, default: 0"
   CI_RUN_INFRA_JOBS:
@@ -75,7 +77,7 @@ builderv2-github:
 
 .init_cache_job:
   rules:
-    - if: $CI_RUN_CACHE_JOBS == "1" || $CI_RUN_COMPONENT_JOBS == "1" || $CI_RUN_ALL_JOBS == "1"
+    - if: $CI_RUN_CACHE_JOBS == "1" || $CI_RUN_COMPONENT_JOBS == "1" || $CI_RUN_ALL_JOBS == "1" || $CI_COMMIT_BRANCH == "main"
       when: always
     - when: never
   stage: prep

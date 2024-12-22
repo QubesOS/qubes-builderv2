@@ -194,14 +194,17 @@ class FetchPlugin(ComponentPlugin):
         distfiles_dir.mkdir(parents=True, exist_ok=True)
 
         # Download and verify files given in .qubesbuilder
-        for file in parameters.get("files", []):
-            if "url" in file:
-                self.download_file(file, executor, distfiles_dir)
-            elif "git-url" in file:
-                self.download_git_archive(file, executor, distfiles_dir)
-            else:
-                msg = "'files' entries must have either url or git-url entry"
-                raise FetchError(msg)
+        if not self.config.get("skip-files-fetch", False):
+            for file in parameters.get("files", []):
+                if "url" in file:
+                    self.download_file(file, executor, distfiles_dir)
+                elif "git-url" in file:
+                    self.download_git_archive(file, executor, distfiles_dir)
+                else:
+                    msg = (
+                        "'files' entries must have either url or git-url entry"
+                    )
+                    raise FetchError(msg)
 
         #
         # source hash and version tags determination

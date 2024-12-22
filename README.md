@@ -687,6 +687,8 @@ Options available in `builder.yml`:
 
 - `skip-git-fetch: bool` --- When set, do not update already downloaded git repositories (those in `sources` artifacts dir). New components are still fetched (once). Useful when doing development builds from non-default branches, local modifications etc.
 
+- `skip-files-fetch: bool` --- When set, do not fetch component files like source tarballs (those in the `distfiles` artifacts dir). Component builds *will fail* without those files. Useful to save time and space when fetching git repositories.
+
 - `increment-devel-versions: bool`  --- When set, each package built will have local build number appended to package release number. This way, it's easy to update test environment without manually forcing reinstall of packages with unchanged versions. Example versions with devel build number:
 
   - `qubes-core-dom0-4.2.12-1.13.fc37.x86_64` (`.13` is the additional version here)

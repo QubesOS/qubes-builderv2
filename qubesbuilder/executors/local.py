@@ -82,29 +82,29 @@ class LocalExecutor(Executor):
 
     def cleanup(self):
         try:
-            subprocess.run(
-                [
-                    "sudo",
-                    "--non-interactive",
-                    "rm",
-                    "-rf",
-                    "--",
-                    self._temporary_dir,
-                ],
-                check=True,
-            )
-        except subprocess.CalledProcessError as e:
+            shutil.rmtree(self._temporary_dir)
+        except PermissionError:
+            # retry with sudo
             try:
-                # retry without sudo, as local executor for many
-                # actions doesn't really need it
                 subprocess.run(
-                    ["rm", "-rf", "--", self._temporary_dir],
+                    [
+                        "sudo",
+                        "--non-interactive",
+                        "rm",
+                        "-rf",
+                        "--",
+                        self._temporary_dir,
+                    ],
                     check=True,
                 )
             except subprocess.CalledProcessError as e:
                 raise ExecutorError(
                     f"Failed to clean executor temporary directory: {str(e)}"
                 )
+        except OSError as e:
+            raise ExecutorError(
+                f"Failed to clean executor temporary directory: {str(e)}"
+            )
 
     def run(  # type: ignore
         self,
