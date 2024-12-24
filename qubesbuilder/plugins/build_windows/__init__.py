@@ -348,12 +348,19 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                 ]
 
                 copy_out = []
+                copy_out_dir = executor.get_builder_dir() / "copy_out"
+                copy_out_prep_cmds = [f"mkdir \"{str(copy_out_dir)}\""]
 
                 # Parse output files
                 for kind, dir in output_dirs.items():
                     files = parameters.get(kind, [])
+                    kind_dir = copy_out_dir / kind
+                    copy_out_prep_cmds += [f"mkdir \"{str(kind_dir)}\""]
+                    copy_out += [(kind_dir, artifacts_dir)]
                     for file in files:
-                        copy_out += [(executor.get_build_dir() / self.component.name / file, dir)]
+                        copy_out_prep_cmds += [
+                            f"copy \"{str(executor.get_build_dir() / self.component.name / file)}\" \"{str(kind_dir)}\""
+                        ]
                         artifacts.add(kind, Path(file).name)
 
                 if do_build:
@@ -394,6 +401,8 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                     cmds += [" ".join(cmd)]
                 else:  # dummy
                     cmds = ["exit 0"]
+
+                cmds += copy_out_prep_cmds
 
                 # TODO: failed builds don't get caught here due to msbuild/powershell weirdness
                 # see scripts/build-sln.ps1
