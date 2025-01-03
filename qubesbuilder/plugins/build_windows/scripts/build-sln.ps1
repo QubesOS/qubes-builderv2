@@ -24,7 +24,7 @@ param(
     # root of local builder repository with dependencies, sets QUBES_REPO env variable
     [Parameter(Mandatory=$true)] [string]$repo,
     # directory with distfiles (additional downloaded source files), sets QUBES_DISTFILES env variable
-    [string]$distfiles = $null,
+    [string]$distfiles = "",
     [string]$configuration = "Release",
     [int]$threads = 1,
     [switch]$testsign = $false,  # used to set TEST_SIGN env variable so the installer can bundle public certs
@@ -114,7 +114,7 @@ foreach ($dep in Get-ChildItem -Path $repo) {
 LogDebug "QUBES_INCLUDES = $env:QUBES_INCLUDES"
 LogDebug "QUBES_LIBS = $env:QUBES_LIBS"
 
-if ($distfiles -ne $null) {
+if ($distfiles -ne "") {
     if (! (Test-Path $distfiles -PathType Container)) {
         LogError "Invalid distfiles directory: $distfiles"
     }

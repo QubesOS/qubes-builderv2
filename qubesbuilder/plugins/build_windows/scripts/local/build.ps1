@@ -75,13 +75,21 @@ Launch-EWDK
 
 foreach ($target in $root['build']) {
     # build
-    & powershell "$script_dir\build-sln.ps1" `
-        -solution "$dir\$target" `
-        -configuration $cfg `
-        -repo $repo `
-        -distfiles $distfiles `
-        -testsign `
-        -noisy
+    $args = @(
+        "$script_dir\build-sln.ps1",
+        "-solution", "$dir\$target",
+        "-configuration", $cfg,
+        "-repo", $repo,
+        "-testsign",
+        "-noisy"
+    )
+
+    if ($distfiles -ne $null) {
+        $args += @("-distfiles", $distfiles)
+    }
+
+    $proc = Start-Process -NoNewWindow -PassThru powershell -ArgumentList $args
+    $proc.WaitForExit()
 
     # copy artifacts to local repo
     $kinds = @('bin', 'inc', 'lib')
