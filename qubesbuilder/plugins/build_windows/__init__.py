@@ -365,15 +365,14 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
 
                 if do_build:
                     cmds = []
-                    if "source" in parameters and "files" in parameters["source"]:
-                        # create component-local link to distfiles, local build compatibility
-                        cmd = [
-                            "mklink",
-                            "/d",
-                            str(executor.get_build_dir() / self.component.name / ".distfiles"),
-                            str(executor.get_distfiles_dir() / self.component.name),
-                        ]
-                        cmds += [" ".join(cmd)]
+                    # create component-local link to distfiles, local build compatibility
+                    cmd = [
+                        "mklink",
+                        "/d",
+                        str(executor.get_build_dir() / self.component.name / ".distfiles"),
+                        str(executor.get_distfiles_dir() / self.component.name),
+                    ]
+                    cmds += [" ".join(cmd)]
 
                     cmd = [
                         "powershell",
