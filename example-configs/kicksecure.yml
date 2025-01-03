@@ -1,0 +1,51 @@
+git:
+  baseurl: https://github.com
+  prefix: qubesos/qubes-
+  branch: main
+  maintainers:
+    # marmarek
+    - '0064428F455451B3EBE78A7F063938BA42CFA724'
+    # simon
+    - '274E12AB03F2FE293765FC06DA0434BC706E1FCF'
+
+backend-vmm: xen
+debug: true
+verbose: true
+qubes-release: r4.3
+
+distributions:
+  - vm-bookworm
+
+templates:
+  - kicksecure-17:
+      dist: bookworm
+      flavor: kicksecure
+      options:
+        - minimal
+        - no-recommends
+
+components:
+  - builder-debian:
+      packages: False
+  - template-kicksecure:
+      packages: False
+      branch: master
+      url: https://github.com/Kicksecure/qubes-template-kicksecure.git
+      maintainers:
+        # Patrick (adrelanos)
+        - 916B8D99C38EAF5E8ADC7A2A8D66066A2EEACCDA
+
+#executor:
+# type: docker
+# options:
+#   image: "qubes-builder-fedora:latest"
+executor:
+  type: qubes
+  options:
+    dispvm: "@dispvm"
+
+stages:
+  - fetch
+  - prep
+  - build
+

@@ -228,6 +228,20 @@ class TemplateBuilderPlugin(TemplatePlugin):
                     f"+whonix-gateway:{executor.get_sources_dir()}/template-whonix",
                     f"+whonix-workstation:{executor.get_sources_dir()}/template-whonix",
                 ]
+            if self.template.flavor in ("kicksecure-17"):
+                self.dependencies += [
+                    ComponentDependency("template-kicksecure")
+                ]
+                template_content_dir = str(
+                    executor.get_sources_dir() / "template-kicksecure"
+                )
+                self.environment.update(
+                    {
+                        "APPMENUS_DIR": template_content_dir,
+                        "FLAVORS_DIR": template_content_dir,
+                        "DERIVATIVE_APT_REPOSITORY_OPTS": "stable",
+                    }
+                )
             if self.template.flavor.startswith("kali"):
                 self.dependencies += [ComponentDependency("template-kali")]
                 template_content_dir = str(
