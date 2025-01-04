@@ -128,14 +128,18 @@ iso-parse-tmpl:
 
 iso-packages-anaconda:
 	$(DNF) $(DNF_OPTS) clean all
+	find $(DNF_ROOT) -name "*.rpm" -delete
 	# workaround for https://github.com/rpm-software-management/dnf/issues/1974
 	rpmkeys --root=$(DNF_ROOT) --import $$(sed -n '/gpgkey *= *file:/{s,.*file://,,;p}' $(DNF_ROOT)/etc/yum.repos.d/*.repo)
-	umask 022; $(DNF) $(DNF_OPTS) --downloaddir=$(BASE_DIR)/os/Packages --downloadonly install $(shell cat $(DNF_PACKAGES))
+	umask 022; $(DNF) $(DNF_OPTS) install --downloadonly $(shell cat $(DNF_PACKAGES))
+	find $(DNF_ROOT) -name "*.rpm" -exec mv -t $(BASE_DIR)/os/Packages {} +
 	pushd $(BASE_DIR)/os/ && $(CREATEREPO) -q -g $(TMP_DIR)/comps.xml .
 
 iso-packages-lorax:
 	$(DNF) $(DNF_OPTS) clean all
-	umask 022; $(DNF) $(DNF_OPTS) --downloaddir=$(INSTALLER_DIR)/yum/installer/rpm --downloadonly install $(shell cat $(LORAX_PACKAGES))
+	find $(DNF_ROOT) -name "*.rpm" -delete
+	umask 022; $(DNF) $(DNF_OPTS) install --downloadonly $(shell cat $(LORAX_PACKAGES))
+	find $(DNF_ROOT) -name "*.rpm" -exec mv -t $(INSTALLER_DIR)/yum/installer/rpm {} +
 	pushd $(INSTALLER_DIR)/yum/installer && $(CREATEREPO) -q -g $(TMP_DIR)/comps.xml --update .
 
 iso-templates-cache: iso-prepare iso-parse-kickstart
@@ -149,7 +153,7 @@ iso-templates-cache: iso-prepare iso-parse-kickstart
 
 	$(DNF) $(DNF_OPTS) clean all
 	rpmkeys --root=$(DNF_ROOT) --import $$(sed -n '/gpgkey *= *file:/{s,.*file://,,;p}' $(DNF_ROOT)/etc/yum.repos.d/*.repo)
-	umask 022; $(DNF) $(DNF_OPTS_TEMPLATES) --downloaddir=$(INSTALLER_DIR)/yum/installer/rpm --downloaddir=$(BUILDER_DIR)/repository/templates download $(TEMPLATE_PACKAGES)
+	umask 022; $(DNF) $(DNF_OPTS_TEMPLATES) download --destdir=$(BUILDER_DIR)/repository/templates $(TEMPLATE_PACKAGES)
 
 #
 # CAGE -> MOCK
