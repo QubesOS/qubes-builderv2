@@ -1,1 +1,3 @@
-qubesbuilder-cli
+#!/bin/sh --
+case $0 in (/*) cd "${0%/*}/";; (*/*) cd "./${0%/*}";; esac
+exec ./qubesbuilder-cli "$@"
