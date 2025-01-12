@@ -145,7 +145,7 @@ def parse_config_from_cli(array):
             parsed_dict = {"+" + key: value}
         else:
             parsed_dict = parse_dict_from_cli(s)
-        result = deep_merge(result, parsed_dict, allow_append=True)
+        result = deep_merge(result, parsed_dict)
     return result
 
 
