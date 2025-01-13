@@ -183,7 +183,6 @@ components:
   - xscreensaver
   - remote-support
   - openssh
-  - windows-tools-cross
 
 
 #executor:

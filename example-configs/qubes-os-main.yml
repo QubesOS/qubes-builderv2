@@ -176,8 +176,6 @@ components:
   - antievilmaid
   - xscreensaver
   - remote-support
-  - windows-tools-cross
-
 
 #executor:
 #  type: docker
