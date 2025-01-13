@@ -412,6 +412,7 @@ We provide the following list of available keys:
 - `signature` --- URL of the signature file of downloaded external file (in
   combination with `url` and `pubkeys`).
 - `uncompress` --- Uncompress external file downloaded before verification.
+  In case of tarball created from git, do not compress it.
 - `pubkeys` --- List of public GPG keys to use for verifying the downloaded
   signature file (in combination with `url` and `signature`).
 - `git-url` --- URL of a repository to fetch and create a tarball from.
