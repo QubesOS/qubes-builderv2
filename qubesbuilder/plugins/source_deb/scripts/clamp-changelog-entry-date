@@ -22,6 +22,7 @@
 
 # Clamp the topmost changelog entry date ("Build for ...") to the previous one
 # (actual meaningful entry)
+#Reverted clamp-changelog-entry-date
 
 CHANGELOG_PATH="$1"
 
@@ -30,9 +31,15 @@ if [ ! -r "$CHANGELOG_PATH" ]; then
     exit 1
 fi
 
-# get previous date
-PREVIOUS_DATE=$(grep '^ --' "$CHANGELOG_PATH" | head -n 2 | tail -n 1 | grep -o '  .*')
+if [ -n "$SOURCE_DATE_EPOCH" ]; then
+    # Use SOURCE_DATE_EPOCH as the reference if it's set
+    CURRENT_DATE=$(date -R -u -d "@$SOURCE_DATE_EPOCH")
+else
+    # Get previous date from the changelog as a fallback
+    CURRENT_DATE=$(grep '^ --' "$CHANGELOG_PATH" | head -n 2 | tail -n 1 | grep -o '  .*')
+fi
 
-# replace topmost date
-sed -e "0,/^ --/s/^\( --.*\)\(  .*\)/\1$PREVIOUS_DATE/" -i "$CHANGELOG_PATH"
-touch --date="$PREVIOUS_DATE" "$CHANGELOG_PATH"
+# Replace the topmost date with CURRENT_DATE
+sed -e "0,/^ --/s/^\( --.*\)\(  .*\)/\1$CURRENT_DATE/" -i "$CHANGELOG_PATH"
+touch --date="$CURRENT_DATE" "$CHANGELOG_PATH"
+
