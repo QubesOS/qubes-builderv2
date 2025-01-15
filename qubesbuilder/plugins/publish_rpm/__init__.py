@@ -102,9 +102,9 @@ class RPMPublishPlugin(RPMDistributionPlugin, PublishPlugin):
             self.config.sources_dir
             / f"qubes-release/comps/comps-{self.dist.package_set}.xml"
         ).exists():
-            cmd.append("createrepo_c -g comps.xml .")
+            cmd.append("createrepo_c --update -g comps.xml .")
         else:
-            cmd.append("createrepo_c .")
+            cmd.append("createrepo_c --update .")
         try:
             shutil.rmtree(target_dir / "repodata")
             executor.run(cmd)
