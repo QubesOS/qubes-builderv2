@@ -86,14 +86,16 @@ def get_archive_name(file: dict):
             return Path(fn).with_suffix("").name
         return fn
     if "git-basename" in file:
-        return f"{file['git-basename']}.tar.gz"
+        suffix = "tar" if file.get("uncompress", False) else "tar.gz"
+        return f"{file['git-basename']}.{suffix}"
     else:
         archive_base = os.path.basename(file["git-url"]).partition(".git")[0]
+        suffix = "tar" if file.get("uncompress", False) else "tar.gz"
         if "tag" in file:
             assert "/" not in file["tag"]
-            return f"{archive_base}-{file['tag']}.tar.gz"
+            return f"{archive_base}-{file['tag']}.{suffix}"
         if "commit-id" in file:
-            return f"{archive_base}-{file['commit-id']}.tar.gz"
+            return f"{archive_base}-{file['commit-id']}.{suffix}"
     return None
 
 

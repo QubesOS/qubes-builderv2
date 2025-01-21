@@ -317,3 +317,12 @@ def test_get_archive_name_git_url():
     }
     fn = get_archive_name(file)
     assert fn == "repo-2.0.0.tar.gz"
+
+    file = {
+        "git-url": "https://github.com/owner/repo",
+        "tag": "v2.0.0",
+        "git-basename": "repo-2.0.0",
+        "uncompress": True,
+    }
+    fn = get_archive_name(file)
+    assert fn == "repo-2.0.0.tar"
