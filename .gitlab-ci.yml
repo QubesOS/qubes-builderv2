@@ -337,6 +337,12 @@ cache-host-fc37:
     - !reference [.init_cache_job, script ]
     - tests/scripts/check-chroot-content.sh artifacts "${CI_JOB_NAME#cache-}" /usr/bin/gcc
 
+cache-host-fc41:
+  extends: .init_cache_job
+  script:
+    - !reference [.init_cache_job, script ]
+    - tests/scripts/check-chroot-content.sh artifacts "${CI_JOB_NAME#cache-}" /usr/bin/gcc
+
 cache-vm-fc40:
   extends: .init_cache_job
 

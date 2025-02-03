@@ -44,6 +44,7 @@ cache:
 
 distributions:
   - host-fc37
+  - host-fc41
   - vm-bullseye
   - vm-bookworm
   - vm-trixie
