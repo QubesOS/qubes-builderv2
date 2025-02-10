@@ -72,6 +72,7 @@ class WindowsExecutor(Executor):
         self.start_worker()
         self.use_qrexec = self.check_qrexec()
         log.debug(f"{self.use_qrexec=}")
+        self.rpc_copied = False
         self.ensure_worker()
 
 
@@ -296,7 +297,7 @@ class WindowsExecutor(Executor):
         copy_in: List[Tuple[Path, PurePath]] = None,
         copy_out: List[Tuple[PurePath, Path]] = None,
     ):
-        if self.use_qrexec:
+        if self.use_qrexec and not self.rpc_copied:
             # copy the rpc handlers
             files = [
                 str(PROJECT_PATH / "rpc" / "qubesbuilder.WinFileCopyIn"),
@@ -327,6 +328,7 @@ class WindowsExecutor(Executor):
                 proc.communicate((" & ".join(prep_cmd) + " & exit !errorlevel!" + "\r\n").encode("utf-8"))
                 if proc.returncode != 0:
                     raise QubesException(f"qubes.VMShell returned with code {proc.returncode}")
+                self.rpc_copied = True
             except QubesException as e:
                 msg = f"Failed to copy builder RPC services to qube '{self.vm_name}'"
                 raise ExecutorError(msg, name=self.vm_name) from e
