@@ -398,10 +398,10 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                     if executor.get_threads() > 1:
                         cmd += ["-threads", str(executor.get_threads())]
                     cmds += [" ".join(cmd)]
+                    cmds += copy_out_prep_cmds
                 else:  # dummy
-                    cmds = ["exit 0"]
+                    cmds = copy_out_prep_cmds
 
-                cmds += copy_out_prep_cmds
 
                 # TODO: failed builds don't get caught here due to msbuild/powershell weirdness
                 # see scripts/build-sln.ps1
