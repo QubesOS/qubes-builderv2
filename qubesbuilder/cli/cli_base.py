@@ -73,7 +73,9 @@ class AliasedGroup(click.Group):
 
         rc = 1
         try:
-            rv = self.main(*args, standalone_mode=False, **kwargs)
+            # mypy fails match standalone_mode and kwargs here, even though the
+            # main's signature has **extra: Any
+            rv = self.main(*args, standalone_mode=False, **kwargs)  # type: ignore
             if isinstance(rv, list) and set(rv) == {None}:
                 rc = 0
         except Exception as exc:
