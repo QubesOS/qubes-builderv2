@@ -47,6 +47,7 @@ WINDOWS = {
     "win11": ("windows", "11"),
 }
 
+
 class QubesDistribution:
     def __init__(self, distribution: str, **kwargs):
         self.distribution = distribution

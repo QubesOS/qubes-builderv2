@@ -584,6 +584,7 @@ class GentooDistributionPlugin(DistributionPlugin):
     def supported_distribution(cls, distribution: QubesDistribution):
         return distribution.is_gentoo()
 
+
 class WindowsDistributionPlugin(DistributionPlugin):
     @classmethod
     def supported_distribution(cls, distribution: QubesDistribution):

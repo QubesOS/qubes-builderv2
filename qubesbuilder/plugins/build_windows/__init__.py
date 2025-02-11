@@ -48,7 +48,9 @@ class WinArtifactKind(StrEnum):
         return self.name
 
 
-yaml.SafeDumper.add_representer(WinArtifactKind, yaml.representer.SafeRepresenter.represent_str)
+yaml.SafeDumper.add_representer(
+    WinArtifactKind, yaml.representer.SafeRepresenter.represent_str
+)
 
 
 class WinArtifactSet:
@@ -104,7 +106,9 @@ def provision_local_repository(
     """
     Provision local builder repository.
     """
-    log.info(f"{component}:{dist}:{target}: Provisioning local repository '{repository_dir}'.")
+    log.info(
+        f"{component}:{dist}:{target}: Provisioning local repository '{repository_dir}'."
+    )
 
     target_dir = repository_dir / f"{component.name}_{component.version}"
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -121,13 +125,18 @@ def provision_local_repository(
             src_path = build_artifacts_dir / "sign.crt"
             os.link(src_path, target_path)
 
-    except (ValueError, PermissionError, NotImplementedError, FileExistsError) as e:
+    except (
+        ValueError,
+        PermissionError,
+        NotImplementedError,
+        FileExistsError,
+    ) as e:
         msg = f"{component}:{dist}:{target}: Failed to provision local repository."
         raise BuildError(msg) from e
 
 
 def mangle_key_name(key_name: str) -> str:
-        return key_name.replace(" ", "__")
+    return key_name.replace(" ", "__")
 
 
 class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
@@ -153,7 +162,9 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         manager: PluginManager,
         **kwargs,
     ):
-        super().__init__(component=component, dist=dist, config=config, manager=manager)
+        super().__init__(
+            component=component, dist=dist, config=config, manager=manager
+        )
         self.app = Qubes()
 
     def update_parameters(self, stage: str):
@@ -162,15 +173,21 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         # Set and update parameters based on top-level "source",
         # per package set and per distribution
         parameters = self.component.get_parameters(self.get_placeholders(stage))
-        self._parameters.update(parameters.get(self.dist.package_set, {}).get("source", {}))
-        self._parameters.update(parameters.get(self.dist.distribution, {}).get("source", {}))
+        self._parameters.update(
+            parameters.get(self.dist.package_set, {}).get("source", {})
+        )
+        self._parameters.update(
+            parameters.get(self.dist.distribution, {}).get("source", {})
+        )
 
     def update_placeholders(self, stage: str):
         super().update_placeholders(stage)
         stage_options = self.get_config_stage_options(stage)
         self._placeholders[stage].update(
             {
-                "@CONFIGURATION@": stage_options.get("configuration", "Release"),
+                "@CONFIGURATION@": stage_options.get(
+                    "configuration", "Release"
+                ),
             }
         )
 
@@ -235,7 +252,9 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
             check_return=False,
         )
 
-        if f"Key '{mangle_key_name(key_name)}' exists" not in out.decode("utf-8"):
+        if f"Key '{mangle_key_name(key_name)}' exists" not in out.decode(
+            "utf-8"
+        ):
             self.log.debug(f"key '{key_name}' does not exist")
             return
 
@@ -259,7 +278,9 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
 
         executor = self.get_executor_from_config(stage)
         if not isinstance(executor, WindowsExecutor):
-            raise BuildError(f"Plugin {self.name} requires WindowsExecutor, got {executor.__class__.__name__}")
+            raise BuildError(
+                f"Plugin {self.name} requires WindowsExecutor, got {executor.__class__.__name__}"
+            )
 
         parameters = self.get_parameters(stage)
         distfiles_dir = self.get_component_distfiles_dir()
@@ -270,7 +291,9 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         self.log.debug(f"{stage_options=}")
 
         # Compare previous artifacts hash with current source hash
-        hash = self.get_dist_artifacts_info(stage, self.component.name).get("source-hash", None)
+        hash = self.get_dist_artifacts_info(stage, self.component.name).get(
+            "source-hash", None
+        )
         if self.component.get_source_hash() == hash:
             self.log.info(
                 f"{self.component}:{self.dist}: Source hash is the same than already built source. Skipping."
@@ -283,7 +306,9 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         artifacts_dir.mkdir(parents=True)
 
         # Create output folders
-        output_dirs = { kind.value: artifacts_dir / kind.value for kind in WinArtifactKind }
+        output_dirs = {
+            kind.value: artifacts_dir / kind.value for kind in WinArtifactKind
+        }
         for dir in output_dirs.values():
             dir.mkdir(parents=True)
 
@@ -295,28 +320,34 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         repository_dir.mkdir(parents=True, exist_ok=True)
 
         # Remove previous versions in order to keep the latest one only
-        clean_local_repository(self.log, repository_dir, self.component, self.dist, True)
+        clean_local_repository(
+            self.log, repository_dir, self.component, self.dist, True
+        )
 
         # The Windows vm is not a true disposable so clean builder files there
         builder_dir = str(executor.get_builder_dir())
-        executor.run([f"if exist \"{builder_dir}\" rmdir /s /q \"{builder_dir}\""])
+        executor.run([f'if exist "{builder_dir}" rmdir /s /q "{builder_dir}"'])
         # sometimes the deletion seems to fail due to files being in use
         # (probably if build is re-run too fast)
         # the above command doesn't fail in this case for ~reasons~ so we double-check
         # TODO: meaningful error message or restart the VM
-        executor.run([f"if exist \"{builder_dir}\" exit 1"])
+        executor.run([f'if exist "{builder_dir}" exit 1'])
 
         artifacts = WinArtifactSet()
 
         # Read information from source stage
-        source_info = self.get_dist_artifacts_info(stage="prep", basename=self.component.name)
+        source_info = self.get_dist_artifacts_info(
+            stage="prep", basename=self.component.name
+        )
 
         # Authenticode signing prep
         test_sign = stage_options.get("test-sign", True)
         sign_qube = stage_options.get("sign-qube")
         if not sign_qube:
             raise BuilderError("'sign-qube' option not configured")
-        sign_key_name = stage_options.get("sign-key-name", "Qubes Windows Tools")
+        sign_key_name = stage_options.get(
+            "sign-key-name", "Qubes Windows Tools"
+        )
 
         try:
             sign_cert = self.sign_prep(
@@ -337,10 +368,14 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                 # TODO: better mark that there's no target
                 do_build = str(target) != "dummy"
                 if do_build and target.suffix != ".sln":
-                    raise BuildError(f"Plugin {self.name} can only build Visual Studio .sln targets")
+                    raise BuildError(
+                        f"Plugin {self.name} can only build Visual Studio .sln targets"
+                    )
 
                 # Copy-in distfiles, source and dependencies repository
-                copy_in = self.default_copy_in(executor.get_plugins_dir(), executor.get_sources_dir())
+                copy_in = self.default_copy_in(
+                    executor.get_plugins_dir(), executor.get_sources_dir()
+                )
                 copy_in += [
                     (repository_dir, executor.get_repository_dir()),  # deps
                     (self.component.source_dir, executor.get_build_dir()),
@@ -349,17 +384,17 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
 
                 copy_out = []
                 copy_out_dir = executor.get_builder_dir() / "copy_out"
-                copy_out_prep_cmds = [f"mkdir \"{str(copy_out_dir)}\""]
+                copy_out_prep_cmds = [f'mkdir "{str(copy_out_dir)}"']
 
                 # Parse output files
                 for kind, dir in output_dirs.items():
                     files = parameters.get(kind, [])
                     kind_dir = copy_out_dir / kind
-                    copy_out_prep_cmds += [f"mkdir \"{str(kind_dir)}\""]
+                    copy_out_prep_cmds += [f'mkdir "{str(kind_dir)}"']
                     copy_out += [(kind_dir, artifacts_dir)]
                     for file in files:
                         copy_out_prep_cmds += [
-                            f"copy \"{str(executor.get_build_dir() / self.component.name / file)}\" \"{str(kind_dir)}\""
+                            f'copy "{str(executor.get_build_dir() / self.component.name / file)}" "{str(kind_dir)}"'
                         ]
                         artifacts.add(kind, Path(file).name)
 
@@ -369,7 +404,11 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                     cmd = [
                         "mklink",
                         "/d",
-                        str(executor.get_build_dir() / self.component.name / ".distfiles"),
+                        str(
+                            executor.get_build_dir()
+                            / self.component.name
+                            / ".distfiles"
+                        ),
                         str(executor.get_distfiles_dir() / self.component.name),
                     ]
                     cmds += [" ".join(cmd)]
@@ -377,14 +416,28 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                     cmd = [
                         "powershell",
                         "-noninteractive",
-                        "-executionpolicy", "bypass",
+                        "-executionpolicy",
+                        "bypass",
                         f"{ executor.get_plugins_dir() / self.name / 'scripts' / 'build-sln.ps1' }",
-                        "-solution", str(executor.get_build_dir() / self.component.name / target),
-                        "-repo", str(executor.get_repository_dir() / self.dist.distribution),
-                        "-distfiles", str(executor.get_distfiles_dir() / self.component.name),
+                        "-solution",
+                        str(
+                            executor.get_build_dir()
+                            / self.component.name
+                            / target
+                        ),
+                        "-repo",
+                        str(
+                            executor.get_repository_dir()
+                            / self.dist.distribution
+                        ),
+                        "-distfiles",
+                        str(executor.get_distfiles_dir() / self.component.name),
                     ]
 
-                    cmd += ["-configuration", self._placeholders[stage]["@CONFIGURATION@"]]
+                    cmd += [
+                        "-configuration",
+                        self._placeholders[stage]["@CONFIGURATION@"],
+                    ]
 
                     if test_sign:
                         cmd += ["-testsign"]
@@ -402,7 +455,6 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                 else:  # dummy
                     cmds = copy_out_prep_cmds
 
-
                 # TODO: failed builds don't get caught here due to msbuild/powershell weirdness
                 # see scripts/build-sln.ps1
                 # this is only a problem if a target has no outputs (then copy_out fails)
@@ -419,7 +471,12 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                 # authenticode sign the binaries
                 skip_test_sign = parameters.get("skip-test-sign", [])
                 for file in artifacts.get_kind(WinArtifactKind.BIN):
-                    if not Path(file).suffix in [".cat", ".dll", ".exe", ".sys"]:
+                    if not Path(file).suffix in [
+                        ".cat",
+                        ".dll",
+                        ".exe",
+                        ".sys",
+                    ]:
                         continue
                     if test_sign and file in skip_test_sign:
                         continue
@@ -461,7 +518,9 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                         "source-hash": self.component.get_source_hash(),
                     }
                 )
-                self.save_dist_artifacts_info(stage=stage, basename=self.component.name, info=info)
+                self.save_dist_artifacts_info(
+                    stage=stage, basename=self.component.name, info=info
+                )
         finally:
             if test_sign:
                 self.sign_delete_key(
@@ -470,5 +529,6 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                 )
 
             dvm.kill()
+
 
 PLUGINS = [WindowsBuildPlugin]

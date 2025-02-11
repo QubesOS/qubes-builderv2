@@ -53,7 +53,6 @@ class WindowsSourcePlugin(WindowsDistributionPlugin, SourcePlugin):
             component=component, dist=dist, config=config, manager=manager
         )
 
-
     def run(self, stage: str):
         """
         Run plugin for given stage.
@@ -73,12 +72,14 @@ class WindowsSourcePlugin(WindowsDistributionPlugin, SourcePlugin):
             return
 
         # Compare previous artifacts hash with current source hash
-        hash = self.get_dist_artifacts_info(stage, self.component.name).get("source-hash", None)
+        hash = self.get_dist_artifacts_info(stage, self.component.name).get(
+            "source-hash", None
+        )
         if self.component.get_source_hash() == hash:
             self.log.info(
                 f"{self.component}:{self.dist}: Source hash is the same as already prepared source. Skipping."
             )
-            #return
+            # return
 
         # Get fetch info
         fetch_info = self.get_dist_artifacts_info(
@@ -96,18 +97,24 @@ class WindowsSourcePlugin(WindowsDistributionPlugin, SourcePlugin):
 
         # Save package information we parsed for next stages
         info = fetch_info
-        info.update({
-            "source-hash": self.component.get_source_hash(),
-        })
+        info.update(
+            {
+                "source-hash": self.component.get_source_hash(),
+            }
+        )
 
-        self.save_dist_artifacts_info(stage=stage, basename=self.component.name, info=info)
+        self.save_dist_artifacts_info(
+            stage=stage, basename=self.component.name, info=info
+        )
 
         # TODO: create source archive if needed
 
         # save dummy per-target info, unused but base build plugin requires it
         for target in parameters["build"]:
             # this dummy info can't be an empty dict
-            self.save_dist_artifacts_info(stage=stage, basename=target.mangle(), info={"dummy":1})
+            self.save_dist_artifacts_info(
+                stage=stage, basename=target.mangle(), info={"dummy": 1}
+            )
 
 
 PLUGINS = [WindowsSourcePlugin]
