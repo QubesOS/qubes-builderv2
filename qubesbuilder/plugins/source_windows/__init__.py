@@ -79,7 +79,7 @@ class WindowsSourcePlugin(WindowsDistributionPlugin, SourcePlugin):
             self.log.info(
                 f"{self.component}:{self.dist}: Source hash is the same as already prepared source. Skipping."
             )
-            # return
+            return
 
         # Get fetch info
         fetch_info = self.get_dist_artifacts_info(
