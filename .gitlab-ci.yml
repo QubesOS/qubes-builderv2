@@ -65,7 +65,7 @@ builderv2-github:
     PYTEST_ARGS: -v --color=yes --showlocals --cov qubesbuilder --cov-report term --cov-report html:artifacts/htmlcov --cov-report xml:artifacts/coverage.xml --junitxml=artifacts/qubesbuilder.xml
   # https://gitlab.com/gitlab-org/gitlab/-/issues/15603
   before_script:
-    - sudo dnf install -y python3-pip python3-pytest-cov python3-pytest python3-pytest-mock python3-lxml python3-wheel sequoia-sqv
+    - sudo dnf install -y python3-pip python3-pytest-cov python3-pytest python3-pytest-mock python3-lxml python3-wheel sequoia-sqv qubes-core-admin-client
     - sudo rm -rf ~/pytest-of-user/
     - docker pull registry.gitlab.com/qubesos/docker-images/qubes-builder-fedora:latest
     - docker tag registry.gitlab.com/qubesos/docker-images/qubes-builder-fedora:latest qubes-builder-fedora:latest
@@ -250,7 +250,7 @@ mypy:
   tags:
     - docker
   before_script:
-    - sudo dnf install -y python3-mypy python3-pip
+    - sudo dnf install -y python3-mypy python3-pip qubes-core-admin-client
     - sudo python3 -m pip install types-PyYAML types-python-dateutil
   script:
     - mypy --install-types --non-interactive --junit-xml mypy.xml qubesbuilder
