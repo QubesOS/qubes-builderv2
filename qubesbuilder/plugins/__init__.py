@@ -347,7 +347,7 @@ class DistributionPlugin(Plugin):
 
 def get_stage_options(stage: str, options: dict):
     stages = options.get("stages", [])
-    s = next((s for s in stages if stage in s), {})
+    s: dict = next((s for s in stages if stage in s), {})
     return s.get(stage, {})
 
 

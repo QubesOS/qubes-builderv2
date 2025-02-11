@@ -25,7 +25,7 @@ import subprocess
 import yaml
 from enum import StrEnum
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, ItemsView, List
 
 from qubesadmin import Qubes
 from qubesadmin.exc import QubesException
@@ -54,19 +54,19 @@ yaml.SafeDumper.add_representer(
 
 
 class WinArtifactSet:
-    def __init__(self, artifacts: Dict[WinArtifactKind, List[Path]] = None):
+    def __init__(self, artifacts: Dict[WinArtifactKind, List[str]] = None):
         self.artifacts = artifacts or {kind: [] for kind in WinArtifactKind}
 
     def __repr__(self) -> str:
         return self.items().__repr__()
 
-    def items(self) -> Dict[WinArtifactKind, List[Path]]:
+    def items(self) -> ItemsView[WinArtifactKind, List[str]]:
         return self.artifacts.items()
 
-    def add(self, kind: WinArtifactKind, file: Path):
+    def add(self, kind: WinArtifactKind, file: str):
         self.artifacts[kind] += [file]
 
-    def get_kind(self, kind: WinArtifactKind) -> List[Path]:
+    def get_kind(self, kind: WinArtifactKind) -> List[str]:
         return self.artifacts[kind]
 
 
@@ -211,13 +211,13 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                 msg += stderr.decode("utf-8")
                 raise BuildError(f"{self.component}:{self.dist}: " + msg)
         except QubesException as e:
-            msg = f"Failed to {description}: failed to run service '{service}' in qube '{qube}'."
+            msg = f"Failed to {description}: failed to run service '{service}' in qube '{target}'."
             raise BuildError(f"{self.component}:{self.dist}: " + msg) from e
 
         return stdout
 
     # Generate self-signed key if test-signing, get public cert
-    def sign_prep(self, qube: str, key_name: str, test_sign: bool) -> str:
+    def sign_prep(self, qube: str, key_name: str, test_sign: bool) -> bytes:
         if test_sign:
             self.log.debug(f"creating key '{key_name}' in qube '{qube}'")
             self.run_rpc_service(
@@ -344,7 +344,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         test_sign = stage_options.get("test-sign", True)
         sign_qube = stage_options.get("sign-qube")
         if not sign_qube:
-            raise BuilderError("'sign-qube' option not configured")
+            raise BuildError("'sign-qube' option not configured")
         sign_key_name = stage_options.get(
             "sign-key-name", "Qubes Windows Tools"
         )
@@ -396,7 +396,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                         copy_out_prep_cmds += [
                             f'copy "{str(executor.get_build_dir() / self.component.name / file)}" "{str(kind_dir)}"'
                         ]
-                        artifacts.add(kind, Path(file).name)
+                        artifacts.add(WinArtifactKind(kind), Path(file).name)
 
                 if do_build:
                     cmds = []

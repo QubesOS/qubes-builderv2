@@ -19,7 +19,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import os
-import re
 import subprocess
 from pathlib import Path, PurePath, PureWindowsPath
 from time import sleep
@@ -36,27 +35,6 @@ from qubesbuilder.executors import Executor, ExecutorError
 
 
 log = get_logger("WindowsExecutor")
-
-ESCAPE_RE = re.compile(rb"--|-([A-F0-9]{2})")
-
-
-def decode_part(part):
-    if not re.match(r"^[a-zA-Z0-9._-]*$", part):
-        raise DecodeError("illegal characters found")
-
-    part = part.encode("ascii")
-
-    # Check if no '-' remains outside of legal escape sequences.
-    if b"-" in ESCAPE_RE.sub(b"", part):
-        raise DecodeError("'-' can be used only in '-HH' or '--'")
-
-    def convert(m):
-        if m.group(0) == b"--":
-            return b"-"
-        num = int(m.group(1), 16)
-        return bytes([num])
-
-    return ESCAPE_RE.sub(convert, part).decode("utf-8")
 
 
 class WindowsExecutor(Executor):
