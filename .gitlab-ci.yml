@@ -65,12 +65,13 @@ builderv2-github:
     PYTEST_ARGS: -v --color=yes --showlocals --cov qubesbuilder --cov-report term --cov-report html:artifacts/htmlcov --cov-report xml:artifacts/coverage.xml --junitxml=artifacts/qubesbuilder.xml
   # https://gitlab.com/gitlab-org/gitlab/-/issues/15603
   before_script:
-    - sudo dnf install -y python3-pip python3-pytest-cov python3-pytest python3-pytest-mock python3-lxml python3-wheel sequoia-sqv qubes-core-admin-client
+    - sudo dnf install -y python3-pip python3-pytest-cov python3-pytest python3-pytest-mock python3-lxml python3-wheel sequoia-sqv
     - sudo rm -rf ~/pytest-of-user/
     - docker pull registry.gitlab.com/qubesos/docker-images/qubes-builder-fedora:latest
     - docker tag registry.gitlab.com/qubesos/docker-images/qubes-builder-fedora:latest qubes-builder-fedora:latest
     - mkdir ~/gitlab ~/tmp
-    - export PYTHONPATH=".:$PYTHONPATH" BASE_ARTIFACTS_DIR=~/gitlab TMPDIR=~/tmp
+    - git clone https://github.com/QubesOS/qubes-core-admin-client ~/core-admin-client
+    - export PYTHONPATH=".:~/core-admin-client:$PYTHONPATH" BASE_ARTIFACTS_DIR=~/gitlab TMPDIR=~/tmp
     - env
   after_script:
   - ci/codecov-wrapper -f artifacts/coverage.xml
@@ -250,8 +251,10 @@ mypy:
   tags:
     - docker
   before_script:
-    - sudo dnf install -y python3-mypy python3-pip qubes-core-admin-client
+    - sudo dnf install -y python3-mypy python3-pip
     - sudo python3 -m pip install types-PyYAML types-python-dateutil
+    - git clone https://github.com/QubesOS/qubes-core-admin-client ~/core-admin-client
+    - export PYTHONPATH="~/core-admin-client:$PYTHONPATH"
   script:
     - mypy --install-types --non-interactive --junit-xml mypy.xml qubesbuilder
   artifacts:
