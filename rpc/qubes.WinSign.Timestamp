@@ -12,6 +12,8 @@ cleanup() {
     fi
 }
 
+# expanding PAYLOAD_DIR early is the expected behavior
+# shellcheck disable=SC2064
 trap "cleanup ${PAYLOAD_DIR}" EXIT
 
 payload="${PAYLOAD_DIR}/payload"

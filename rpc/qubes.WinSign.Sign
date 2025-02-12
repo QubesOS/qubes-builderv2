@@ -2,10 +2,11 @@
 
 set -efo pipefail
 
+# shellcheck source=SCRIPTDIR/qubes.WinSign.common
 . /etc/qubes-rpc/qubes.WinSign.common
 
 usage() {
-    >&2 echo "Usage: $(basename $0)+<key-name>
+    >&2 echo "Usage: $(basename "$0")+<key-name>
 
 Sign a binary with the given key. Input = stdin, output = stdout.
 "
@@ -21,8 +22,7 @@ ensure_db
 KEY_NAME="${1//__/ }"
 
 set +e
-check_key_exists "${KEY_NAME}"
-if [ "$?" -ne "0" ]; then
+if ! check_key_exists "${1//__/ }"; then
     >&2 echo "Key '$1' does not exist"
     exit 1
 fi
@@ -37,6 +37,8 @@ cleanup() {
     fi
 }
 
+# expanding PAYLOAD_DIR early is the expected behavior
+# shellcheck disable=SC2064
 trap "cleanup ${PAYLOAD_DIR}" EXIT
 
 payload="${PAYLOAD_DIR}/payload"

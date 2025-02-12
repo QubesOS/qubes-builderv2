@@ -5,7 +5,7 @@ set -efo pipefail
 KEYS_DIR=/home/user/win-sign/keys
 
 # Validity period for generated self-signed certificates
-DAYS=3650
+export DAYS=3650
 
 ensure_db() {
     mkdir -p "${KEYS_DIR}"

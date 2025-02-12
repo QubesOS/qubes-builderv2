@@ -2,10 +2,11 @@
 
 set -efo pipefail
 
+# shellcheck source=SCRIPTDIR/qubes.WinSign.common
 . /etc/qubes-rpc/qubes.WinSign.common
 
 usage() {
-    >&2 echo "Usage: $(basename $0)+<key-name>
+    >&2 echo "Usage: $(basename "$0")+<key-name>
 
 Query whether the given signing key exists.
 "
@@ -19,8 +20,7 @@ fi
 ensure_db
 
 set +e
-check_key_exists "${1//__/ }"
-if [ "$?" -eq "0" ]; then
+if check_key_exists "${1//__/ }"; then
     echo "Key '$1' exists"
     exit 0
 else
