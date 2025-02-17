@@ -16,20 +16,17 @@ qubes-release: r4.2
 distributions:
   - host-fc37
   - vm-bookworm
-  - vm-fc39
-  - vm-fc40
+  - vm-fc41
 
 templates:
-  - fedora-39:
-      dist: fc39
+  - fedora-41-xfce:
+      dist: fc41
+      flavor: xfce
       options:
         - selinux
-  - fedora-40:
-      dist: fc40
-      options:
-        - selinux
-  - debian-12:
+  - debian-12-xfce:
       dist: bookworm
+      flavor: xfce
       options:
         - firmware
   - whonix-gateway-17:

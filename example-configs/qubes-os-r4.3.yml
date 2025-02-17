@@ -16,11 +16,11 @@ qubes-release: r4.3
 distributions:
   - host-fc41
   - vm-bookworm
-  - vm-fc40
+  - vm-fc41
 
 templates:
-  - fedora-40-xfce:
-      dist: fc40
+  - fedora-41-xfce:
+      dist: fc41
       flavor: xfce
       options:
         - selinux
