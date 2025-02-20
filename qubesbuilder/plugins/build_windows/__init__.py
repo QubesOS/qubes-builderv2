@@ -222,13 +222,13 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
             self.log.debug(f"creating key '{key_name}' in qube '{qube}'")
             self.run_rpc_service(
                 target=qube,
-                service=f"qubes.WinSign.CreateKey+{mangle_key_name(key_name)}",
+                service=f"qubesbuilder.WinSign.CreateKey+{mangle_key_name(key_name)}",
                 description=f"create signing key '{key_name}'",
             )
 
         return self.run_rpc_service(
             target=qube,
-            service=f"qubes.WinSign.GetCert+{mangle_key_name(key_name)}",
+            service=f"qubesbuilder.WinSign.GetCert+{mangle_key_name(key_name)}",
             description=f"get certificate for signing key '{key_name}'",
         )
 
@@ -238,7 +238,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         with open(file, "rb") as f:
             return self.run_rpc_service(
                 target=qube,
-                service=f"qubes.WinSign.Sign+{mangle_key_name(key_name)}",
+                service=f"qubesbuilder.WinSign.Sign+{mangle_key_name(key_name)}",
                 description=f"sign '{file}' with key '{key_name}'",
                 stdin=f.read(),
             )
@@ -247,7 +247,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
     def sign_delete_key(self, qube: str, key_name: str):
         out = self.run_rpc_service(
             target=qube,
-            service=f"qubes.WinSign.QueryKey+{mangle_key_name(key_name)}",
+            service=f"qubesbuilder.WinSign.QueryKey+{mangle_key_name(key_name)}",
             description=f"query signing key '{key_name}'",
             check_return=False,
         )
@@ -261,7 +261,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         self.log.debug(f"deleting key '{key_name}' in qube '{qube}'")
         self.run_rpc_service(
             target=qube,
-            service=f"qubes.WinSign.DeleteKey+{mangle_key_name(key_name)}",
+            service=f"qubesbuilder.WinSign.DeleteKey+{mangle_key_name(key_name)}",
             description=f"delete signing key '{key_name}'",
         )
 
@@ -489,7 +489,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                     )
 
                     io = dvm.run_service_for_stdio(
-                        service="qubes.WinSign.Timestamp",
+                        service="qubesbuilder.WinSign.Timestamp",
                         input=signed_data,
                     )
 

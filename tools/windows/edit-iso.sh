@@ -80,7 +80,7 @@ sudo losetup -d "${LODEV}"
 
 echo "[*] Copying the final iso from '${DISPVM}' to '${OUTPUT}'..."
 
-shell_call "${DISPVM}" "cat ~/win-build.iso" | cat > "${OUTPUT}"
+shell_call "${DISPVM}" "cat ~/win-build.iso" > "${OUTPUT}"
 qrexec_call "${DISPVM}" "admin.vm.Kill"
 
 echo "[*] Done!"

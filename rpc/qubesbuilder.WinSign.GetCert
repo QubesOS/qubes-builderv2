@@ -2,8 +2,8 @@
 
 set -efo pipefail
 
-# shellcheck source=SCRIPTDIR/qubes.WinSign.common
-. /etc/qubes-rpc/qubes.WinSign.common
+# shellcheck source=SCRIPTDIR/qubesbuilder.WinSign.common
+. "$(dirname "$0")/qubes.WinSign.common"
 
 usage() {
     >&2 echo "Usage: $(basename "$0")+<key-name>
