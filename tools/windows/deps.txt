@@ -1,0 +1,2 @@
+6333f5b38313360a2c960ea7afa3086002f479bad663f20f92a4889063fe925c  win-opensshd.msi  https://github.com/PowerShell/Win32-OpenSSH/releases/download/v9.5.0.0p1-Beta/OpenSSH-Win64-v9.5.0.0.msi
+9a23f3399bf6b80b119bcaf9def8679ed296f4b7d742e0251cf0b76a3fb97f77  ewdk.iso  https://go.microsoft.com/fwlink/?linkid=2271957

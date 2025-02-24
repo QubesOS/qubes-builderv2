@@ -355,6 +355,7 @@ def test_common_component_fetch_skip_files(artifacts_dir_single):
         in result
     )
 
+
 def test_common_component_fetch_commit_fresh(artifacts_dir_single):
     artifacts_dir = artifacts_dir_single
     commit_sha = "0589ae8a242b3be6a1b8985c6eb8900e5236152a"
@@ -370,8 +371,8 @@ def test_common_component_fetch_commit_fresh(artifacts_dir_single):
     ).decode()
 
     fetch_artifact = (
-        artifacts_dir /
-        "components/core-qrexec/4.2.20-1/nodist/fetch/source.fetch.yml"
+        artifacts_dir
+        / "components/core-qrexec/4.2.20-1/nodist/fetch/source.fetch.yml"
     )
     assert fetch_artifact.exists()
     with open(fetch_artifact) as f:
@@ -2032,7 +2033,6 @@ def test_template_fedora_40_minimal_sign(artifacts_dir):
         env["GNUPGHOME"] = gnupghome
         # We prevent rpm to find ~/.rpmmacros
         env["HOME"] = tmpdir
-
 
         qb_call(
             DEFAULT_BUILDER_CONF,

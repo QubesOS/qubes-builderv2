@@ -1,0 +1,31 @@
+#!/bin/bash
+
+set -efo pipefail
+
+# shellcheck source=SCRIPTDIR/qubesbuilder.WinSign.common
+. "$(dirname "$0")/qubes.WinSign.common"
+
+usage() {
+    >&2 echo "Usage: $(basename "$0")+<key-name>
+
+Get public certificate for a given signing key.
+"
+    exit 1
+}
+
+if [ $# -ne 1 ]; then
+    usage
+fi
+
+ensure_db
+
+KEY_NAME="${1//__/ }"
+
+set +e
+if ! check_key_exists "${KEY_NAME}"; then
+    >&2 echo "Key '$1' does not exist"
+    exit 1
+fi
+set -e
+
+cat "${KEYS_DIR}/${KEY_NAME}.crt"
