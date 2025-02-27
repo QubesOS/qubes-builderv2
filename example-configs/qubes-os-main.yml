@@ -89,6 +89,9 @@ components:
       url: https://github.com/QubesOS/qubes-linux-kernel
       branch: main
       timeout: 21600
+  - vmm-xen-unified:
+      # requires extra setup for signing, disable by default
+      packages: false
   - artwork
   - grub2
   - grub2-theme

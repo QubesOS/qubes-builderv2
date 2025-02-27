@@ -11,3 +11,10 @@ qubesbuilder.FileCopyOut * work-qubesos @tag:disp-created-by-work-qubesos allow
 qubes.Filecopy * work-qubesos @tag:disp-created-by-work-qubesos allow
 qubes.WaitForSession * work-qubesos @tag:disp-created-by-work-qubesos allow
 qubes.VMShell * work-qubesos @tag:disp-created-by-work-qubesos allow
+
+
+# Enable for secureboot signing
+#admin.vm.CreateDisposable * work-qubesos qubes-pesign-builder-dvm allow target=dom0
+#  adjust key-holding qube name (vault-pesign) and cert nickname (the service
+#  argument)
+#qubesbuilder.PESign +Qubes__OS__Unified__Kernel__Image__Signing__Key @tag:pesign-allow @default allow target=vault-pesign

@@ -131,6 +131,88 @@ $ qvm-prefs work-qubesos default_dispvm qubes-builder-dvm
 ```
 
 
+### Qubes executor for secureboot signing
+
+The `vmm-xen-unified` component builds a signed unified Xen+Linux binary. It
+requires additional setup for the signing process. This approach will use
+separate disposable template for just `vmm-xen-unified` component and have that
+disposable access to the signing service.
+
+Building `vmm-xen-unified` with docker executor is currently not supported.
+
+First, you will need to generate (or otherwise obtain) signing key. This step
+is not specific to qubes-builderv2, can be done with any tool. See README in
+`vmm-xen-unified` for example approach. Store the keys in a separate
+(preferably network-disconnected) qube (if you use HSM or other hardware token
+- configure its usage in that qube). Later steps in this instruction use
+`vault-pesign` name for this qube, but it can be anything. Copy
+`rpc/qubesbuilder.PESign` to `/usr/local/etc/qubes-rpc` in the key-holding qube
+and make sure it's executable:
+```
+chmod +x /usr/local/etc/qubes-rpc/qubesbuilder.PESign
+```
+
+If extra parameters for using the key are needed for `pesign`, add `/home/user/.config/qubes-pesign/CERT_NICKNAME` (where `CERT_NICKNAME` is a name used for `KEY_NAME` value later in this instruciton) to set the arguments, for example:
+```
+# dbpath with pkcs11 module configured
+PESIGN_ARGS+=( "--certdir=$HOME/pesign-token-db" )
+# token name
+PESIGN_ARGS+=( "--token=token name" )
+# pinfile path, if relevant
+PESIGN_ARGS+=( "--pinfile=$HOME/pesign-token-pin.txt" )
+# you can also override CERTIFICATE
+CERTIFICATE="certificate name as on the token"
+```
+
+After doing that, create new disposable template following the above
+instructions, but name it `qubes-pesign-builder-dvm`.
+
+Then, in the `qubes-pesign-builder-dvm` do the following:
+```
+mkdir -p /rw/bind-dirs/etc/systemd/system/
+mkdir -p /usr/local/etc/default
+# adjust value if you used different key nickname, replace spaces with __
+echo 'KEY_NAME="Qubes__OS__Unified__Kernel__Image__Signing__Key"' > /usr/local/etc/default/qubes-pesign
+mkdir -p /rw/config/qubes-bind-dirs.d
+cat <<EOF > /rw/config/qubes-bind-dirs.d/50_qubes-pesign.conf
+binds+=( '/etc/systemd/system/qubes-pesign.socket' )
+binds+=( '/etc/systemd/system/qubes-pesign@.service' )
+EOF
+```
+
+Copy `rpc/qubes-pesign*` from qubes-builderv2 into `/rw/bind-dirs/etc/systemd/system/` in `qubes-pesign-builder-dvm` and set appropriate SELinux context (if SELinux is enabled there):
+```
+restorecon /rw/bind-dirs/etc/systemd/system/*
+```
+
+Add starting the service in `/rw/config/rc.local`:
+```
+systemctl daemon-reload
+systemctl start qubes-pesign.socket
+```
+
+Next step is to adjust qrexec policy to allow signing. To not depend on specific dispvm name, the policy will use tags. The `rpc/policy/50-qubesbuilder.policy` file contains commented-out example. Adjust key-holding qube name and possibly certificat nickname there.
+And then add appropriate tag to the `qubes-pesign-builder-dvm`:
+```
+qvm-tags qubes-pesign-builder-dvm add pesign-allow
+```
+
+And finally, enable building `vmm-xen-unified` using just configured disposable
+template by adding the following to your `builder.yml`:
+
+```
++components:
+  - vmm-xen-unified:
+      packages: true
+      stages:
+      - build:
+          executor:
+            type: qubes
+            options:
+              dispvm: qubes-pesign-builder-dvm
+```
+
+
 ## Build stages
 
 The build process consists of the following stages:

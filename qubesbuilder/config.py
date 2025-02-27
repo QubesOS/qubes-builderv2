@@ -60,17 +60,67 @@ def extract_key_from_list(input_list: list):
     return result
 
 
-def deep_merge(a: dict, b: dict, allow_append: bool = False) -> dict:
+def is_list_dict_like(value: Union[str, dict, list]):
+    """
+    Checks if a list has only either strings, or one-key dicts, like it's
+    used in "components" or "stages" or "templates"
+    """
+    if not isinstance(value, list):
+        return False
+    for el in value:
+        if not el:
+            return False
+        if isinstance(el, str):
+            continue
+        if not isinstance(el, dict):
+            return False
+        if len(el) != 1:
+            return False
+        if not isinstance(next(iter(el.keys())), str):
+            return False
+    return True
+
+
+def merge_dict_likes(result: list, b_list: list):
+    """
+    Merge dict-like lists (lists with single-key dicts or strings only)
+    This modifies *result* list in-place.
+    """
+    # this is not very efficient but fortunately data size is small
+    for b_value in b_list:
+        if isinstance(b_value, str):
+            # append if not already present
+            keys_in_result = map(
+                lambda x: x if isinstance(x, str) else next(iter(x.keys())),
+                result,
+            )
+            if b_value not in keys_in_result:
+                result.append(b_value)
+            continue
+        b_key = next(iter(b_value.keys()))
+        for index, a_value in enumerate(result):
+            if isinstance(a_value, str):
+                # was plain string, replace with single-key dict
+                result[index] = deepcopy(b_value)
+                break
+            # both are single-key dicts, compare the key
+            a_key = next(iter(a_value.keys()))
+            if a_key == b_key:
+                result[index] = deep_merge(a_value, b_value)
+
+
+def deep_merge(a: dict, b: dict) -> dict:
     result = deepcopy(a)
     for b_key, b_value in b.items():
         a_value = result.get(b_key, None)
         if isinstance(a_value, dict) and isinstance(b_value, dict):
-            result[b_key] = deep_merge(a_value, b_value, allow_append)
-        else:
-            if isinstance(result.get(b_key, None), list) and allow_append:
-                result[b_key] += deepcopy(b_value)
-            else:
-                result[b_key] = deepcopy(b_value)
+            result[b_key] = deep_merge(a_value, b_value)
+            continue
+        if isinstance(a_value, list) and isinstance(b_value, list):
+            if is_list_dict_like(a_value) and is_list_dict_like(b_value):
+                merge_dict_likes(result[b_key], b_value)
+                continue
+        result[b_key] = deepcopy(b_value)
     return result
 
 

@@ -1,0 +1,14 @@
+[Unit]
+Description=Forward pesign call to vault
+CollectMode=inactive-or-failed
+
+[Service]
+EnvironmentFile=/usr/local/etc/default/qubes-pesign
+ExecStart=/usr/bin/qrexec-client-vm @default qubesbuilder.PESign+${KEY_NAME}
+StandardInput=socket
+StandardOutput=inherit
+StandardError=journal
+
+
+binds+=( '/etc/systemd/system/qubes-pesign.socket' )
+binds+=( '/etc/systemd/system/qubes-pesign@.service' )
