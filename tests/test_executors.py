@@ -379,4 +379,4 @@ def test_qubes_on_error_noclean():
         check=True,
     )
 
-    executor.cleanup(dispvm)
+    executor.cleanup()

@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -efo pipefail
+
+# shellcheck source=SCRIPTDIR/qubesbuilder.WinSign.common
+. "$(dirname "$0")/qubesbuilder.WinSign.common"
+
+usage() {
+    >&2 echo "Usage: $(basename "$0")+<key-name>
+
+Query whether the given signing key exists.
+"
+    exit 1
+}
+
+if [ $# -ne 1 ]; then
+    usage
+fi
+
+ensure_db
+
+set +e
+if check_key_exists "${1//__/ }"; then
+    echo "Key '$1' exists"
+else
+    echo "Key '$1' does not exist"
+fi

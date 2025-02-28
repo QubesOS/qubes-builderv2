@@ -105,7 +105,10 @@ def sanitize_line(untrusted_line: bytes):
         if 0x20 <= c <= 0x7E:
             pass
         else:
-            line[i] = 0x2E
+            if c == 0x0D:  # windows newline
+                line[i] = 0x20
+            else:
+                line[i] = 0x2E
     return bytearray(line).decode("ascii")
 
 

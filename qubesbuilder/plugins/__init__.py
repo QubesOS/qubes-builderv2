@@ -437,6 +437,12 @@ class DistributionPlugin(Plugin):
             return cls(**kwargs)
 
 
+def get_stage_options(stage: str, options: dict):
+    stages = options.get("stages", [])
+    s: dict = next((s for s in stages if stage in s), {})
+    return s.get(stage, {})
+
+
 class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
     @classmethod
     def from_args(cls, **kwargs):
@@ -503,6 +509,12 @@ class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
             raise PluginError(
                 f"{self.component}:{self.dist}: Conflicting build paths"
             )
+
+    def get_config_stage_options(self, stage: str):
+        stage_options = {}
+        stage_options.update(get_stage_options(stage, self.dist.kwargs))
+        stage_options.update(get_stage_options(stage, self.component.kwargs))
+        return stage_options
 
     def get_dist_component_artifacts_dir_history(
         self, stage: str
@@ -672,3 +684,9 @@ class GentooDistributionPlugin(DistributionPlugin):
     @classmethod
     def supported_distribution(cls, distribution: QubesDistribution):
         return distribution.is_gentoo()
+
+
+class WindowsDistributionPlugin(DistributionPlugin):
+    @classmethod
+    def supported_distribution(cls, distribution: QubesDistribution):
+        return distribution.is_windows()

@@ -1,0 +1,59 @@
+git:
+  prefix: omeg/qubes-
+  branch: omeg/builder-v2
+  maintainers:
+    # omeg
+    - 'CE8060B48282B234AE0A7815D32BF219E67BA830'
+
+#increment-devel-versions: true
+
+debug: true
+verbose: true
+
+skip-git-fetch: false
+
+# this is for anything other than building, so source fetching etc
+executor:
+  type: qubes
+  options:
+    dispvm: qubes-builder-dvm
+
+# dev only
+less-secure-signed-commits-sufficient:
+  - vmm-xen-windows-pvdrivers
+  - core-vchan-xen
+  - windows-utils
+  - core-qubesdb
+  - core-agent-windows
+  - gui-common
+  - gui-agent-windows
+  - installer-windows-tools
+
+distributions:
+  - vm-win10:
+      stages:
+        - build:
+            configuration: release
+            sign-qube: vault-sign
+            sign-key-name: "Qubes Windows Tools"
+            test-sign: true
+            executor:
+              #type: windows-ssh
+              type: windows
+              options:
+                dispvm: win-build
+                user: user
+                ewdk: tools/windows/ewdk.iso
+                threads: 1
+                #ssh-ip: 10.137.0.20
+                #ssh-key-path: /home/user/.ssh/win-build.key
+
+components:
+  - vmm-xen-windows-pvdrivers
+  - core-vchan-xen
+  - windows-utils
+  - core-qubesdb
+  - core-agent-windows
+  - gui-common
+  - gui-agent-windows
+  - installer-windows-tools
