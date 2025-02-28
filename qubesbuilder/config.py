@@ -37,6 +37,8 @@ from qubesbuilder.plugins import (
     DistributionComponentPlugin,
     ComponentPlugin,
     TemplatePlugin,
+    JobReference,
+    JobDependency,
 )
 from qubesbuilder.template import QubesTemplate
 
@@ -611,6 +613,56 @@ class Config:
     def get_plugin_manager(self):
         return PluginManager(self.get_plugins_dirs())
 
+    def get_needs(
+        self,
+        component: QubesComponent,
+        dist: QubesDistribution,
+        stage_name: str,
+    ):
+        needs = []
+        stages = component.kwargs.get(dist.distribution, {}).get("stages", [])
+        for stage in stages:
+            if (
+                isinstance(stage, dict)
+                and next(iter(stage)) == stage_name
+                and isinstance(stage[stage_name], dict)
+            ):
+                for need in stage[stage_name].get("needs", []):
+                    if all(
+                        [
+                            need.get("component", None),
+                            need.get("distribution", None),
+                            need.get("stage", None),
+                            need.get("build", None),
+                        ]
+                    ):
+                        filtered_components = self.get_components(
+                            [need["component"]]
+                        )
+                        if not filtered_components:
+                            raise ConfigError(
+                                f"Cannot find dependency component name '{need["component"]}'."
+                            )
+                        filtered_distributions = self.get_distributions(
+                            [need["distribution"]]
+                        )
+                        if not filtered_distributions:
+                            raise ConfigError(
+                                f"Cannot find dependency distribution name '{need["distribution"]}'."
+                            )
+                        needs.append(
+                            JobDependency(
+                                JobReference(
+                                    component=filtered_components[0],
+                                    dist=filtered_distributions[0],
+                                    stage=need["stage"],
+                                    template=None,
+                                    build=need["build"],
+                                )
+                            )
+                        )
+        return needs
+
     def get_jobs(
         self,
         components: List[QubesComponent],
@@ -638,6 +690,11 @@ class Config:
                         )
                         if not job:
                             continue
+                        job.dependencies += self.get_needs(
+                            component=component,
+                            dist=distribution,
+                            stage_name=stage,
+                        )
                         jobs.append(job)
 
         # ComponentPlugin

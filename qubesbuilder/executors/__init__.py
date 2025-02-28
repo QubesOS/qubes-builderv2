@@ -78,6 +78,9 @@ class Executor(ABC):
     def get_cache_dir(self):
         return self.get_builder_dir() / "cache"
 
+    def get_dependencies_dir(self):
+        return self.get_builder_dir() / "dependencies"
+
     @abstractmethod
     def copy_in(self, *args, **kwargs):
         pass
@@ -102,6 +105,7 @@ class Executor(ABC):
             "@BUILD_DIR@": self.get_build_dir(),
             "@PLUGINS_DIR@": self.get_plugins_dir(),
             "@DISTFILES_DIR@": self.get_distfiles_dir(),
+            "@DEPENDENCIES_DIR@": self.get_dependencies_dir(),
         }
 
     def replace_placeholders(self, s: str):

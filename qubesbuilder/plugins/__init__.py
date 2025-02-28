@@ -324,6 +324,16 @@ class Plugin:
                         sources_dir,
                     )
                 )
+            if dependency.builder_object == "job":
+                artifact_path = get_artifact_path(
+                    self.config, dependency.reference
+                )
+                for artifact in artifact_path.parent.iterdir():
+                    if artifact == artifact_path:
+                        continue
+                    copy_in.append(
+                        (artifact, self.executor.get_dependencies_dir())
+                    )
         return copy_in
 
 
