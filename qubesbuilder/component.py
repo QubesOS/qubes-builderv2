@@ -229,7 +229,7 @@ class QubesComponent:
             {
                 "@VERSION@": self.get_version(),
                 "@REL@": self.get_release(),
-                "@VER_REL@": self.get_version_release()
+                "@VER_REL@": self.get_version_release(),
             }
         )
 

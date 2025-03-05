@@ -568,6 +568,27 @@ class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
             "build", []
         )
 
+    def default_copy_in(self, plugins_dir: Path, sources_dir: Path):
+        copy_in = super().default_copy_in(plugins_dir, sources_dir)
+        for dependency in self.config.get_needs(
+            self.component, self.dist, self.stage
+        ):
+            artifact_path = get_artifact_path(self.config, dependency.reference)
+            for artifact in artifact_path.parent.iterdir():
+                # don't copy yml artifacts file
+                if artifact == artifact_path:
+                    continue
+                job_ref = dependency.reference
+                dependencies_dir = (
+                    self.executor.get_dependencies_dir()
+                    / job_ref.component.name
+                    / job_ref.component.get_version_release()
+                    / job_ref.dist.distribution
+                    / job_ref.stage
+                )
+                copy_in.append((artifact, dependencies_dir))
+        return copy_in
+
 
 class TemplatePlugin(DistributionPlugin):
     def __init__(
