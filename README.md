@@ -771,7 +771,7 @@ Options available in `builder.yml`:
     - `packages: bool` --- Component that generate packages (default: True). If set to False (e.g. `builder-rpm`), no `.qubesbuilder` file is allowed.
     - `verification-mode: str` --- component source code verification mode, supported values are: `signed-tag` (this is default), `less-secure-signed-commits-sufficient`, `insecure-skip-checking`. This option takes precedence over top level `less-secure-signed-commits-sufficient`.
     - `stages: List[Dict]` --- Allow to override stages options.
-    - `distribution_name: List[Dict]` -- Allow to override per distribution, stages options.
+    - `distribution_name: List[Dict]` -- Allow to override per distribution, stages options or to provides dependencies.
     - `package_set: List[Dict]` -- Allow to override per distribution package set, stages options.
 
 - `templates: List[Dict]` -- List of templates you want to build. See example configs for sensible lists.
@@ -859,3 +859,34 @@ For the `fetch` stage, the Qubes executor with disposable template `qubes-builde
 For the `build` stage of `vm-fc42`, the Podman executor with container image `fedoraimg` will be used.
 For the `sign` stage, the Qubes executor with disposable template `signing-access-dvm` will be used for both `vm-fc42` and `vm-jammy`
 For the `prep` stage of `vm-jammy`, the Local executor with base directory `/some/path` will be used.
+
+### cross-distribution dependencies
+
+To perform cross-compilation between distributions, you must declare dependencies using the `needs: List[Dict]` structure within the appropriate distribution stage.
+Each dependency is represented as a dictionary with the following keys:
+
+- `component: str` ---  The name of the component. This value is not limited to the top-level component reference; it can reference any available component.
+- `distribution: str` --- The name of the target distribution.
+- `stage: str` --- The stage name for which the dependency is required.
+- `build: str` --- The build reference as provided in a `.qubesbuilder` file.
+
+For example:
+
+```yaml
+components:
+  - installer-qubes-os-windows-tools:
+      host-fc41:
+        stages:
+          - build:
+              needs:
+                - component: installer-qubes-os-windows-tools
+                  distribution: vm-win10
+                  stage: build
+                  build: vs2022/installer.sln
+                - component: installer-qubes-os-windows-tools
+                  distribution: vm-win10
+                  stage: sign
+                  build: vs2022/installer.sln
+```
+
+This example shows how to specify multiple dependencies for different stages (build and sign) under a given distribution.

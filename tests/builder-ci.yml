@@ -101,6 +101,22 @@ components:
       url: https://github.com/marmarek/qubes-linux-gbulb
       branch: files-git-builderv2-tests
       verification-mode: less-secure-signed-commits-sufficient
+  - dummy-component:
+      url: https://github.com/fepitre/qubes-dummy-component
+      verification-mode: less-secure-signed-commits-sufficient
+      host-fc37:
+        stages:
+          - prep:
+              needs:
+                - component: dummy-component
+                  distribution: vm-fc40
+                  stage: build
+                  build: dummy.spec
+                - component: dummy-component
+                  distribution: vm-fc41
+                  stage: build
+                  build: dummy.spec
+
 
 templates:
   - fedora-40-xfce:
