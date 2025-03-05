@@ -226,7 +226,11 @@ class QubesComponent:
 
         placeholders = placeholders or {}
         placeholders.update(
-            {"@VERSION@": self.get_version(), "@REL@": self.get_release()}
+            {
+                "@VERSION@": self.get_version(),
+                "@REL@": self.get_release(),
+                "@VER_REL@": self.get_version_release()
+            }
         )
 
         with open(build_file) as f:

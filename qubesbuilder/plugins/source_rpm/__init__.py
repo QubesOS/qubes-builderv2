@@ -229,8 +229,8 @@ class RPMSourcePlugin(RPMDistributionPlugin, SourcePlugin):
                 (self.executor.get_build_dir() / source_rpm, artifacts_dir),
             ]
 
-            # Run 'mock' to generate source RPM
-            cmd = []
+            # Init command with .qubesbuilder command entries and then run 'mock' to generate source RPM
+            cmd = parameters.get("source", {}).get("commands", [])
 
             mock_conf = f"{self.dist.fullname}-{self.dist.version}-{self.dist.architecture}.cfg"
 
