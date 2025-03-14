@@ -397,6 +397,7 @@ class ArchlinuxBuildPlugin(ArchlinuxDistributionPlugin, BuildPlugin):
                 {
                     "packages": packages_list,
                     "source-hash": self.component.get_source_hash(),
+                    "files": packages_list,
                 }
             )
 

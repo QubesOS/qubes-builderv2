@@ -99,49 +99,56 @@ class JobDependency(Dependency):
         super().__init__(reference=reference, builder_object="job")
 
 
-def get_artifact_path(config, job_ref: JobReference) -> Path:
+def get_relative_artifacts_path(job_ref: JobReference) -> Path:
     if job_ref.template:
-        artifacts_path = (
-            config.templates_dir
-            / f"{job_ref.template.name}.{job_ref.stage}.yml"
-        )
+        relative_path = Path(f"{job_ref.template.name}.{job_ref.stage}.yml")
     elif job_ref.dist and job_ref.component:
-        base_dir = (
-            config.artifacts_dir
-            / "components"
-            / job_ref.component.name
-            / job_ref.component.get_version_release()
-            / job_ref.dist.distribution
-            / job_ref.stage
-        )
         if not job_ref.build:
             raise PluginError(
                 "JobReference for DistributionComponentPlugin requires a build identifier."
             )
         basename = PackagePath(job_ref.build).mangle()
         filename = Plugin.get_artifacts_info_filename(job_ref.stage, basename)
-        artifacts_path = base_dir.resolve() / filename
-    elif job_ref.component:
-        base_dir = (
-            config.artifacts_dir
-            / "components"
+        relative_path = (
+            Path("components")
             / job_ref.component.name
             / job_ref.component.get_version_release()
-            / "nodist"
+            / job_ref.dist.distribution
             / job_ref.stage
+            / filename
         )
+    elif job_ref.component:
         if not job_ref.build:
             raise PluginError(
                 "JobReference for ComponentPlugin requires a build identifier."
             )
         basename = PackagePath(job_ref.build).mangle()
         filename = Plugin.get_artifacts_info_filename(job_ref.stage, basename)
-        artifacts_path = base_dir.resolve() / filename
+        relative_path = (
+            Path("components")
+            / job_ref.component.name
+            / job_ref.component.get_version_release()
+            / "nodist"
+            / job_ref.stage
+            / filename
+        )
     else:
         raise PluginError(
             "Missing distribution, component or template in JobReference!"
         )
-    return artifacts_path
+    return relative_path
+
+
+def get_artifacts_path(config, job_ref: JobReference) -> Path:
+    if job_ref.template:
+        base_dir = config.templates_dir
+    elif job_ref.component:
+        base_dir = config.artifacts_dir
+    else:
+        raise PluginError(
+            "Missing distribution, component or template in JobReference!"
+        )
+    return base_dir / get_relative_artifacts_path(job_ref)
 
 
 class Plugin:
@@ -229,7 +236,7 @@ class Plugin:
             elif dependency.builder_object == "job":
                 artifact_path = None
                 try:
-                    artifact_path = get_artifact_path(
+                    artifact_path = get_artifacts_path(
                         self.config,
                         dependency.reference,
                     )
@@ -291,21 +298,24 @@ class Plugin:
     def get_iso_dir(self) -> Path:
         return (self.config.artifacts_dir / "iso").resolve()
 
+    @staticmethod
+    def _get_artifacts_info(artifacts_path: Path):
+        if not artifacts_path.exists():
+            return {}
+        try:
+            with open(artifacts_path, "r") as f:
+                artifacts_info = yaml.safe_load(f.read())
+            return artifacts_info or {}
+        except (PermissionError, yaml.YAMLError) as e:
+            msg = f"Failed to read info from '{artifacts_info}'."
+            raise PluginError(msg) from e
+
     def get_artifacts_info(
         self, stage: str, basename: str, artifacts_dir: Path
     ) -> Dict:
-        fileinfo = artifacts_dir / self.get_artifacts_info_filename(
-            stage, basename
+        return self._get_artifacts_info(
+            artifacts_dir / self.get_artifacts_info_filename(stage, basename)
         )
-        if fileinfo.exists():
-            try:
-                with open(fileinfo, "r") as f:
-                    artifacts_info = yaml.safe_load(f.read())
-                return artifacts_info or {}
-            except (PermissionError, yaml.YAMLError) as e:
-                msg = f"{basename}: Failed to read info from {stage} stage."
-                raise PluginError(msg) from e
-        return {}
 
     def default_copy_in(self, plugins_dir: Path, sources_dir: Path):
         copy_in = [(self.manager.entities[self.name].directory, plugins_dir)]
@@ -324,6 +334,21 @@ class Plugin:
                         sources_dir,
                     )
                 )
+            if dependency.builder_object == "job":
+                artifact_path = get_artifacts_path(
+                    self.config, dependency.reference
+                )
+                info = self._get_artifacts_info(artifact_path)
+                for file in info.get("files", []):
+                    dependencies_dir = (
+                        self.executor.get_dependencies_dir()
+                        / get_relative_artifacts_path(
+                            dependency.reference
+                        ).parent
+                    )
+                    copy_in.append(
+                        (artifact_path.parent / file, dependencies_dir)
+                    )
         return copy_in
 
 

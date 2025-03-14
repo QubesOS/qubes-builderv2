@@ -356,10 +356,12 @@ class DEBSourcePlugin(DEBDistributionPlugin, SourcePlugin):
                         "debian": source_debian,
                         "packages": packages_list,
                         "source-hash": self.component.get_source_hash(),
+                        "files": [source_dsc, source_debian],
                     }
                 )
                 if package_type == "quilt":
                     info["orig"] = source_orig
+                    info["files"].append(source_orig)
 
                 self.save_dist_artifacts_info(
                     stage=self.stage, basename=directory_bn, info=info

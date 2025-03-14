@@ -1,5 +1,6 @@
 import datetime
 import hashlib
+import io
 import itertools
 import os.path
 import pathlib
@@ -12,6 +13,7 @@ import dnf
 import pytest
 import yaml
 from dateutil.parser import parse as parsedate
+from pycdlib import pycdlib
 
 from qubesbuilder.common import PROJECT_PATH
 
@@ -457,6 +459,118 @@ def test_common_component_dependencies_02(artifacts_dir_single):
         b"<JobReference(component=core-qrexec, dist=host-fc37, stage=prep, build=rpm_spec_qubes-qrexec.spec)>"
         in e.value.output
     )
+
+
+def test_common_component_dependencies_03(artifacts_dir_single):
+    artifacts_dir = artifacts_dir_single
+    dist_artifacts_dir = (
+        artifacts_dir / "components" / "dummy-component" / "1.2.3-4"
+    )
+
+    # Directories for vm-fc40
+    fc40_dir = dist_artifacts_dir / "vm-fc40" / "build"
+    fc40_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create empty file
+    (fc40_dir / "dummy.spec.build.yml").write_text(
+        yaml.dump({"files": ["some.exe"]})
+    )
+
+    # Write executable content to "some.exe"
+    (fc40_dir / "some.exe").write_text("some executable")
+
+    # Directories for vm-fc41
+    fc41_dir = dist_artifacts_dir / "vm-fc41" / "build"
+    fc41_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create empty file
+    (fc41_dir / "dummy.spec.build.yml").write_text(
+        yaml.dump({"files": ["another.exe"]})
+    )
+
+    # Write executable content to "another.exe"
+    (fc41_dir / "another.exe").write_text("another executable")
+
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "dummy-component",
+        "-d",
+        "host-fc37",
+        "package",
+        "fetch",
+        "prep",
+        "build",
+    )
+
+    rpm = (
+        dist_artifacts_dir
+        / "host-fc37"
+        / "build"
+        / "rpm"
+        / "qubes-windows-tools-1.2.3-4.fc37.noarch.rpm"
+    )
+    p1 = subprocess.Popen(
+        ["rpm2cpio", str(rpm)],
+        cwd=str(dist_artifacts_dir),
+        stdout=subprocess.PIPE,
+    )
+    p2 = subprocess.Popen(
+        ["cpio", "-idmv"], cwd=str(dist_artifacts_dir), stdin=p1.stdout
+    )
+    p1.stdout.close()
+    p2.communicate()
+
+    iso_path = (
+        dist_artifacts_dir / "usr" / "lib" / "qubes" / "qubes-windows-tools.iso"
+    )
+    assert (
+        iso_path.exists()
+    ), f"ISO file not found at expected location: {iso_path}"
+
+    def get_joliet_filenames(iso):
+        children = iso.list_children(joliet_path="/")
+        filenames = []
+        for child in children:
+            raw = child.file_identifier()
+            try:
+                name = raw.decode("utf-16-be")
+            except Exception:
+                name = raw.decode("latin1")
+            filenames.append(name)
+        return filenames
+
+    iso = pycdlib.PyCdlib()
+    iso.open(str(iso_path))
+    expected_files = {
+        "qubes-tools-win10-1.2.3-4.exe": "some executable",
+        "qubes-tools-win11-1.2.3-4.exe": "another executable",
+    }
+    filenames = get_joliet_filenames(iso)
+
+    for expected_name, expected_content in expected_files.items():
+        if expected_name not in filenames:
+            iso.close()
+            raise AssertionError(
+                f"Expected file '{expected_name}' not found in ISO. Found files: {filenames}"
+            )
+        fp = io.BytesIO()
+        joliet_path = "/" + expected_name
+        try:
+            iso.get_file_from_iso_fp(fp, joliet_path=joliet_path)
+            fp.seek(0)
+            content = fp.read().decode("utf-8").strip()
+        except pycdlib.pycdlibexception.PyCdlibException:
+            iso.close()
+            raise AssertionError(
+                f"Expected file '{joliet_path}' not found in ISO."
+            )
+        assert (
+            content == expected_content
+        ), f"Content mismatch for {expected_name}: expected '{expected_content}', got '{content}'"
+
+    iso.close()
 
 
 #

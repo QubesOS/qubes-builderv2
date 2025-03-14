@@ -372,8 +372,17 @@ class DEBBuildPlugin(DEBDistributionPlugin, BuildPlugin):
 
             # Save package information we parsed for next stages
             info = source_info
-            info["packages"] = packages_list
-            info["source-hash"] = self.component.get_source_hash()
+            info.update(
+                {
+                    "files": packages_list
+                    + [
+                        source_info[f]
+                        for f in ["changes", "buildinfo", "dsc", "debian"]
+                    ],
+                    "packages": packages_list,
+                    "source-hash": self.component.get_source_hash(),
+                }
+            )
             self.save_dist_artifacts_info(
                 stage=self.stage, basename=directory_bn, info=info
             )

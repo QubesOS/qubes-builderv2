@@ -41,8 +41,12 @@ from qubesbuilder.plugins import (
     DistributionComponentPlugin,
     ComponentPlugin,
     TemplatePlugin,
+    JobReference,
+    JobDependency,
 )
 from qubesbuilder.template import QubesTemplate
+from qubesbuilder.log import QubesBuilderLogger
+
 
 QUBES_RELEASE_RE = re.compile(r"r([1-9]\.[0-9]+).*")
 QUBES_RELEASE_DEFAULT = "r4.2"
@@ -619,6 +623,67 @@ class Config:
     def get_plugin_manager(self):
         return PluginManager(self.get_plugins_dirs())
 
+    def get_needs(
+        self,
+        component: QubesComponent,
+        dist: QubesDistribution,
+        stage_name: str,
+    ):
+        needs = []
+        stages = component.kwargs.get(dist.distribution, {}).get("stages", [])
+        for stage in stages:
+            if isinstance(stage, dict):
+                if next(iter(stage)) != stage_name:
+                    continue
+                if not isinstance(stage[stage_name], dict):
+                    QubesBuilderLogger.warning(
+                        f"{component}:{dist}: Cannot parse provided stage '{str(stage)}'. Check stage format."
+                    )
+                    continue
+                for need in stage[stage_name].get("needs", []):
+                    if all(
+                        [
+                            need.get("component", None),
+                            need.get("distribution", None),
+                            need.get("stage", None),
+                            need.get("build", None),
+                        ]
+                    ):
+                        filtered_components = self.get_components(
+                            [need["component"]]
+                        )
+                        if not filtered_components:
+                            raise ConfigError(
+                                f"Cannot find dependency component name '{need["component"]}'."
+                            )
+                        filtered_distributions = self.get_distributions(
+                            [need["distribution"]]
+                        )
+                        if not filtered_distributions:
+                            raise ConfigError(
+                                f"Cannot find dependency distribution name '{need["distribution"]}'."
+                            )
+                        needs.append(
+                            JobDependency(
+                                JobReference(
+                                    component=filtered_components[0],
+                                    dist=filtered_distributions[0],
+                                    stage=need["stage"],
+                                    template=None,
+                                    build=need["build"],
+                                )
+                            )
+                        )
+                    else:
+                        QubesBuilderLogger.warning(
+                            f"{component}:{dist}: Cannot parse dependency stage '{str(need)}'. Check that component, distribution, stage and build reference are all provided."
+                        )
+            else:
+                QubesBuilderLogger.warning(
+                    f"{component}:{dist}: Cannot parse provided stage '{str(stage)}'. Check stage format."
+                )
+        return needs
+
     def get_jobs(
         self,
         components: List[QubesComponent],
@@ -646,6 +711,11 @@ class Config:
                         )
                         if not job:
                             continue
+                        job.dependencies += self.get_needs(
+                            component=component,
+                            dist=distribution,
+                            stage_name=stage,
+                        )
                         jobs.append(job)
 
         # ComponentPlugin

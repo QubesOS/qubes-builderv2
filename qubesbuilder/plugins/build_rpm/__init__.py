@@ -183,7 +183,6 @@ class RPMBuildPlugin(RPMDistributionPlugin, BuildPlugin):
 
         parameters = self.get_parameters(self.stage)
         artifacts_dir = self.get_dist_component_artifacts_dir(self.stage)
-        rpms_dir = artifacts_dir / "rpm"
 
         # Compare previous artifacts hash with current source hash
         if all(
@@ -204,7 +203,7 @@ class RPMBuildPlugin(RPMDistributionPlugin, BuildPlugin):
         artifacts_dir.mkdir(parents=True)
 
         # Create RPM folder
-        rpms_dir.mkdir(parents=True)
+        (artifacts_dir / "rpm").mkdir(parents=True)
 
         # Source artifacts
         prep_artifacts_dir = self.get_dist_component_artifacts_dir(stage="prep")
@@ -252,11 +251,17 @@ class RPMBuildPlugin(RPMDistributionPlugin, BuildPlugin):
             ]
 
             copy_out = [
-                (self.executor.get_build_dir() / "rpm" / rpm, rpms_dir)
+                (
+                    self.executor.get_build_dir() / "rpm" / rpm,
+                    artifacts_dir / "rpm",
+                )
                 for rpm in source_info["rpms"]
             ]
             copy_out += [
-                (self.executor.get_build_dir() / buildinfo_file, rpms_dir)
+                (
+                    self.executor.get_build_dir() / buildinfo_file,
+                    artifacts_dir / "rpm",
+                )
             ]
 
             # Createrepo of local builder repository and ensure 'mock' group can access
@@ -368,12 +373,12 @@ class RPMBuildPlugin(RPMDistributionPlugin, BuildPlugin):
 
             # Symlink SRPM into result RPMs
             srpm_path = prep_artifacts_dir / source_info["srpm"]
-            os.link(srpm_path, rpms_dir / source_info["srpm"])
+            os.link(srpm_path, artifacts_dir / "rpm" / source_info["srpm"])
 
             # Get packages list that have been actually built from predicted ones
             packages_list = []
             for rpm in source_info["rpms"]:
-                if os.path.exists(rpms_dir / rpm):
+                if os.path.exists(artifacts_dir / "rpm" / rpm):
                     packages_list.append(rpm)
 
             info = {
@@ -381,6 +386,11 @@ class RPMBuildPlugin(RPMDistributionPlugin, BuildPlugin):
                 "rpms": packages_list,
                 "buildinfo": buildinfo_file,
                 "source-hash": self.component.get_source_hash(),
+                "files": [
+                    f"rpm/{f}"
+                    for f in source_info["rpms"]
+                    + [buildinfo_file, source_info["srpm"]]
+                ],
             }
 
             # Provision builder local repository

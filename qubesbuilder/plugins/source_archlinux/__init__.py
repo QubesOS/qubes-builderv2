@@ -217,10 +217,13 @@ class ArchLinuxSourcePlugin(ArchlinuxDistributionPlugin, SourcePlugin):
                     {
                         "packages": packages_list,
                         "source-hash": self.component.get_source_hash(),
+                        "files": ["PKGBUILD"],
                     }
                 )
                 if create_archive:
                     info["source-archive"] = source_orig
+                    info["files"].append(source_orig)
+
                 self.save_dist_artifacts_info(
                     stage=self.stage, basename=build_bn, info=info
                 )

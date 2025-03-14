@@ -208,7 +208,9 @@ class FetchPlugin(ComponentPlugin):
         # for any further modifications. Once the source is fetched, we may locally
         # modify the source for development and at prep stage we would need to recompute
         # source hash based on those modifications.
-        info: dict[str, Any] = {"source-hash": source_hash}
+        info: dict[str, Any] = {
+            "source-hash": source_hash,
+        }
 
         if self.config.get("git-run-inplace", False):
             executor = LocalExecutor()
@@ -385,7 +387,7 @@ class FetchPlugin(ComponentPlugin):
             # Clean temp_dir
             shutil.rmtree(temp_dir)
         except OSError as e:
-            msg = f"{self.component}: Failed to clean artifacts: {str(e)}."
+            msg = f"{self.component}: Failed to clean or create artifacts: {str(e)}."
             raise FetchError(msg) from e
 
     def download_git_archive(self, file, executor, distfiles_dir):
