@@ -282,13 +282,15 @@ class Config:
                 self._dists.append(QubesDistribution(dist_name, **dist_options))
         if filtered_distributions:
             result = []
-            for fd in filtered_distributions:
-                for d in self._dists:
-                    if d.distribution == fd:
-                        result.append(d)
-                        break
-                else:
-                    raise ConfigError(f"No such distribution: {fd}")
+            filtered_distributions = set(filtered_distributions)
+            for d in self._dists:
+                if d.distribution in filtered_distributions:
+                    result.append(d)
+                    filtered_distributions.remove(d.distribution)
+            if filtered_distributions:
+                raise ConfigError(
+                    f"No such distribution: {', '.join(filtered_distributions)}"
+                )
             return result
         return self._dists
 
