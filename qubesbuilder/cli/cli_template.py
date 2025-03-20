@@ -18,17 +18,17 @@ def template():
 def _template_stage(
     config: Config,
     templates: List[QubesTemplate],
-    stage_name: str,
+    stages: List[str],
     template_timestamp: Optional[str] = None,
 ):
     """
     Generic function to trigger stage for a template component
     """
-    click.echo(f"Running template stage: {stage_name}")
+    click.echo(f"Running template stages: {', '.join(stages)}")
 
     # Qubes templates
     jobs = config.get_jobs(
-        templates=templates, components=[], distributions=[], stage=stage_name
+        templates=templates, components=[], distributions=[], stages=stages
     )
     for job in jobs:
         job.run(template_timestamp=template_timestamp)
@@ -40,12 +40,11 @@ def _all_template_stage(obj: ContextObj):
     stages = STAGES
     if obj.config.automatic_upload_on_publish:
         stages.remove("upload")
-    for s in stages:
-        _template_stage(
-            config=obj.config,
-            templates=obj.templates,
-            stage_name=s,
-        )
+    _template_stage(
+        config=obj.config,
+        templates=obj.templates,
+        stages=stages,
+    )
 
 
 @template.command()
@@ -54,7 +53,7 @@ def fetch(obj: ContextObj):
     _template_stage(
         config=obj.config,
         templates=obj.templates,
-        stage_name="fetch",
+        stages=["fetch"],
     )
 
 
@@ -69,7 +68,7 @@ def prep(obj: ContextObj, template_timestamp: str):
     _template_stage(
         config=obj.config,
         templates=obj.templates,
-        stage_name="prep",
+        stages=["prep"],
         template_timestamp=template_timestamp,
     )
 
@@ -80,7 +79,7 @@ def build(obj: ContextObj):
     _template_stage(
         config=obj.config,
         templates=obj.templates,
-        stage_name="build",
+        stages=["build"],
     )
 
 
@@ -90,7 +89,7 @@ def post(obj: ContextObj):
     _template_stage(
         config=obj.config,
         templates=obj.templates,
-        stage_name="post",
+        stages=["post"],
     )
 
 
@@ -100,7 +99,7 @@ def verify(obj: ContextObj):
     _template_stage(
         config=obj.config,
         templates=obj.templates,
-        stage_name="verify",
+        stages=["verify"],
     )
 
 
@@ -110,7 +109,7 @@ def sign(obj: ContextObj):
     _template_stage(
         config=obj.config,
         templates=obj.templates,
-        stage_name="sign",
+        stages=["sign"],
     )
 
 
@@ -120,13 +119,13 @@ def publish(obj: ContextObj):
     _template_stage(
         config=obj.config,
         templates=obj.templates,
-        stage_name="publish",
+        stages=["publish"],
     )
     if obj.config.automatic_upload_on_publish:
         _template_stage(
             config=obj.config,
             templates=obj.templates,
-            stage_name="upload",
+            stages=["upload"],
         )
 
 
@@ -136,7 +135,7 @@ def upload(obj: ContextObj):
     _template_stage(
         config=obj.config,
         templates=obj.templates,
-        stage_name="upload",
+        stages=["upload"],
     )
 
 

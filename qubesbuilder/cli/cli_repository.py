@@ -40,14 +40,14 @@ def _publish(
             components=components,
             distributions=distributions,
             templates=[],
-            stage="publish",
+            stages=["publish"],
         )
     elif repository_publish in TEMPLATE_REPOSITORIES:
         jobs = config.get_jobs(
             templates=templates,
             components=[],
             distributions=[],
-            stage="publish",
+            stages=["publish"],
         )
     else:
         raise CliError(f"Unknown repository '{repository_publish}'")
@@ -374,14 +374,14 @@ def _upload(
             distributions=distributions,
             components=[],
             templates=[],
-            stage="upload",
+            stages=["upload"],
         )
     elif repository_publish in TEMPLATE_REPOSITORIES:
         jobs = config.get_jobs(
             templates=templates,
             distributions=[],
             components=[],
-            stage="upload",
+            stages=["upload"],
         )
     for job in jobs:
         job.run(repository_publish=repository_publish)

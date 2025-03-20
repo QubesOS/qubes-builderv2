@@ -48,7 +48,7 @@ distributions:
 @pytest.fixture
 def plugins(config):
     return config.get_jobs(
-        stage="prep",
+        stages=["prep"],
         components=config.get_components(),
         distributions=config.get_distributions(),
         templates=[],
