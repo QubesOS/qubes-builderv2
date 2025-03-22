@@ -162,7 +162,7 @@ class Plugin:
     dependencies: List[Dependency] = []
 
     @classmethod
-    def from_args(cls, **kwargs):
+    def from_args(cls, **kwargs) -> "Plugin":
         raise NotImplementedError
 
     @classmethod
@@ -234,6 +234,10 @@ class Plugin:
                     f"dependency '{dependency.reference}' (commit hash: {component[0].get_source_commit_hash()})"
                 )
             elif dependency.builder_object == "job":
+                if not dependency.reference.build:
+                    # non-build-specific dependencies are only for
+                    # ordering, ignore for check_dependencies
+                    continue
                 artifact_path = None
                 try:
                     artifact_path = get_artifacts_path(

@@ -72,6 +72,19 @@ class BuildPlugin(DistributionComponentPlugin):
                         )
                     )
                 )
+        else:
+            # build=None dependency just for ordering
+            self.dependencies.append(
+                JobDependency(
+                    JobReference(
+                        component=self.component,
+                        dist=self.dist,
+                        stage="prep",
+                        build=None,
+                        template=None,
+                    )
+                )
+            )
 
     @classmethod
     def from_args(cls, **kwargs):

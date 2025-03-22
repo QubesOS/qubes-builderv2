@@ -270,10 +270,14 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         self.log.debug(f"{stage_options=}")
 
         # Compare previous artifacts hash with current source hash
-        hash = self.get_dist_artifacts_info(
-            self.stage, self.component.name
-        ).get("source-hash", None)
-        if self.component.get_source_hash() == hash:
+        source_hash = self.component.get_source_hash()
+        for target in parameters["build"]:
+            build_hash = self.get_dist_artifacts_info(
+                self.stage, target.mangle()
+            ).get("source-hash", None)
+            if source_hash != build_hash:
+                break
+        else:
             self.log.info(
                 f"{self.component}:{self.dist}: Source hash is the same than already built source. Skipping."
             )
@@ -506,7 +510,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                     }
                 )
                 self.save_dist_artifacts_info(
-                    stage=self.stage, basename=self.component.name, info=info
+                    stage=self.stage, basename=target.mangle(), info=info
                 )
         finally:
             if test_sign:

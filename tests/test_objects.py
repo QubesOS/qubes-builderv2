@@ -843,7 +843,7 @@ executor:
                 components=config.get_components(),
                 distributions=config.get_distributions(),
                 templates=[],
-                stage="fetch",
+                stages=["fetch"],
             )
             executor = config.get_executor_from_config("build", jobs[0])
             assert isinstance(executor, ContainerExecutor)

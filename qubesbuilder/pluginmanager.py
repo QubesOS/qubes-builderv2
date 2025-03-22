@@ -6,6 +6,7 @@ from typing import List, Dict
 
 from qubesbuilder.exc import EntityError, PluginManagerError
 from qubesbuilder.log import QubesBuilderLogger
+from qubesbuilder.plugins import Plugin
 
 
 class PluginEntity:
@@ -75,7 +76,7 @@ class PluginManager:
 
         return entities
 
-    def _get_plugins_with_attr(self, module_attr):
+    def _get_plugins_with_attr(self, module_attr) -> List[Plugin]:
         # Ensure plugin class name are uniq
         plugin_names = []
         for entity in self.entities.values():
@@ -101,5 +102,5 @@ class PluginManager:
             self._entities = self._get_plugin_entities()
         return self._entities
 
-    def get_plugins(self):
+    def get_plugins(self) -> List[Plugin]:
         return self._get_plugins_with_attr("PLUGINS")
