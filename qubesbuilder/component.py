@@ -315,5 +315,8 @@ class QubesComponent:
     def __eq__(self, other):
         return repr(self) == repr(other)
 
+    def __hash__(self):
+        return hash(self.name)
+
     def __str__(self):
         return self.to_str()

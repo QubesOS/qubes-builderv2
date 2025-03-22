@@ -130,6 +130,9 @@ class QubesDistribution:
     def __eq__(self, other):
         return repr(self) == repr(other)
 
+    def __hash__(self):
+        return hash(self.distribution)
+
     def is_rpm(self) -> bool:
         if FEDORA_RE.match(self.name) or CENTOS_STREAM_RE.match(self.name):
             return True
