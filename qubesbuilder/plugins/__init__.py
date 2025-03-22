@@ -162,7 +162,7 @@ class Plugin:
     dependencies: List[Dependency] = []
 
     @classmethod
-    def from_args(cls, **kwargs):
+    def from_args(cls, **kwargs) -> "Plugin":
         raise NotImplementedError
 
     @classmethod
