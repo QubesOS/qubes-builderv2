@@ -724,10 +724,15 @@ class InstallerPlugin(DistributionPlugin):
                 self.log.info(f"Please specify GPG client to use!")
                 return
 
+            # Get WebSeed URL from config (or use default)
+            webseed = self.config.repository_upload_remote_host.get(
+                "webseed", default="default"
+            )
+
             try:
                 self.log.info(f"{self.iso_name}: Signing '{iso.name}'.")
                 cmd = [
-                    f"{self.manager.entities['installer'].directory}/scripts/release-iso {iso} {self.config.gpg_client} {sign_key}"
+                    f"{self.manager.entities['installer'].directory}/scripts/release-iso {iso} {self.config.gpg_client} {sign_key} {webseed}"
                 ]
                 self.executor.run(cmd)
             except ExecutorError as e:

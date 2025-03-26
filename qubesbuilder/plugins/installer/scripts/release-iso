@@ -33,6 +33,12 @@ if [ -z "${GPG_SIGN_KEY}" ]; then
     exit 1
 fi
 
+WEBSEED="$4"
+if [ -z "${WEBSEED}" ]; then
+    echo "ERROR: Please provide WebSeed URL."
+    exit 1
+fi
+
 # make sure we're in qubes-builder iso root directory
 cd "$ISO_DIR"
 
@@ -93,7 +99,7 @@ if [ "${ISO_BASE}.iso" -nt "${ISO_BASE}.torrent" ]; then
 fi
 
 if [ ! -e "${ISO_BASE}.torrent" ]; then
-    "$LOCALDIR/create-torrent" "$ISO"
+    "$LOCALDIR/create-torrent" --file "$ISO" --remote "$WEBSEED"
 fi
 
 printf "ok\n"
