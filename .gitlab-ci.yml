@@ -83,6 +83,8 @@ builderv2-github:
   stage: prep
   tags:
     - vm
+  variables:
+    RELEASE: 4.3
   artifacts:
     paths:
       - artifacts.tar.xz
@@ -91,7 +93,7 @@ builderv2-github:
     - docker tag registry.gitlab.com/qubesos/docker-images/qubes-builder-fedora:latest qubes-builder-fedora:latest
     - sudo dnf install -y python3-debian dpkg-dev openssl tree pacman
   script:
-    - ./qb --builder-conf tests/builder-ci.yml -d "${CI_JOB_NAME#cache-}" package init-cache
+    - ./qb --builder-conf tests/builder-ci.yml -o use-qubes-repo:version=${RELEASE} -o qubes-release=r${RELEASE} -o +distributions+"${CI_JOB_NAME#cache-}" -d "${CI_JOB_NAME#cache-}" package init-cache
     - tar cJf artifacts.tar.xz --strip-components=1 artifacts
 
 .component_job:
@@ -332,6 +334,14 @@ pytest-cli-installer-cache:
 # Cache
 
 cache-host-fc37:
+  extends: .init_cache_job
+  variables:
+    RELEASE: 4.2
+  script:
+    - !reference [.init_cache_job, script ]
+    - tests/scripts/check-chroot-content.sh artifacts "${CI_JOB_NAME#cache-}" /usr/bin/gcc
+
+cache-host-fc41:
   extends: .init_cache_job
   script:
     - !reference [.init_cache_job, script ]
