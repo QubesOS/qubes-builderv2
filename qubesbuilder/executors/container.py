@@ -30,16 +30,20 @@ try:
     from docker import DockerClient
     from docker.errors import DockerException
     from docker.models.containers import Container
+
+    has_docker = True
 except ImportError:
-    DockerClient = None
-    DockerException = ExecutorError
+    has_docker = False
+    DockerException = ExecutorError  # type: ignore
 
 try:
     from podman import PodmanClient
     from podman.errors import PodmanError
+
+    has_podman = True
 except ImportError:
-    PodmanClient = None
-    PodmanError = ExecutorError
+    has_podman = False
+    PodmanError = ExecutorError  # type: ignore
 
 
 class ContainerExecutor(Executor):
@@ -58,11 +62,11 @@ class ContainerExecutor(Executor):
         self._group = group
 
         if self._container_client == "podman":
-            if PodmanClient is None:
+            if not has_podman:
                 raise ExecutorError(f"Cannot find 'podman' on the system.")
             self._client = PodmanClient
         elif self._container_client == "docker":
-            if DockerClient is None:
+            if not has_docker:
                 raise ExecutorError(f"Cannot find 'docker' on the system.")
             self._client = DockerClient
         else:
