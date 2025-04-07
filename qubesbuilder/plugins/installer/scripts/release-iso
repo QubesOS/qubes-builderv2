@@ -93,7 +93,7 @@ if [ "${ISO_BASE}.iso" -nt "${ISO_BASE}.torrent" ]; then
 fi
 
 if [ ! -e "${ISO_BASE}.torrent" ]; then
-    "$LOCALDIR/create-torrent" "$ISO"
+    "$LOCALDIR/create-torrent" --file "$ISO"
 fi
 
 printf "ok\n"

@@ -2,11 +2,11 @@ createrepo-c
 devscripts
 docker.io
 gpg
-mktorrent
 openssl
 python3-click
 python3-dateutil
 python3-docker
+python3-libtorrent
 python3-lxml
 python3-packaging
 python3-pathspec
