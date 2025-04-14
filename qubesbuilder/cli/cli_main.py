@@ -25,7 +25,7 @@ from typing import List, Dict, Any
 
 import click
 
-from qubesbuilder.cli.cli_base import ContextObj, aliased_group
+from qubesbuilder.cli.cli_base import ContextObj, AliasedGroup, aliased_group
 from qubesbuilder.cli.cli_cleanup import cleanup
 from qubesbuilder.cli.cli_config import config
 from qubesbuilder.cli.cli_exc import CliError
@@ -238,6 +238,7 @@ def main(
     obj.templates = obj.config.get_templates(template)
 
     # debug will show traceback
+    assert isinstance(ctx.command, AliasedGroup)
     ctx.command.debug = obj.config.debug
 
     ctx.obj = obj

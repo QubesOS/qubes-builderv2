@@ -21,7 +21,7 @@ import hashlib
 import re
 import subprocess
 from pathlib import Path
-from typing import Union, List, TYPE_CHECKING
+from typing import Union, List, NamedTuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     try:
@@ -33,13 +33,27 @@ import pathspec
 import yaml
 
 # pylint: disable=protected-access
-from packaging.version import Version, InvalidVersion, VERSION_PATTERN, _Version
+from packaging.version import (
+    Version,
+    InvalidVersion,
+    VERSION_PATTERN,
+    LocalType,
+)
 
 from qubesbuilder.common import sanitize_line, deep_check, VerificationMode
 from qubesbuilder.exc import ComponentError, NoQubesBuilderFileError
 
 # allow fractional post-release (like 1.0-0.1)
 VERSION_PATTERN_REL = r"(?:(?P<post_frac>\.[0-9]+))?"
+
+
+class _Version(NamedTuple):
+    epoch: int
+    release: tuple[int, ...]
+    dev: tuple[str, int] | None
+    pre: tuple[str, int] | None
+    post: tuple[str, int | str] | None
+    local: LocalType | None
 
 
 class QubesVersion(Version):
@@ -56,17 +70,24 @@ class QubesVersion(Version):
         super().__init__(version)
         if "-rc" in version:
             # pylint: disable=protected-access
-            self._version: _Version = self._version._replace(
-                pre=("-rc", self._version.pre[1])
-            )
+            assert self._version.pre
+            self._version: _Version = _Version(
+                self._version._replace(pre=("-rc", self._version.pre[1]))
+            )  # type: ignore
         match = self._regex.search(version)
         assert match  # already verified in parent
         if match.group("post_frac"):
-            self._version = self._version._replace(
+            assert self._version.post
+            self._version = _Version(
+                epoch=self._version.epoch,
+                release=self._version.release,
+                dev=self._version.dev,
+                pre=self._version.pre,
                 post=(
                     self._version.post[0],
                     str(self._version.post[1]) + match.group("post_frac"),
-                )
+                ),
+                local=self._version.local,
             )
 
 
