@@ -1,6 +1,7 @@
 # The Qubes OS Project, http://www.qubes-os.org
 #
 # Copyright (C) 2021 Frédéric Pierret (fepitre) <frederic@invisiblethingslab.com>
+# Copyright (C) 2025 Rafał Wojdyła <omeg@invisiblethingslab.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -98,7 +99,7 @@ class QubesExecutor(Executor):
         args += [str(src)]
 
         qrexec_call(
-            log=self.log,
+            executor=self,
             what="copy-in",
             vm=self.dispvm,
             service=f"{self.copy_in_service}+{encoded_dst_path}",
@@ -133,7 +134,7 @@ class QubesExecutor(Executor):
             unpacker_path = old_unpacker_path
         encoded_src_path = encode_for_vmexec(str(src))
         qrexec_call(
-            log=self.log,
+            executor=self,
             what="copy-out",
             vm=self.dispvm,
             service=f"{self.copy_out_service}+{encoded_src_path}",
@@ -163,7 +164,7 @@ class QubesExecutor(Executor):
     def copy_rpc_services(self):
         assert self.dispvm
         qrexec_call(
-            log=self.log,
+            executor=self,
             what="copy builder rpc services",
             vm=self.dispvm,
             service="qubes.Filecopy",
@@ -178,7 +179,7 @@ class QubesExecutor(Executor):
     def cleanup(self):
         # Kill the DispVM to prevent hanging for while
         assert self.dispvm
-        kill_vm(self.log, self.dispvm)
+        kill_vm(self, self.dispvm)
 
 
 class LinuxQubesExecutor(QubesExecutor):
@@ -198,8 +199,8 @@ class LinuxQubesExecutor(QubesExecutor):
         dig_holes: bool = False,
     ):
         try:
-            self.dispvm = create_dispvm(self.log, self._dispvm_template)
-            start_vm(self.log, self.dispvm)
+            self.dispvm = create_dispvm(self, self._dispvm_template)
+            start_vm(self, self.dispvm)
             self.copy_rpc_services()
 
             assert self.dispvm
@@ -370,16 +371,16 @@ class WindowsQubesExecutor(BaseWindowsExecutor, QubesExecutor):
 
     def start_worker(self):
         # we need the dispvm in a stopped state to attach EWDK block device
-        self.dispvm = create_dispvm(self.log, self._dispvm_template)
+        self.dispvm = create_dispvm(self, self._dispvm_template)
         self.log.debug(f"dispvm: {self.dispvm}")
         self.attach_ewdk(self.dispvm)
-        start_vm(self.log, self.dispvm)
+        start_vm(self, self.dispvm)
 
         # wait for startup
         for _ in range(10):
             try:
                 qrexec_call(
-                    log=self.log,
+                    executor=self,
                     what="dispvm qrexec test",
                     vm=self.dispvm,
                     service="qubes.VMShell",
@@ -397,12 +398,12 @@ class WindowsQubesExecutor(BaseWindowsExecutor, QubesExecutor):
         if self.dispvm is None:
             return
 
-        state = vm_state(self.log, self.dispvm)
+        state = vm_state(self, self.dispvm)
 
         if state != "Halted":
-            kill_vm(self.log, self.dispvm)
+            kill_vm(self, self.dispvm)
         else:
-            remove_vm(self.log, self.dispvm)
+            remove_vm(self, self.dispvm)
 
     def run(
         self,
@@ -416,7 +417,7 @@ class WindowsQubesExecutor(BaseWindowsExecutor, QubesExecutor):
             # TODO: don't require two scripts per service
             assert self.dispvm
             qrexec_call(
-                log=self.log,
+                executor=self,
                 what="copy RPC services to dispvm",
                 vm=self.dispvm,
                 service="qubes.Filecopy",
@@ -443,7 +444,7 @@ class WindowsQubesExecutor(BaseWindowsExecutor, QubesExecutor):
             ]
 
             qrexec_call(
-                log=self.log,
+                executor=self,
                 what="prepare RPC services in dispvm",
                 vm=self.dispvm,
                 service="qubes.VMShell",
@@ -460,16 +461,13 @@ class WindowsQubesExecutor(BaseWindowsExecutor, QubesExecutor):
             ).encode("utf-8")
             self.log.debug(f"{bin_cmd=}")
 
-            # TODO: this doesn't stream stdout, use execute()
             stdout = qrexec_call(
-                log=self.log,
+                executor=self,
                 what="run command in dispvm",
                 vm=self.dispvm,
                 service="qubes.VMShell",
                 stdin=bin_cmd,
-                capture_output=True,
             )
-            assert stdout is not None
             self.log.debug(stdout.decode("utf-8"))
 
             for src_out, dst_out in copy_out or []:

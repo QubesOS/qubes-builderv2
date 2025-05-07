@@ -19,7 +19,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import os
-import subprocess
 from abc import ABC
 from pathlib import Path, PurePath, PureWindowsPath
 from time import sleep
@@ -55,56 +54,35 @@ class BaseWindowsExecutor(Executor, ABC):
 
     # starts dispvm from default template (not windows)
     def start_dispvm(self) -> str:
-        name = create_dispvm(self.log, "dom0")
+        name = create_dispvm(self, "dom0")
         self.log.debug(f"created dispvm {name}")
-        start_vm(self.log, name)
+        start_vm(self, name)
         return name
 
     def kill_vm(self, vm: str):
-        qkill_vm(self.log, vm)
-
-    def run_rpc_service(
-        self,
-        target: str,
-        service: str,
-        description: str,
-        stdin: bytes = b"",
-    ) -> bytes:
-        out = qrexec_call(
-            log=self.log,
-            what=description,
-            vm=target,
-            service=service,
-            capture_output=True,
-            stdin=stdin,
-        )
-        assert out is not None
-        return out
+        qkill_vm(self, vm)
 
     # Get loop device id for the EWDK iso if attached to the builder vm, otherwise None
     def _get_ewdk_loop(self) -> Optional[str]:
         if self.ewdk_path is None:
             return None
 
-        try:
-            proc = subprocess.run(
-                ["losetup", "-j", self.ewdk_path],
-                check=True,
-                capture_output=True,
-            )
-            stdout = proc.stdout.decode()
-            if "/dev/loop" in stdout:
-                loop_dev = stdout.split(":", 1)[0]
-                loop_id = loop_dev.removeprefix("/dev/")
-                self.log.debug(f"ewdk loop id: {loop_id}")
-                return loop_id
-            else:
-                return None
-
-        except subprocess.CalledProcessError as e:
+        rc, stdout, stderr = self.execute(
+            ["losetup", "-j", self.ewdk_path], collect=True, echo=False
+        )
+        if rc != 0:
             raise ExecutorError(
-                f"Failed to run losetup: {proc.stderr.decode()}"
-            ) from e
+                f"Failed to run losetup: {stderr.decode("ascii", "strict")}, error code {rc}"
+            )
+
+        result = stdout.decode("ascii", "strict")
+        if "/dev/loop" in result:
+            loop_dev = result.split(":", 1)[0]
+            loop_id = loop_dev.removeprefix("/dev/")
+            self.log.debug(f"ewdk loop id: {loop_id}")
+            return loop_id
+        else:
+            return None
 
     def attach_ewdk(self, vm: str):
         assert self.ewdk_path
@@ -115,17 +93,16 @@ class BaseWindowsExecutor(Executor, ABC):
         if not loop_id:
             # attach EWDK image
             proc = None
-            try:
-                self.log.debug(f"attaching EWDK from '{self.ewdk_path}'")
-                proc = subprocess.run(
-                    ["sudo", "losetup", "-f", self.ewdk_path],
-                    check=True,
-                    capture_output=True,
-                )
-            except subprocess.CalledProcessError as e:
+            self.log.debug(f"attaching EWDK from '{self.ewdk_path}'")
+            rc, stdout, stderr = self.execute(
+                ["sudo", "losetup", "-f", self.ewdk_path],
+                collect=True,
+                echo=False,
+            )
+            if rc != 0:
                 raise ExecutorError(
-                    f"Failed to run losetup: {proc.stderr.decode() if proc else e}"
-                ) from e
+                    f"Failed to run losetup: {stderr.decode("ascii", "strict")}, error code {rc}"
+                )
 
             loop_id = self._get_ewdk_loop()
             if not loop_id:
@@ -138,17 +115,16 @@ class BaseWindowsExecutor(Executor, ABC):
         timeout = 10
         while timeout > 0:
             stdout = qrexec_call(
-                log=self.log,
+                executor=self,
                 what="ewdk loop device query",
                 vm=self_name,
                 service=f"admin.vm.device.block.Available+{loop_id}",
             )
 
-            assert stdout is not None
             if stdout.decode("ascii", "strict").startswith(loop_id):
                 # loop device ready, attach to vm
                 qrexec_call(
-                    log=self.log,
+                    executor=self,
                     what="attach ewdk to worker vm",
                     vm=vm,
                     service=f"admin.vm.device.block.Attach+{self_name}+{loop_id}",
@@ -261,7 +237,7 @@ class SSHWindowsExecutor(BaseWindowsExecutor):
             if "DeviceAlreadyAttached" in str(e):
                 self.log.debug(f"EWDK already attached to vm '{self.vm}'")
 
-        start_vm(self.log, self.vm)
+        start_vm(self, self.vm)
         # ensure connectivity
         self.ssh_cmd(["exit 0"])
 

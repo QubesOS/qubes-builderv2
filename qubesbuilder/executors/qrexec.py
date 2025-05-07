@@ -17,25 +17,25 @@
 # with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
+
 import re
 import subprocess
 from typing import List, Optional
-
 from qubesbuilder.common import sanitize_line
-from qubesbuilder.executors import ExecutorError
+from qubesbuilder.executors import Executor, ExecutorError
 
 
 def qrexec_call(
-    log,
+    executor: Executor,
     what: str,
     vm: str,
     service: str,
     args: Optional[List[str]] = None,
-    capture_output: bool = False,
     options: Optional[List[str]] = None,
     stdin: bytes = b"",
+    echo: bool = True,
     ignore_errors: bool = False,
-) -> Optional[bytes]:
+) -> bytes:
     cmd = [
         "/usr/lib/qubes/qrexec-client-vm",
     ]
@@ -53,51 +53,37 @@ def qrexec_call(
         cmd += args
 
     admin = service.startswith("admin.")
-    capture_output = capture_output or admin
-    try:
-        log.debug(f"qrexec call ({what}): {' '.join(cmd)}")
-        proc = subprocess.run(
-            cmd,
-            check=not ignore_errors,
-            capture_output=capture_output,
-            input=stdin,
-        )
-    except subprocess.CalledProcessError as e:
-        if e.stderr is not None:
-            content = sanitize_line(e.stderr.rstrip(b"\n")).rstrip()
-        else:
-            content = str(e)
-        msg = f"Failed to {what}: {content}"
+    echo = echo and not admin
+    rc, stdout, stderr = executor.execute(
+        cmd, collect=True, stdin=stdin, echo=echo
+    )
+
+    if not ignore_errors and rc != 0:
+        err = f"{stderr.decode("ascii", "strict")}, " if stderr else ""
+        msg = f"Failed to {what}: {err}qrexec call failed with code {rc}"
         raise ExecutorError(msg, name=vm)
 
-    if capture_output:
-        stdout = proc.stdout
-        if admin:
-            if not stdout.startswith(b"0\x00"):
-                stdout = stdout[2:].replace(b"\x00", b"\n")
+    if admin:
+        if not stdout.startswith(b"0\x00"):
+            stdout = stdout[2:].replace(b"\x00", b"\n")
 
-                if not ignore_errors:
-                    raise ExecutorError(
-                        f"Failed to {what}: qrexec call failed: {stdout.decode('ascii', 'strict')}"
-                    )
-                else:
-                    log.debug(
-                        f"Failed to {what}: qrexec call failed: {stdout.decode('ascii', 'strict')}"
-                    )
-            stdout = stdout[2:]
-        return stdout
-    return None
+            msg = f"Failed to {what}: qrexec call failed: {stdout.decode('ascii', 'strict')}"
+            if not ignore_errors:
+                raise ExecutorError(msg)
+            else:
+                executor.log.debug(msg)
+        stdout = stdout[2:]
+    return stdout
 
 
-def create_dispvm(log, template: str) -> str:
+def create_dispvm(executor: Executor, template: str) -> str:
     stdout = qrexec_call(
-        log=log,
+        executor=executor,
         what="create disposable qube",
         vm=template,
         service="admin.vm.CreateDisposable",
     )
 
-    assert stdout
     if not re.match(rb"\Adisp(0|[1-9][0-9]{0,8})\Z", stdout):
         raise ExecutorError("Failed to create disposable qube.")
     try:
@@ -106,25 +92,24 @@ def create_dispvm(log, template: str) -> str:
         raise ExecutorError(f"Failed to obtain disposable qube name: {str(e)}")
 
 
-def start_vm(log, vm: str):
+def start_vm(executor: Executor, vm: str):
     qrexec_call(
-        log=log,
+        executor=executor,
         what="start vm",
         vm=vm,
         service="admin.vm.Start",
     )
 
 
-def vm_state(log, vm: str) -> str:
-    response = qrexec_call(
-        log=log,
+def vm_state(executor: Executor, vm: str) -> str:
+    stdout = qrexec_call(
+        executor=executor,
         what="query vm state",
         vm=vm,
         service="admin.vm.CurrentState",
     )
 
-    assert response is not None
-    for state in response.decode("ascii", "strict").split():
+    for state in stdout.decode("ascii", "strict").split():
         assert "=" in state
         kv = state.split("=")
         if kv[0] == "power_state":
@@ -135,9 +120,9 @@ def vm_state(log, vm: str) -> str:
     )
 
 
-def kill_vm(log, vm: str):
+def kill_vm(executor: Executor, vm: str):
     qrexec_call(
-        log=log,
+        executor=executor,
         what="kill vm",
         vm=vm,
         service="admin.vm.Kill",
@@ -145,9 +130,9 @@ def kill_vm(log, vm: str):
     )
 
 
-def remove_vm(log, vm: str):
+def remove_vm(executor: Executor, vm: str):
     qrexec_call(
-        log=log,
+        executor=executor,
         what="remove vm",
         vm=vm,
         service="admin.vm.Remove",
