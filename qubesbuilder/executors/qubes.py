@@ -410,7 +410,7 @@ class WindowsQubesExecutor(BaseWindowsExecutor, QubesExecutor):
         cmd: List[str],
         copy_in: List[Tuple[Path, PurePath]] = None,
         copy_out: List[Tuple[PurePath, Path]] = None,
-    ):
+    ) -> str:
         try:
             # copy the rpc handlers
             self.start_worker()
@@ -468,10 +468,10 @@ class WindowsQubesExecutor(BaseWindowsExecutor, QubesExecutor):
                 service="qubes.VMShell",
                 stdin=bin_cmd,
             )
-            self.log.debug(stdout.decode("utf-8"))
 
             for src_out, dst_out in copy_out or []:
                 self.copy_out(src_out, dst_out)
+            return stdout.decode("utf-8")
         except ExecutorError as e:
             suffix = f" in qube {self.dispvm}" if self.dispvm else ""
             raise ExecutorError(

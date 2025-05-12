@@ -440,15 +440,22 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                 else:  # dummy
                     cmds = copy_out_prep_cmds
 
-                # TODO: failed builds don't get caught here due to msbuild/powershell weirdness
-                # see scripts/build-sln.ps1
-                # this is only a problem if a target has no outputs (otherwise copy_out fails)
                 try:
-                    self.executor.run(
+                    stdout = self.executor.run(
                         cmds,
                         copy_in,
                         copy_out,
                     )
+
+                    # We detect build failures by parsing msbuild output because it doesn't report
+                    # a proper exit code (see scripts/build-sln.ps1).
+                    # These messages don't change based on system locale.
+                    if (
+                        "Build FAILED" in stdout
+                        or "LINK : fatal error" in stdout
+                    ):
+                        msg = f"Build failed, see msbuild output:\n{stdout}"
+                        raise BuildError(msg)
                 except ExecutorError as e:
                     msg = f"{self.component}:{self.dist}:{target}: Failed to build solution: {str(e)}."
                     raise BuildError(msg) from e
