@@ -31,6 +31,7 @@ from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
+from qubesbuilder.executors.qrexec import qrexec_call
 from qubesbuilder.executors.windows import BaseWindowsExecutor
 from qubesbuilder.plugins import WindowsDistributionPlugin, PluginDependency
 from qubesbuilder.plugins.build import BuildPlugin, BuildError
@@ -198,16 +199,20 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         test_sign: bool,
     ) -> bytes:
         if test_sign:
-            self.executor.run_rpc_service(
-                target=qube,
+            qrexec_call(
+                executor=self.executor,
+                vm=qube,
                 service=f"qubesbuilder.WinSign.CreateKey+{mangle_key_name(key_name)}",
-                description=f"create signing key '{key_name}'",
+                echo=False,
+                what=f"create signing key '{key_name}'",
             )
 
-        return self.executor.run_rpc_service(
-            target=qube,
+        return qrexec_call(
+            executor=self.executor,
+            vm=qube,
             service=f"qubesbuilder.WinSign.GetCert+{mangle_key_name(key_name)}",
-            description=f"get certificate for signing key '{key_name}'",
+            echo=False,
+            what=f"get certificate for signing key '{key_name}'",
         )
 
     # Sign a file and return signed bytes
@@ -218,19 +223,23 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         file: Path,
     ) -> bytes:
         with open(file, "rb") as f:
-            return self.executor.run_rpc_service(
-                target=qube,
+            return qrexec_call(
+                executor=self.executor,
+                vm=qube,
                 service=f"qubesbuilder.WinSign.Sign+{mangle_key_name(key_name)}",
-                description=f"authenticode sign '{file}' with key '{key_name}'",
+                echo=False,
+                what=f"authenticode sign '{file}' with key '{key_name}'",
                 stdin=f.read(),
             )
 
     # Delete signing key
     def sign_delete_key(self, qube: str, key_name: str):
-        out = self.executor.run_rpc_service(
-            target=qube,
+        out = qrexec_call(
+            executor=self.executor,
+            vm=qube,
             service=f"qubesbuilder.WinSign.QueryKey+{mangle_key_name(key_name)}",
-            description=f"query signing key '{key_name}'",
+            echo=False,
+            what=f"query signing key '{key_name}'",
         )
 
         if f"Key '{mangle_key_name(key_name)}' exists" not in out.decode(
@@ -239,10 +248,12 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
             self.log.debug(f"key '{key_name}' does not exist")
             return
 
-        self.executor.run_rpc_service(
-            target=qube,
+        qrexec_call(
+            executor=self.executor,
+            vm=qube,
             service=f"qubesbuilder.WinSign.DeleteKey+{mangle_key_name(key_name)}",
-            description=f"delete signing key '{key_name}'",
+            echo=False,
+            what=f"delete signing key '{key_name}'",
         )
 
     def run(self):
@@ -477,10 +488,12 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
                             file=path,
                         )
 
-                        io = self.executor.run_rpc_service(
-                            target=dvm,
+                        io = qrexec_call(
+                            executor=self.executor,
+                            vm=dvm,
                             service="qubesbuilder.WinSign.Timestamp",
-                            description=f"authenticode timestamp {file}",
+                            echo=False,
+                            what=f"authenticode timestamp {file}",
                             stdin=signed_data,
                         )
 
