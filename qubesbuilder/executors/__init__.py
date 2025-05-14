@@ -1,6 +1,7 @@
 # The Qubes OS Project, http://www.qubes-os.org
 #
 # Copyright (C) 2021 Frédéric Pierret (fepitre) <frederic@invisiblethingslab.com>
+# Copyright (C) 2025 Rafał Wojdyła <omeg@invisiblethingslab.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +21,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Union
 
 from qubesbuilder.common import sanitize_line, str_to_bool
 from qubesbuilder.exc import QubesBuilderError
@@ -114,52 +115,76 @@ class Executor(ABC):
         return s
 
     @staticmethod
-    async def _read_stream(stream, cb, max_length=10000):
+    async def _read_stream(stream, callback, max_length=10000) -> bytes:
         remaining_line = b""
+        buffer = b""
+
         while True:
             chunk = await stream.read(4096)
             if not chunk:
-                if remaining_line:
-                    cb(sanitize_line(remaining_line).rstrip())
+                if remaining_line and callback:
+                    callback(sanitize_line(remaining_line).rstrip())
                 break
+
+            buffer += chunk
             lines = chunk.split(b"\n")
 
             lines[0] = remaining_line + lines[0]
 
-            for line in lines[:-1]:
-                cb(sanitize_line(line).rstrip())
+            if callback:
+                for line in lines[:-1]:
+                    callback(sanitize_line(line).rstrip())
 
             remaining_line = lines[-1]
             if len(remaining_line) > max_length:
                 line = remaining_line[:max_length]
                 remaining_line = remaining_line[max_length:]
-                cb(sanitize_line(line).rstrip() + "\u2026")
+                if callback:
+                    callback(sanitize_line(line).rstrip() + "\u2026")
 
-    async def _stream_subprocess(self, cmd, stdout_cb, stderr_cb, **kwargs):
+        return buffer
+
+    async def _stream_subprocess(
+        self, cmd, stdout_cb, stderr_cb, stdin=b"", **kwargs
+    ) -> Tuple[int, bytes, bytes]:
         process = await asyncio.create_subprocess_exec(
             *cmd,
+            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             **kwargs,
         )
 
-        await asyncio.wait(
-            [
-                asyncio.create_task(
-                    self._read_stream(process.stdout, stdout_cb)
-                ),
-                asyncio.create_task(
-                    self._read_stream(process.stderr, stderr_cb)
-                ),
-            ]
-        )
-        return await process.wait()
+        if stdin:
+            assert process.stdin is not None
+            process.stdin.write(stdin)
 
-    def execute(self, cmd, **kwargs):
+        # we use this also for qrexec admin calls and they need stdin being closed
+        assert process.stdin
+        process.stdin.close()
+
+        results = await asyncio.gather(
+            self._read_stream(process.stdout, stdout_cb),
+            self._read_stream(process.stderr, stderr_cb),
+        )
+
+        rc = await process.wait()
+        return rc, results[0], results[1]
+
+    def execute(self, cmd, collect=False, stdin=b"", echo=True, **kwargs):
         loop = asyncio.get_event_loop()
-        rc = loop.run_until_complete(
+
+        rc, stdout, stderr = loop.run_until_complete(
             self._stream_subprocess(
-                cmd, self.log.debug, self.log.debug, **kwargs
+                cmd=cmd,
+                stdout_cb=self.log.debug if echo else None,
+                stderr_cb=self.log.debug if echo else None,
+                stdin=stdin,
+                **kwargs,
             )
         )
+
+        if collect:
+            return rc, stdout, stderr
+
         return rc
