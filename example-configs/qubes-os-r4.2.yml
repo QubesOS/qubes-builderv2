@@ -167,6 +167,7 @@ components:
   - linux-scrypt
   - lvm2
   - qubes-release
+  - dist-upgrade
   - pykickstart
   - blivet
   - lorax
