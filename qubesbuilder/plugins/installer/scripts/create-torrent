@@ -1,51 +1,104 @@
-#!/bin/sh
+#!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-3-Clause OR GPL-2.0-or-later
+import argparse
+from pathlib import Path
+from shutil import rmtree
 
-set -e
-[ "$DEBUG" = "1" ] && set -x
+import libtorrent
 
-if [ -z "$1" ]; then
-	echo "Usage: $0 ISO_NAME"
-	echo " ISO_NAME is iso filename"
-	exit 1
-fi
+DEFAULT_TRACKERS = [
+    "udp://tracker.torrent.eu.org:451/announce",
+    "udp://tracker.opentrackr.org:1337/announce",
+    "http://tracker.opentrackr.org:1337/announce",
+]
+DEFAULT_REMOTE_HOSTS = [
+    "https://mirrors.kernel.org/qubes/iso/",
+    "https://ftp.qubes-os.org/iso/",
+]
+PIECE_SIZE = 1048576  # 1 MiB per piece
 
-ISO="$(readlink -f "$1")"
-ISO_DIR="$(dirname "$ISO")"
-ISO_NAME="$(basename "$ISO")"
-ISO_BASE="${ISO_NAME%%.iso}"
 
-# rely on set -e
-ls "$ISO" >/dev/null
-ls "$ISO.asc" >/dev/null
-ls "$ISO.DIGESTS" >/dev/null
+def create_torrent(path: Path, remote_hosts_list: list[str]) -> bytes:
+    """
+    :param path: Full path of directory which contains files
+    :param remote_hosts_list: Web seed hosts
+    :return: Encoded torrent data
+    """
 
-mkdir "$ISO_BASE"
-ln "$ISO" "$ISO_BASE"
-ln "$ISO.asc" "$ISO_BASE"
-ln "$ISO.DIGESTS" "$ISO_BASE"
+    file_storage = libtorrent.file_storage()
 
-# check the system is Fedora or not by checking make_torrent availability.
-if [ -f "/usr/bin/make_torrent" ]; then
-	# for Fedora system, use make_torrent to create v2 hybrid torrent.
-	make_torrent "$ISO_BASE" \
-		-t udp://tracker.torrent.eu.org:451 \
-		-t udp://tracker.opentrackr.org:1337/announce \
-		-t https://tracker.gbitt.info:443/announce \
-		-t http://tracker.gbitt.info:80/announce \
-		-s 1048576 \
-		-w https://mirrors.kernel.org/qubes/iso/ \
-		-w https://ftp.qubes-os.org/iso/ \
-		-o "$ISO_DIR/$ISO_BASE.torrent"
-else
-	# for Debian system, use mktorrent because make_torrent isn't available.
-	mktorrent -a udp://tracker.torrent.eu.org:451 \
-		-a udp://tracker.opentrackr.org:1337/announce \
-		-a https://tracker.gbitt.info:443/announce \
-		-a http://tracker.gbitt.info:80/announce \
-		-d -l 20 -v "$ISO_BASE" \
-		-w https://mirrors.kernel.org/qubes/iso/ \
-		-w https://ftp.qubes-os.org/iso/ \
-		-o "$ISO_DIR/$ISO_BASE.torrent"
-fi
+    # Add files as relative path
+    # e.g. folder/file.iso
+    #      folder/file.iso.asc
+    for file in path.iterdir():
+        file_storage.add_file(
+            path=str(file.relative_to(path.parent)), size=file.stat().st_size
+        )
 
-rm -r "$ISO_BASE"
+    torrent_data = libtorrent.create_torrent(
+        storage=file_storage, piece_size=PIECE_SIZE
+    )
+
+    for tracker in DEFAULT_TRACKERS:
+        torrent_data.add_tracker(announce_url=tracker)
+
+    for remote_host in remote_hosts_list:
+        torrent_data.add_url_seed(remote_host)
+
+    torrent_data.no_attributes = True
+
+    # Since we add files as relative path, providing actual
+    # parent path of contents is required.
+    libtorrent.set_piece_hashes(torrent_data, str(path.parent))
+
+    return libtorrent.bencode(torrent_data.generate())
+
+
+def create_torrent_qubes(iso: Path, remote_host: str) -> bytes:
+    """
+    :param iso: Resolved path of ISO file
+    :param remote_host: Web seed host
+    :return: Encoded torrent data
+    """
+    if remote_host == "default":
+        remote_hosts_list = DEFAULT_REMOTE_HOSTS
+    else:
+        remote_hosts_list = [remote_host]
+
+    # Prepare directory for creating torrent
+    torrent_dir = iso.parent.joinpath(iso.stem)
+    torrent_dir.mkdir()
+
+    torrent_dir.joinpath(iso.name).hardlink_to(iso)
+    torrent_dir.joinpath(iso.name + ".asc").hardlink_to(str(iso) + ".asc")
+    torrent_dir.joinpath(iso.name + ".DIGESTS").hardlink_to(
+        str(iso) + ".DIGESTS"
+    )
+
+    data = create_torrent(path=torrent_dir, remote_hosts_list=remote_hosts_list)
+    rmtree(torrent_dir)
+
+    return data
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        prog="create-torrent",
+        description="Create torrent file from Qubes ISO file",
+    )
+
+    parser.add_argument(
+        "--file", required=True, help="Path of ISO file"
+    )
+    parser.add_argument(
+        "--remote",
+        required=True,
+        help="Web seed remote host (URL or default)",
+    )
+
+    args = parser.parse_args()
+    iso_path = Path(args.file).resolve()
+
+    torrent = create_torrent_qubes(iso=iso_path, remote_hosts=args.remote)
+
+    iso_path.with_suffix(".torrent").write_bytes(torrent)
