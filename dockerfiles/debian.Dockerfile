@@ -1,4 +1,4 @@
-FROM debian@sha256:e83913597ca9deb9d699316a9a9d806c2a87ed61195ac66ae0a8ac55089a84b9
+FROM docker.io/library/debian@sha256:e83913597ca9deb9d699316a9a9d806c2a87ed61195ac66ae0a8ac55089a84b9
 MAINTAINER Frédéric Pierret <frederic@invisiblethingslab.com>
 
 ARG DEBIAN_FRONTEND=noninteractive
