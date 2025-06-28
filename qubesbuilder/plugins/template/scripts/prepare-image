@@ -90,6 +90,9 @@ EOF
 
         IMG_LOOP=$(/sbin/losetup -P -f --show "$IMG")
         IMG_DEV=${IMG_LOOP}p3
+
+        udevadm settle --exit-if-exists="${IMG_LOOP}p1"
+        /sbin/mkfs.vfat -S 4096 -n EFI "${IMG_LOOP}p1" || exit 1
     else
         IMG_LOOP=$(/sbin/losetup -f --show "$IMG")
         IMG_DEV=${IMG_LOOP}
