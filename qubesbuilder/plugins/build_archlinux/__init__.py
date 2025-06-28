@@ -276,6 +276,7 @@ class ArchlinuxBuildPlugin(ArchlinuxDistributionPlugin, BuildPlugin):
             makepkg_conf = f"{self.executor.get_plugins_dir()}/chroot_archlinux/conf/makepkg-x86_64.conf"
 
             cmd = [
+                f"sudo mkdir -p /usr/local/share/devtools/makepkg.conf.d/",
                 f"sudo cp {makepkg_conf} /usr/local/share/devtools/makepkg.conf.d/qubes-x86_64.conf",
             ]
 

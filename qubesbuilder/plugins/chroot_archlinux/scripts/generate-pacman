@@ -37,6 +37,7 @@ def main():
     }
 
     rendered_content = env.render(**data)
+    pathlib.Path(args.output_file).parent.mkdir(parents=True, exist_ok=True)
     with open(args.output_file, "w") as f:
         f.write(rendered_content)
 
