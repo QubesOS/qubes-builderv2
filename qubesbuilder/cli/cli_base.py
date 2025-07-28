@@ -59,12 +59,38 @@ class AliasedGroup(click.Group):
         self.debug = False
         self.list_commands = self.list_commands_for_help  # type: ignore
 
+        # Store global cleanup callbacks to run on interrupt or error
+        self._cleanup_callbacks: List[Callable[[], None]] = []
+
+    def add_cleanup(self, fn: Callable[[], None]):
+        """Register a function to run on interrupt or error."""
+        self._cleanup_callbacks.append(fn)
+
+    def cleanup(self):
+        """Call all the cleanup callbacks."""
+        for fn in self._cleanup_callbacks:
+            try:
+                fn()
+            except Exception as e:
+                QubesBuilderLogger.error(f"Cleanup callback failed: {e}")
+
+    def invoke(self, ctx):
+        """
+        Wrap the normal invocation so we can catch cancellations during command execution.
+        """
+        try:
+            return super().invoke(ctx)
+        except asyncio.CancelledError:
+            self.cleanup()
+            # Convert cancellation into a ClickAbort so Click exits cleanly
+            raise click.Abort()
+
     def __call__(self, *args, **kwargs):
         loop = asyncio.get_event_loop()
 
         def _handle_interrupt():
-            tasks = asyncio.all_tasks(loop)
-            for task in tasks:
+            # Cancel all running tasks on SIGINT
+            for task in asyncio.all_tasks(loop):
                 task.cancel()
 
         loop.add_signal_handler(signal.SIGINT, _handle_interrupt)
@@ -75,17 +101,15 @@ class AliasedGroup(click.Group):
             if isinstance(rv, list) and set(rv) == {None}:
                 rc = 0
         except Exception as exc:
-            if isinstance(exc, click.Abort) or "Signals.SIGINT" in str(exc):
-                QubesBuilderLogger.warning(f"Interrupting...")
+            # Handle user interrupts and cleanup
+            if isinstance(exc, (click.Abort, asyncio.CancelledError)):
+                QubesBuilderLogger.warning("Interrupted, running cleanup…")
+                self.cleanup()
             else:
                 QubesBuilderLogger.error(f"An error occurred: {str(exc)}")
-                if self.debug is True:
-                    formatted_traceback = "".join(
-                        traceback.format_exception(exc)
-                    )
-                    QubesBuilderLogger.error(
-                        "\n" + formatted_traceback.rstrip("\n")
-                    )
+                if self.debug:
+                    formatted_tb = "".join(traceback.format_exception(exc))
+                    QubesBuilderLogger.error("\n" + formatted_tb.rstrip("\n"))
                 if (
                     hasattr(exc, "additional_info")
                     and isinstance(exc.additional_info, dict)
@@ -94,13 +118,13 @@ class AliasedGroup(click.Group):
                     and exc.additional_info.get("lines", None)
                 ):
                     QubesBuilderLogger.error(
-                        f"Additional information from {exc.additional_info['log_file']} line {exc.additional_info['start_line']}:"
+                        f"Additional information from {exc.additional_info['log_file']}"
+                        f" line {exc.additional_info['start_line']}:"
                     )
                     for line in exc.additional_info["lines"]:
                         QubesBuilderLogger.error(f">>> {line}")
                 if isinstance(exc, click.ClickException):
-                    # pylint: disable=no-member
-                    rc = exc.exit_code
+                    rc = exc.exit_code  # pylint: disable=no-member
         finally:
             sys.exit(rc)
 

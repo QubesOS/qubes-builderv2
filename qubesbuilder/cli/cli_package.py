@@ -29,12 +29,17 @@ def _component_stage(
     """
     QubesBuilderLogger.info(f"Running stages: {', '.join(stages)}")
 
+    ctx = click.get_current_context()
+    root_group = ctx.find_root().command
+
     for job in config.get_jobs(
         components=components,
         distributions=distributions,
         templates=[],
         stages=stages,
     ):
+        if hasattr(job, "executor") and hasattr(job.executor, "cleanup"):
+            root_group.add_cleanup(job.executor.cleanup)
         job.run()
 
 

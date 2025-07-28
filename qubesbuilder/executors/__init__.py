@@ -163,7 +163,7 @@ class Executor(ABC):
             assert process.stdin is not None
             process.stdin.write(stdin)
 
-        # we use this also for qrexec admin calls and they need stdin being closed
+        # we use this also for qrexec admin calls, and they need stdin being closed
         assert process.stdin
         process.stdin.close()
 
