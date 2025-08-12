@@ -30,8 +30,7 @@ if [ -f "/usr/bin/make_torrent" ]; then
 	make_torrent "$ISO_BASE" \
 		-t udp://tracker.torrent.eu.org:451 \
 		-t udp://tracker.opentrackr.org:1337/announce \
-		-t https://tracker.gbitt.info:443/announce \
-		-t http://tracker.gbitt.info:80/announce \
+		-t udp://tracker-udp.gbitt.info:80/announce \
 		-s 1048576 \
 		-w https://mirrors.kernel.org/qubes/iso/ \
 		-w https://ftp.qubes-os.org/iso/ \
@@ -40,8 +39,7 @@ else
 	# for Debian system, use mktorrent because make_torrent isn't available.
 	mktorrent -a udp://tracker.torrent.eu.org:451 \
 		-a udp://tracker.opentrackr.org:1337/announce \
-		-a https://tracker.gbitt.info:443/announce \
-		-a http://tracker.gbitt.info:80/announce \
+		-a udp://tracker-udp.gbitt.info:80/announce \
 		-d -l 20 -v "$ISO_BASE" \
 		-w https://mirrors.kernel.org/qubes/iso/ \
 		-w https://ftp.qubes-os.org/iso/ \
