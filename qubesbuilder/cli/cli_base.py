@@ -89,7 +89,10 @@ class AliasedGroup(click.Group):
             raise click.Abort()
 
     def __call__(self, *args, **kwargs):
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
 
         def _handle_interrupt():
             # Cancel all running tasks on SIGINT
