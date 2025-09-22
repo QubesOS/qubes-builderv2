@@ -432,8 +432,8 @@ class WindowsQubesExecutor(BaseWindowsExecutor, QubesExecutor):
             )
 
             prep_cmd = [
-                f'if not exist q:\\qubes-rpc mkdir q:\\qubes-rpc',
-                f'if not exist q:\\qubes-rpc-services mkdir q:\\qubes-rpc-services',
+                f"if not exist q:\\qubes-rpc mkdir q:\\qubes-rpc",
+                f"if not exist q:\\qubes-rpc-services mkdir q:\\qubes-rpc-services",
                 f'move /y "{inc_dir}\\qubesbuilder.WinFileCopyIn" "q:\\qubes-rpc\\"',
                 f'move /y "{inc_dir}\\qubesbuilder.WinFileCopyOut" "q:\\qubes-rpc\\"',
                 f'move /y "{inc_dir}\\qubesbuilder-file-copy-in.ps1" "q:\\qubes-rpc-services\\"',
