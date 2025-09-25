@@ -495,14 +495,14 @@ qubes-template-fedora-40-xfce:
 qubes-template-debian-12:
   extends: .template_qubes_job
 
-qubes-template-whonix-gateway-17:
+qubes-template-whonix-gateway-18:
   extends: .template_qubes_job
 
-qubes-template-whonix-workstation-17:
+qubes-template-whonix-workstation-18:
   extends: .template_qubes_job
   allow_failure: true
 
-qubes-template-kicksecure-17:
+qubes-template-kicksecure-18:
   extends: .template_qubes_job
   allow_failure: true
 
