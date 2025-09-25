@@ -53,7 +53,7 @@ components:
       branch: main
   - template-whonix:
       packages: False
-      branch: master
+      branch: bookworm
       url: https://github.com/Whonix/qubes-template-whonix
       maintainers:
         - '916B8D99C38EAF5E8ADC7A2A8D66066A2EEACCDA'

@@ -14,11 +14,11 @@ verbose: true
 qubes-release: r4.3
 
 distributions:
-  - vm-bookworm
+  - vm-trixie
 
 templates:
-  - kicksecure-17:
-      dist: bookworm
+  - kicksecure-18:
+      dist: trixie
       flavor: kicksecure
       options:
         - minimal
@@ -29,7 +29,7 @@ components:
       packages: False
   - template-kicksecure:
       packages: False
-      branch: master
+      branch: trixie
       url: https://github.com/Kicksecure/qubes-template-kicksecure.git
       maintainers:
         # Patrick (adrelanos)

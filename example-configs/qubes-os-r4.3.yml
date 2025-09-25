@@ -30,14 +30,14 @@ templates:
       flavor: xfce
       options:
         - firmware
-  - whonix-gateway-17:
-      dist: bookworm
+  - whonix-gateway-18:
+      dist: trixie
       flavor: whonix-gateway
       options:
         - minimal
         - no-recommends
-  - whonix-workstation-17:
-      dist: bookworm
+  - whonix-workstation-18:
+      dist: trixie
       flavor: whonix-workstation
       options:
         - minimal
@@ -52,7 +52,7 @@ components:
       branch: main
   - template-whonix:
       packages: False
-      branch: master
+      branch: trixie
       url: https://github.com/Whonix/qubes-template-whonix
       maintainers:
         - '916B8D99C38EAF5E8ADC7A2A8D66066A2EEACCDA'
