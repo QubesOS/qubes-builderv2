@@ -176,7 +176,11 @@ class Executor(ABC):
         return rc, results[0], results[1]
 
     def execute(self, cmd, collect=False, stdin=b"", echo=True, **kwargs):
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
         rc, stdout, stderr = loop.run_until_complete(
             self._stream_subprocess(
