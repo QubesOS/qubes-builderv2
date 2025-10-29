@@ -42,6 +42,9 @@ foreach ($target in $root['build']) {
         $args += @("-distfiles", "$dir\.distfiles")
     }
 
-    $proc = Start-Process -NoNewWindow -PassThru powershell -ArgumentList $args
-    $proc.WaitForExit()
+    $status = StreamProcess "powershell.exe" $args
+
+    if ($status -ne 0) {
+        exit $status
+    }
 }

@@ -29,6 +29,49 @@ function Launch-EWDK {
     }
 }
 
+# Launch process, stream its stdout to console, highlight errors.
+# Return exit code.
+function StreamProcess {
+    param (
+        [string]$exe,
+        [string[]]$exe_args
+    )
+    # We use the below instead of Start-Process because processes started
+    # using Start-Process don't return proper ExitCode for... reasons?
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $exe
+    $psi.Arguments = $exe_args
+    $psi.RedirectStandardOutput = $true
+    # msbuild and powershell don't use stderr
+    $psi.RedirectStandardError  = $false
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+
+    $proc = New-Object System.Diagnostics.Process
+    $proc.StartInfo = $psi
+
+    $proc.Start() | Out-Null
+    $stdout = $proc.StandardOutput
+
+    while (-not $stdout.EndOfStream) {
+        $line = $stdout.ReadLine()
+        if ($line -ne $null) {
+            if (($line -match 'FAILED') -or
+                ($line -match ': error C') -or
+                ($line -match 'error LNK') -or
+                ($line -match 'error MSB')) {
+                LogWarning $line
+            } else {
+                Write-Host $line
+            }
+        }
+    }
+
+    $proc.WaitForExit()
+    # If we used Start-Process, here $proc.ExitCode would be $null usually
+    return $proc.ExitCode
+}
+
 function LogStart {
     $logDir = "c:\builder\log"
     New-Item -Path $logDir -ItemType Directory -Force

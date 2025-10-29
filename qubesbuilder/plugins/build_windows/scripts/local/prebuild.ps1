@@ -3,6 +3,8 @@ param (
     [string]$repo_root # root repo directory for all components
 )
 
+$ErrorActionPreference = "Stop"
+
 # Skip if running from Qubes Builder
 if (! (Test-Path -Path env:QB_LOCAL)) {
     exit 0
