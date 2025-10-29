@@ -40,6 +40,8 @@ from qubesbuilder.plugins import (
     TemplatePlugin,
     PluginDependency,
     ComponentDependency,
+    JobDependency,
+    JobReference,
 )
 from qubesbuilder.template import QubesTemplate
 
@@ -98,7 +100,34 @@ class TemplateBuilderPlugin(TemplatePlugin):
         )
         self.template_version = ""
 
+        self.update_parameters(self.stage)
+
         self.dependencies.append(PluginDependency("publish"))
+        if stage == "build":
+            self.dependencies.append(
+                JobDependency(
+                    JobReference(
+                        component=None,
+                        dist=self.dist,
+                        stage="prep",
+                        build=None,
+                        template=template,
+                    )
+                )
+            )
+
+        if stage == "sign":
+            self.dependencies.append(
+                JobDependency(
+                    JobReference(
+                        component=None,
+                        dist=self.dist,
+                        stage="build",
+                        build=None,
+                        template=template,
+                    )
+                )
+            )
 
     @classmethod
     def from_args(cls, **kwargs):
@@ -589,7 +618,6 @@ class TemplateBuilderPlugin(TemplatePlugin):
         unpublish: bool = False,
         template_timestamp: Optional[str] = None,
     ):
-        self.update_parameters(self.stage)
         repository_dir = self.config.repository_dir / self.dist.distribution
         template_artifacts_dir = self.config.templates_dir
         qubeized_image = (

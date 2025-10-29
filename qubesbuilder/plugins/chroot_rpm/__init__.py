@@ -53,9 +53,7 @@ class RPMChrootPlugin(RPMDistributionPlugin, ChrootPlugin):
 
         mock_conf = f"{self.dist.fullname}-{self.dist.version}-{self.dist.architecture}.cfg"
 
-        chroot_dir = (
-            self.config.cache_dir / "chroot" / self.dist.distribution / "mock"
-        )
+        chroot_dir = self.config.cache_dir / "chroot" / self.dist.distribution
 
         # FIXME: Parse from mock cfg?
         mock_chroot_name = mock_conf.replace(".cfg", "")

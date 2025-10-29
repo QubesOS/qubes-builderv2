@@ -132,6 +132,25 @@ def get_relative_artifacts_path(job_ref: JobReference) -> Path:
             / job_ref.stage
             / filename
         )
+    elif job_ref.dist:
+        if not job_ref.build:
+            raise PluginError(
+                "JobReference for DistributionPlugin requires a build identifier."
+            )
+        if job_ref.stage == "init-cache":
+            build = PackagePath(job_ref.build).mangle()
+            filename = Plugin.get_artifacts_info_filename(job_ref.stage, build)
+            relative_path = (
+                Path("cache")
+                / "chroot"
+                / job_ref.dist.distribution
+                / build
+                / filename
+            )
+        else:
+            raise PluginError(
+                "JobReference for non init-cache stage are not implemented."
+            )
     else:
         raise PluginError(
             "Missing distribution, component or template in JobReference!"
@@ -142,7 +161,7 @@ def get_relative_artifacts_path(job_ref: JobReference) -> Path:
 def get_artifacts_path(config, job_ref: JobReference) -> Path:
     if job_ref.template:
         base_dir = config.templates_dir
-    elif job_ref.component:
+    elif job_ref.component or job_ref.dist:
         base_dir = config.artifacts_dir
     else:
         raise PluginError(

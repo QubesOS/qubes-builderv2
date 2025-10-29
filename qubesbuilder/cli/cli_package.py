@@ -72,12 +72,6 @@ def _all_package_stage(obj: ContextObj):
         config=obj.config,
         components=obj.components,
         distributions=obj.distributions,
-        stages=["init-cache"],
-    )
-    _component_stage(
-        config=obj.config,
-        components=obj.components,
-        distributions=obj.distributions,
         stages=stages,
     )
 

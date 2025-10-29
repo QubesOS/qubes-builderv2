@@ -694,6 +694,76 @@ class Config:
                 )
         return needs
 
+    @staticmethod
+    def _classify_plugins(plugins):
+        """Return plugins by class."""
+        plugins_by_class = {
+            "dist_component": [],
+            "component": [],
+            "distribution": [],
+            "template": [],
+        }
+        for plugin in plugins:
+            classes = [c.__name__ for c in plugin.__mro__]
+            if "DistributionComponentPlugin" in classes:
+                plugins_by_class["dist_component"].append(plugin)
+            elif "TemplatePlugin" in classes:
+                plugins_by_class["template"].append(plugin)
+            elif "DistributionPlugin" in classes:
+                plugins_by_class["distribution"].append(plugin)
+            elif "ComponentPlugin" in classes:
+                plugins_by_class["component"].append(plugin)
+        return plugins_by_class
+
+    def _instantiate_job_for(self, plugins_by_class, ref):
+        """
+        Central place to create a job from a JobReference
+        """
+        # DistributionComponentPlugin
+        if ref.component and ref.dist:
+            for plugin in plugins_by_class["dist_component"]:
+                job = plugin.from_args(
+                    dist=ref.dist,
+                    component=ref.component,
+                    config=self,
+                    stage=ref.stage,
+                )
+                if job:
+                    # keep current behavior: add needs for dist+component+stage
+                    job.dependencies += self.get_needs(
+                        component=ref.component, dist=ref.dist, stage=ref.stage
+                    )
+                    return job
+
+        # DistributionPlugin
+        if ref.dist and not ref.component and not ref.template:
+            for plugin in plugins_by_class["distribution"]:
+                job = plugin.from_args(
+                    dist=ref.dist, config=self, stage=ref.stage
+                )
+                if job:
+                    return job
+
+        # ComponentPlugin
+        if ref.component and not ref.dist and not ref.template:
+            for plugin in plugins_by_class["component"]:
+                job = plugin.from_args(
+                    component=ref.component, config=self, stage=ref.stage
+                )
+                if job:
+                    return job
+
+        # TemplatePlugin
+        if ref.template:
+            for plugin in plugins_by_class["template"]:
+                job = plugin.from_args(
+                    template=ref.template, config=self, stage=ref.stage
+                )
+                if job:
+                    return job
+
+        return None
+
     def get_jobs(
         self,
         components: List[QubesComponent],
@@ -707,156 +777,90 @@ class Config:
         apply topological sorting based on defined dependencies that will
         possibly reorder jobs to satisfy dependencies.
         """
-
         manager = self.get_plugin_manager()
         plugins = manager.get_plugins()
-        jobs: List[Plugin] = []
-        # while collecting jobs, collect also dependency objects for later use
-        depencies_dict: dict[JobReference, Plugin] = {}
+        plugins_by_class = self._classify_plugins(plugins)
+
+        jobs = []  # type: list[Plugin]
+        jobs_by_ref = {}  # type: dict[JobReference, Plugin]
+
+        def add_job(ref: JobReference):
+            if ref in jobs_by_ref:
+                return jobs_by_ref[ref]
+            job = self._instantiate_job_for(plugins_by_class, ref)
+            if job:
+                jobs_by_ref[ref] = job
+                jobs.append(job)
+                # Recursively ensure this job's dependencies are present.
+                for dep in getattr(job, "dependencies", []):
+                    if getattr(dep, "builder_object", None) == "job":
+                        dep_ref = JobReference(
+                            dep.reference.component,
+                            dep.reference.dist,
+                            dep.reference.template,
+                            dep.reference.stage,
+                            dep.reference.build,
+                        )
+                        add_job(dep_ref)
+                    elif getattr(dep, "builder_object", None) == "component":
+                        # Ensure a fetch job node exists for component deps,
+                        # so the DAG can point to it later.
+                        comp_fetch_ref = JobReference(
+                            component=self.get_components([dep.reference])[0],
+                            dist=None,
+                            template=None,
+                            stage="fetch",
+                            build=None,
+                        )
+                        add_job(comp_fetch_ref)
+                return job
+            return None
 
         for stage in stages:
-            # DistributionComponentPlugin
-            for distribution in distributions:
-                for component in components:
-                    for plugin in plugins:
-                        if "DistributionComponentPlugin" in [
-                            c.__name__ for c in plugin.__mro__
-                        ]:
-                            job = plugin.from_args(
-                                dist=distribution,
-                                component=component,
-                                config=self,
-                                stage=stage,
-                            )
-                            if not job:
-                                continue
-                            job.dependencies += self.get_needs(
-                                component=component,
-                                dist=distribution,
-                                stage=stage,
-                            )
-                            depencies_dict[
-                                JobReference(
-                                    component=component,
-                                    dist=distribution,
-                                    template=None,
-                                    stage=stage,
-                                    build=None,
-                                )
-                            ] = job
-                            jobs.append(job)
+            # DistComponent
+            for dist in distributions:
+                for comp in components:
+                    add_job(JobReference(comp, dist, None, stage, None))
 
-            # ComponentPlugin
-            for component in components:
-                for plugin in plugins:
-                    classes = [c.__name__ for c in plugin.__mro__]
-                    if (
-                        "ComponentPlugin" in classes
-                        and "DistributionComponentPlugin" not in classes
-                    ):
-                        job = plugin.from_args(
-                            component=component,
-                            config=self,
-                            stage=stage,
-                        )
-                        if not job:
-                            continue
-                        depencies_dict[
-                            JobReference(
-                                component=component,
-                                dist=None,
-                                template=None,
-                                stage=stage,
-                                build=None,
-                            )
-                        ] = job
-                        jobs.append(job)
+            # Component
+            for comp in components:
+                add_job(JobReference(comp, None, None, stage, None))
 
-            # DistributionPlugin
-            for distribution in distributions:
-                for plugin in plugins:
-                    classes = [c.__name__ for c in plugin.__mro__]
-                    if (
-                        "DistributionPlugin" in classes
-                        and "DistributionComponentPlugin" not in classes
-                        and "TemplatePlugin" not in classes
-                    ):
-                        job = plugin.from_args(
-                            dist=distribution,
-                            config=self,
-                            stage=stage,
-                        )
-                        if not job:
-                            continue
-                        depencies_dict[
-                            JobReference(
-                                component=None,
-                                dist=distribution,
-                                template=None,
-                                stage=stage,
-                                build=None,
-                            )
-                        ] = job
-                        jobs.append(job)
+            # Distribution
+            for dist in distributions:
+                add_job(JobReference(None, dist, None, stage, None))
 
-            # TemplatePlugin
-            for template in templates:
-                for plugin in plugins:
-                    classes = [c.__name__ for c in plugin.__mro__]
-                    if "TemplatePlugin" in classes:
-                        job = plugin.from_args(
-                            template=template,
-                            config=self,
-                            stage=stage,
-                        )
-                        if not job:
-                            continue
-                        depencies_dict[
-                            JobReference(
-                                component=None,
-                                dist=None,
-                                template=template,
-                                stage=stage,
-                                build=None,
-                            )
-                        ] = job
-                        jobs.append(job)
+            # Template
+            for tmpl in templates:
+                add_job(JobReference(None, None, tmpl, stage, None))
 
-        # and finally, sort topologically to resolve any dependencies
+        # build DAG and apply topological sort
         graph = {}
         for job in jobs:
             deps = []
-            for dep in job.dependencies:
+            for dep in getattr(job, "dependencies", []):
                 if dep.builder_object == "job":
-                    try:
-                        # don't care about "build" part
-                        dep_job = depencies_dict[
-                            JobReference(
-                                dep.reference.component,
-                                dep.reference.dist,
-                                dep.reference.template,
-                                dep.reference.stage,
-                                build=None,
-                            )
-                        ]
-                    except KeyError:
-                        continue
-                    deps.append(dep_job)
+                    dep_job = jobs_by_ref.get(
+                        JobReference(
+                            dep.reference.component,
+                            dep.reference.dist,
+                            dep.reference.template,
+                            dep.reference.stage,
+                            dep.reference.build,
+                        )
+                    )
+                    if dep_job:
+                        deps.append(dep_job)
                 elif dep.builder_object == "component":
-                    try:
-                        dep_job = depencies_dict[
-                            JobReference(
-                                component=dep.reference.component,
-                                dist=None,
-                                template=None,
-                                stage="fetch",
-                                build="source",
-                            )
-                        ]
-                    except KeyError:
-                        continue
-                    deps.append(dep_job)
+                    dep_job = jobs_by_ref.get(
+                        JobReference(
+                            dep.reference, None, None, "fetch", None
+                        )
+                    )
+                    if dep_job:
+                        deps.append(dep_job)
             graph[job] = deps
+
         ts = TopologicalSorter(graph)
         jobs = list(ts.static_order())
         return jobs
