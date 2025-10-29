@@ -1,33 +1,27 @@
-# Get component-local directory for output artifacts.
+# Get component-specific directory for output artifacts.
 function QB-Get-LocalComponentRepo {
     param (
-        [string]$component_src_dir
+        [string]$component_src_dir,
+        [string]$repo_root # root repo directory for all components
     )
 
-    return "$component_src_dir\.artifacts"
+    $component = Split-Path $component_src_dir -Leaf
+    $repo_component = $component.TrimStart("qubes-") # normalize name
+    return "$repo_root\$repo_component"
 }
 
 # Create component-specific output artifacts repository.
-# Returns path to the component repository.
 function QB-Create-LocalComponentRepo {
     param (
         [string]$component_src_dir, # this component source directory
         [string]$repo_root # root repo directory for all components
     )
 
-    # create component-local repo dir
-    $component_repo_dir = QB-Get-LocalComponentRepo $component_src_dir
+    $component_repo_dir = QB-Get-LocalComponentRepo $component_src_dir $repo_root
     if (Test-Path $component_repo_dir) {
         Remove-Item -Path $component_repo_dir -Recurse -Force
     }
-    New-Item -Path $component_repo_dir -ItemType Directory -Force
-
-    # create link in the root repo, without version
-    $component = Split-Path $component_src_dir -Leaf
-    $repo_component = $component.TrimStart("qubes-") # normalize name
-    $repo_entry = "$repo_root\$repo_component" # link name
-    New-Item -Path $repo_entry -ItemType SymbolicLink -Value $component_repo_dir -Force
-    return $component_repo_dir
+    New-Item -Path $component_repo_dir -ItemType Directory -Force | Out-Null
 }
 
 # Perform required pre-build actions (download prerequisites, create test sign cert).
@@ -108,7 +102,7 @@ function QB-LocalPostBuild {
     $component_version = (Get-Content "$component_src_dir\version").Trim()
 
     # copy output artifacts to local repo
-    $repo_dir = QB-Get-LocalComponentRepo $component_src_dir
+    $repo_dir = QB-Get-LocalComponentRepo $component_src_dir $repo_root
 
     Import-Module powershell-yaml 2>&1 | Out-Null
     $yaml = ConvertFrom-Yaml (Get-Content "$component_src_dir\.qubesbuilder" -Raw)
