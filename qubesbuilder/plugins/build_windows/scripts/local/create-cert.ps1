@@ -10,4 +10,4 @@ $end_date = (Get-Date).AddYears(5)
 echo "Creating code signing certificate..."
 $cert = New-SelfSignedCertificate -KeyUsage DigitalSignature -KeySpec Signature -Type CodeSigningCert -HashAlgorithm sha256 -CertStoreLocation "Cert:\CurrentUser\My" -Subject $cn -NotAfter $end_date
 
-Export-Certificate -Cert $cert -FilePath $cert_path
+Export-Certificate -Cert $cert -FilePath $cert_path | Out-Null

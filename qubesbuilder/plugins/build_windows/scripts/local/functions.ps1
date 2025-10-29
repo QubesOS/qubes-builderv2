@@ -52,7 +52,7 @@ function QB-LocalPreBuild {
         echo "Downloading prerequisites..."
         # for local builds, keep distfiles in the source dir for easy access by the component
         $distfiles = "$component_src_dir\.distfiles"
-        New-Item -Path $distfiles -ItemType Directory -Force
+        New-Item -Path $distfiles -ItemType Directory -Force | Out-Null
 
         foreach ($entry in $yaml['source']['files']) {
             $url = $entry['url']
@@ -118,7 +118,7 @@ function QB-LocalPostBuild {
     $kinds = @('bin', 'inc', 'lib')
     foreach ($kind in $kinds) {
         echo "Signing/copying build output..."
-        New-Item -Path "$repo_dir\$kind" -ItemType Directory -Force
+        New-Item -Path "$repo_dir\$kind" -ItemType Directory -Force | Out-Null
         foreach ($output in $root[$kind]) {
             # TODO: make this more generic
             $output = QB-Replace-LocalPlaceholders $output $build_configuration $component_version

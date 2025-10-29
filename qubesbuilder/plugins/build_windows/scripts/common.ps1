@@ -74,7 +74,7 @@ function StreamProcess {
 
 function LogStart {
     $logDir = "c:\builder\log"
-    New-Item -Path $logDir -ItemType Directory -Force
+    New-Item -Path $logDir -ItemType Directory -Force | Out-Null
     $baseName = (Get-Item $MyInvocation.PSCommandPath).BaseName
     $logname = "$baseName-$(Get-Date -Format "yyyyMMdd-HHmmss")-$PID.log"
     $global:qwtLogPath = "$logDir\$logName"
@@ -96,13 +96,15 @@ function Log {
 function LogError {
     param([string]$msg)
     Log 1 $msg
+    # this causes script exit if $ErrorActionPreference == "Stop"
     Write-Error $msg
 }
 
 function LogWarning {
     param([string]$msg)
     Log 2 $msg
-    Write-Warning $msg
+    # we don't use Write-Warning because it appends "WARNING" by default
+    Write-Host $msg -ForegroundColor DarkYellow
 }
 
 function LogInfo {
