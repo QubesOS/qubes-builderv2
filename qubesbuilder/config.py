@@ -816,7 +816,15 @@ class Config:
                 return job
             return None
 
+        requested_do_fetch = self.skip_git_fetch
+
         for stage in stages:
+            # Define if fetching source is required by calling 'fetch' command
+            if stage != "fetch":
+                self.set("skip-git-fetch", True)
+            else:
+                self.set("skip-git-fetch", requested_do_fetch)
+
             # DistComponent
             for dist in distributions:
                 for comp in components:

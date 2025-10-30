@@ -58,16 +58,6 @@ def _all_package_stage(obj: ContextObj):
     stages = obj.config.get_stages()
     if obj.config.automatic_upload_on_publish:
         stages.remove("upload")
-    # run "fetch" first as other stages may depend on configuration fetched
-    # by it
-    if "fetch" in stages:
-        _component_stage(
-            config=obj.config,
-            components=obj.components,
-            distributions=obj.distributions,
-            stages=["fetch"],
-        )
-        stages.remove("fetch")
     _component_stage(
         config=obj.config,
         components=obj.components,
