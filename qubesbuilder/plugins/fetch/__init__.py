@@ -71,7 +71,7 @@ class FetchPlugin(ComponentPlugin):
             return
         self._parameters[stage].update(parameters.get("source", {}))
 
-    def run(self):
+    def run(self, **kwargs):
         """
         Run plugin for given stage.
         """

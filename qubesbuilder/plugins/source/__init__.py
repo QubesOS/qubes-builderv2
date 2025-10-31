@@ -72,6 +72,20 @@ class SourcePlugin(DistributionComponentPlugin):
             ),
         ]
 
+        if self.has_component_packages(stage):
+            self.dependencies += [
+                PluginDependency("chroot_rpm"),
+                JobDependency(
+                    JobReference(
+                        component=None,
+                        stage="init-cache",
+                        build=f"{self.dist.fullname}-{self.dist.version}-{self.dist.architecture}",
+                        dist=self.dist,
+                        template=None,
+                    )
+                ),
+            ]
+
     @classmethod
     def from_args(cls, **kwargs):
         component = kwargs.get("component")
