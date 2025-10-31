@@ -39,9 +39,9 @@ from qubesbuilder.plugins import (
     PluginError,
     TemplatePlugin,
     PluginDependency,
-    ComponentDependency,
     JobDependency,
     JobReference,
+    ComponentDependency,
 )
 from qubesbuilder.template import QubesTemplate
 
@@ -221,10 +221,20 @@ class TemplateBuilderPlugin(TemplatePlugin):
         ) or self.config.get("mirrors", {}).get(self.dist.name, [])
 
         if self.template.distribution.is_rpm():
+            component = self.config.get_components(["builder-rpm"])[0]
             self.dependencies += [
                 PluginDependency("chroot_rpm"),
                 PluginDependency("source_rpm"),
                 ComponentDependency("builder-rpm"),
+                JobDependency(
+                    JobReference(
+                        component=component,
+                        stage="fetch",
+                        build="source",
+                        dist=None,
+                        template=None,
+                    )
+                ),
             ]
             template_content_dir = str(
                 self.executor.get_sources_dir() / "builder-rpm/template_rpm"
@@ -241,11 +251,21 @@ class TemplateBuilderPlugin(TemplatePlugin):
             self.template.distribution.is_deb()
             or self.template.distribution.is_ubuntu()
         ):
+            component = self.config.get_components(["builder-debian"])[0]
             self.dependencies += [
                 PluginDependency("chroot_deb"),
                 PluginDependency("source_deb"),
                 PluginDependency("build_deb"),
                 ComponentDependency("builder-debian"),
+                JobDependency(
+                    JobReference(
+                        component=component,
+                        stage="fetch",
+                        build="source",
+                        dist=None,
+                        template=None,
+                    )
+                ),
             ]
             template_content_dir = str(
                 self.executor.get_sources_dir()
@@ -264,7 +284,19 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 "whonix-gateway",
                 "whonix-workstation",
             ):
-                self.dependencies += [ComponentDependency("template-whonix")]
+                component = self.config.get_components(["template-whonix"])[0]
+                self.dependencies += [
+                    ComponentDependency("template-whonix"),
+                    JobDependency(
+                        JobReference(
+                            component=component,
+                            stage="fetch",
+                            build="source",
+                            dist=None,
+                            template=None,
+                        )
+                    ),
+                ]
                 template_content_dir = str(
                     self.executor.get_sources_dir() / "template-whonix"
                 )
@@ -283,8 +315,20 @@ class TemplateBuilderPlugin(TemplatePlugin):
                     f"+whonix-workstation:{self.executor.get_sources_dir()}/template-whonix",
                 ]
             if self.template.flavor in ("kicksecure",):
+                component = self.config.get_components(["template-kicksecure"])[
+                    0
+                ]
                 self.dependencies += [
-                    ComponentDependency("template-kicksecure")
+                    ComponentDependency("template-kicksecure"),
+                    JobDependency(
+                        JobReference(
+                            component=component,
+                            stage="fetch",
+                            build="source",
+                            dist=None,
+                            template=None,
+                        )
+                    ),
                 ]
                 template_content_dir = str(
                     self.executor.get_sources_dir() / "template-kicksecure"
@@ -298,7 +342,19 @@ class TemplateBuilderPlugin(TemplatePlugin):
                     }
                 )
             if self.template.flavor.startswith("kali"):
-                self.dependencies += [ComponentDependency("template-kali")]
+                component = self.config.get_components(["template-kali"])[0]
+                self.dependencies += [
+                    ComponentDependency("template-kali"),
+                    JobDependency(
+                        JobReference(
+                            component=component,
+                            stage="fetch",
+                            build="source",
+                            dist=None,
+                            template=None,
+                        )
+                    ),
+                ]
                 template_content_dir = str(
                     self.executor.get_sources_dir() / "template-kali"
                 )
@@ -316,9 +372,19 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 ]
 
         elif self.template.distribution.is_archlinux():
+            component = self.config.get_components(["builder-archlinux"])[0]
             self.dependencies += [
                 PluginDependency("chroot_archlinux"),
                 ComponentDependency("builder-archlinux"),
+                JobDependency(
+                    JobReference(
+                        component=component,
+                        stage="fetch",
+                        build="source",
+                        dist=None,
+                        template=None,
+                    )
+                ),
             ]
             template_content_dir = str(
                 self.executor.get_sources_dir()
@@ -337,7 +403,19 @@ class TemplateBuilderPlugin(TemplatePlugin):
             )
             self.environment.update({"ARCHLINUX_MIRROR": ",".join(mirrors)})
         elif self.template.distribution.is_gentoo():
-            self.dependencies += [ComponentDependency("builder-gentoo")]
+            component = self.config.get_components(["builder-gentoo"])[0]
+            self.dependencies += [
+                ComponentDependency("builder-gentoo"),
+                JobDependency(
+                    JobReference(
+                        component=component,
+                        stage="fetch",
+                        build="source",
+                        dist=None,
+                        template=None,
+                    )
+                ),
+            ]
             template_content_dir = str(
                 self.executor.get_sources_dir() / "builder-gentoo/scripts"
             )

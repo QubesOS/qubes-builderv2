@@ -861,9 +861,7 @@ class Config:
                         deps.append(dep_job)
                 elif dep.builder_object == "component":
                     dep_job = jobs_by_ref.get(
-                        JobReference(
-                            dep.reference, None, None, "fetch", None
-                        )
+                        JobReference(dep.reference, None, None, "fetch", None)
                     )
                     if dep_job:
                         deps.append(dep_job)
