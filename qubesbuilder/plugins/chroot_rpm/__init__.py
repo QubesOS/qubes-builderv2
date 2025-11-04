@@ -46,7 +46,7 @@ class RPMChrootPlugin(RPMDistributionPlugin, ChrootPlugin):
     ):
         super().__init__(dist=dist, config=config, stage=stage, **kwargs)
 
-    def run(self, force=False):
+    def run(self, force=False, **kwargs):
         """
         Run plugin for given stage.
         """

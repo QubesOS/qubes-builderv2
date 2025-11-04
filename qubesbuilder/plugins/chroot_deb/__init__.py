@@ -46,7 +46,7 @@ class DEBChrootPlugin(DEBDistributionPlugin, ChrootPlugin):
     ):
         super().__init__(dist=dist, config=config, stage=stage, **kwargs)
 
-    def run(self, force: bool = False):
+    def run(self, force: bool = False, **kwargs):
         """
         Run plugin for given stage.
         """
