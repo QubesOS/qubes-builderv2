@@ -277,7 +277,7 @@ class Plugin:
                     f"Unknown dependency associated with builder object '{dependency.builder_object}'."
                 )
 
-    def run(self):
+    def run(self, **kwargs):
         log_file = self.log.get_log_file()
         if log_file:
             self.log.info(f"Log file: {log_file}")
@@ -546,7 +546,7 @@ class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
             **kwargs,
         )
 
-    def run(self):
+    def run(self, **kwargs):
         super().run()
 
         if not self.get_parameters(self.stage).get("build", []):

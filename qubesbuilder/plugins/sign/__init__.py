@@ -92,7 +92,7 @@ class SignPlugin(DistributionComponentPlugin):
             return None
         return super().from_args(**kwargs)
 
-    def run(self):
+    def run(self, **kwargs):
         # Run stage defined by parent class
         super().run()
 

@@ -85,7 +85,7 @@ class RPMSourcePlugin(RPMDistributionPlugin, SourcePlugin):
             }
         )
 
-    def run(self):
+    def run(self, **kwargs):
         """
         Run plugin for given stage.
         """

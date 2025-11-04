@@ -256,7 +256,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
             what=f"delete signing key '{key_name}'",
         )
 
-    def run(self):
+    def run(self, **kwargs):
         """
         Run plugin for given stage.
         """
