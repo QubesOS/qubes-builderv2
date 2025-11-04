@@ -651,7 +651,6 @@ class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
         )
 
     def has_component_packages(self, stage: str):
-        self.update_parameters(stage)
         return self.component.has_packages and self.get_parameters(stage).get(
             "build", []
         )

@@ -20,6 +20,7 @@
 from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
+from qubesbuilder.exc import ComponentError
 from qubesbuilder.plugins import (
     DistributionComponentPlugin,
     PluginError,
@@ -59,32 +60,27 @@ class SourcePlugin(DistributionComponentPlugin):
             config=config,
             stage=stage,
         )
-        self.dependencies += [
-            PluginDependency("fetch"),
-            JobDependency(
-                JobReference(
-                    component=self.component,
-                    stage="fetch",
-                    build="source",
-                    dist=None,
-                    template=None,
-                )
-            ),
-        ]
 
-        if self.has_component_packages(stage):
-            self.dependencies += [
-                PluginDependency("chroot_rpm"),
-                JobDependency(
-                    JobReference(
-                        component=None,
-                        stage="init-cache",
-                        build=f"{self.dist.fullname}-{self.dist.version}-{self.dist.architecture}",
-                        dist=self.dist,
-                        template=None,
-                    )
-                ),
-            ]
+        self.dependencies.append(PluginDependency("fetch"))
+
+        try:
+            if self.has_component_packages(stage):
+                self.dependencies += [
+                    PluginDependency("chroot_rpm"),
+                    JobDependency(
+                        JobReference(
+                            component=None,
+                            stage="init-cache",
+                            build=f"{self.dist.fullname}-{self.dist.version}-{self.dist.architecture}",
+                            dist=self.dist,
+                            template=None,
+                        )
+                    ),
+                ]
+        except ComponentError as e:
+            raise PluginError(
+                f"Cannot determine dependencies for {self.component}. Missing fetch?"
+            ) from e
 
     @classmethod
     def from_args(cls, **kwargs):

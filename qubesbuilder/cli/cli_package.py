@@ -37,6 +37,27 @@ def _component_stage(
     else:
         root_group = ctx.find_root().command
 
+    # Define if fetching source is required by calling 'fetch' command
+    if root_group == "fetch":
+        config.set("skip-git-fetch", False)
+
+    for job in config.get_jobs(
+        components=components,
+        distributions=distributions,
+        templates=[],
+        stages=["fetch"],
+    ):
+        if (
+            hasattr(job, "executor")
+            and hasattr(job.executor, "cleanup")
+            and root_group
+        ):
+            root_group.add_cleanup(job.executor.cleanup)
+        job.run(**kwargs)
+
+    if "fetch" in stages:
+        stages.remove("fetch")
+
     for job in config.get_jobs(
         components=components,
         distributions=distributions,

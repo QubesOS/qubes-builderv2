@@ -114,7 +114,7 @@ class Config:
     verbose: Union[bool, property]                       = property(lambda self: self.get("verbose", False))
     debug: Union[bool, property]                         = property(lambda self: self.get("debug", False))
     force_fetch: Union[bool, property]                   = property(lambda self: self.get("force-fetch", False))
-    skip_git_fetch: Union[bool, property]                = property(lambda self: self.get("skip-git-fetch", False))
+    skip_git_fetch: Union[bool, property]                = property(lambda self: self.get("skip-git-fetch", True))
     fetch_versions_only: Union[bool, property]           = property(lambda self: self.get("fetch-versions-only", False))
     backend_vmm: Union[str, property]                    = property(lambda self: self.get("backend-vmm", ""))
     use_qubes_repo: Union[Dict, property]                = property(lambda self: self.get("use-qubes-repo", {}))
@@ -697,7 +697,7 @@ class Config:
     @staticmethod
     def _classify_plugins(plugins):
         """Return plugins by class."""
-        plugins_by_class = {
+        plugins_by_class: Dict[str, List[str]] = {
             "dist_component": [],
             "component": [],
             "distribution": [],
@@ -773,7 +773,7 @@ class Config:
     ):
         """
         Collects jobs related to given constraints.
-        First collec jobs according to stage orders. But then,
+        First collect jobs according to stage orders. But then,
         apply topological sorting based on defined dependencies that will
         possibly reorder jobs to satisfy dependencies.
         """
@@ -816,15 +816,7 @@ class Config:
                 return job
             return None
 
-        requested_do_fetch = self.skip_git_fetch
-
         for stage in stages:
-            # Define if fetching source is required by calling 'fetch' command
-            if stage != "fetch":
-                self.set("skip-git-fetch", True)
-            else:
-                self.set("skip-git-fetch", requested_do_fetch)
-
             # DistComponent
             for dist in distributions:
                 for comp in components:
