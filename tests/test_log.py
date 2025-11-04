@@ -1,4 +1,6 @@
 import tempfile
+from pathlib import Path
+
 import pytest
 import logging
 from qubesbuilder.config import Config
@@ -27,7 +29,9 @@ def log_file(tmp_path):
 def config(tmp_path):
     with tempfile.NamedTemporaryFile("w", dir=tmp_path) as config_file_main:
         config_file_main.write(
-            """
+            f"""
+artifacts-dir: {tmp_path}/artifacts
+
 executor:
   type: docker
   options:
@@ -47,6 +51,21 @@ distributions:
 
 @pytest.fixture
 def plugins(config):
+    src_dir = (config.sources_dir / "linux-utils")
+    src_dir.mkdir(parents=True)
+    (src_dir / ".qubesbuilder").write_text("""
+host:
+  rpm:
+    build:
+    - rpm_spec/qubes-utils.spec
+vm:
+  deb:
+    build:
+    - debian
+"""
+)
+    (src_dir / "version").write_text("1.2.3")
+    (src_dir / "rel").write_text("4")
     return config.get_jobs(
         stages=["prep"],
         components=config.get_components(),
@@ -128,7 +147,7 @@ def test_qb_logger_set_log_file(root_logger, log_file, plugins):
 
 
 def test_qb_logger_getChild(root_logger, plugins):
-    logger = root_logger.getChild("test_logger", plugin=plugins[0])
+    logger = root_logger.getChild("test_logger", plugin=plugins[2])
     child_logger = logger.getChild("child")
     assert child_logger.name == "qb.test_logger.linux-utils.host-fc37.child"
     assert child_logger.level == logger.level
