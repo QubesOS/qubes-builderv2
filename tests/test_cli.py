@@ -46,6 +46,7 @@ def artifacts_dir():
 
 def qb_call(builder_conf, artifacts_dir, *args, **kwargs):
     cmd = [
+        "python3",
         str(PROJECT_PATH / "qb"),
         "--verbose",
         "--builder-conf",
