@@ -20,6 +20,7 @@
 from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
+from qubesbuilder.exc import ComponentError
 from qubesbuilder.plugins import (
     DistributionComponentPlugin,
     PluginError,
@@ -59,19 +60,26 @@ class BuildPlugin(DistributionComponentPlugin):
             stage=stage,
         )
 
-        if self.has_component_packages(stage="build"):
-            for build in self.get_parameters(stage="build").get("build", []):
-                self.dependencies.append(
-                    JobDependency(
-                        JobReference(
-                            component=self.component,
-                            dist=self.dist,
-                            stage="prep",
-                            build=build.mangle(),
-                            template=None,
+        try:
+            if self.has_component_packages(stage="build"):
+                for build in self.get_parameters(stage="build").get(
+                    "build", []
+                ):
+                    self.dependencies.append(
+                        JobDependency(
+                            JobReference(
+                                component=self.component,
+                                dist=self.dist,
+                                stage="prep",
+                                build=build.mangle(),
+                                template=None,
+                            )
                         )
                     )
-                )
+        except ComponentError as e:
+            raise PluginError(
+                f"Cannot determine dependencies for {self.component}. Missing fetch?"
+            ) from e
 
     @classmethod
     def from_args(cls, **kwargs):

@@ -46,16 +46,14 @@ class RPMChrootPlugin(RPMDistributionPlugin, ChrootPlugin):
     ):
         super().__init__(dist=dist, config=config, stage=stage, **kwargs)
 
-    def run(self, force=False):
+    def run(self, force=False, **kwargs):
         """
         Run plugin for given stage.
         """
 
         mock_conf = f"{self.dist.fullname}-{self.dist.version}-{self.dist.architecture}.cfg"
 
-        chroot_dir = (
-            self.config.cache_dir / "chroot" / self.dist.distribution / "mock"
-        )
+        chroot_dir = self.config.cache_dir / "chroot" / self.dist.distribution
 
         # FIXME: Parse from mock cfg?
         mock_chroot_name = mock_conf.replace(".cfg", "")

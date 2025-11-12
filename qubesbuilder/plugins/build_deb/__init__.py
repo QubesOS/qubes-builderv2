@@ -116,7 +116,7 @@ class DEBBuildPlugin(DEBDistributionPlugin, BuildPlugin):
             PluginDependency("build"),
         ]
 
-    def run(self):
+    def run(self, **kwargs):
         """
         Run plugin for given stage.
         """

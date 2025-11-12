@@ -37,6 +37,27 @@ def _component_stage(
     else:
         root_group = ctx.find_root().command
 
+    # Define if fetching source is required by calling 'fetch' command
+    if root_group == "fetch":
+        config.set("skip-git-fetch", False)
+
+    for job in config.get_jobs(
+        components=components,
+        distributions=distributions,
+        templates=[],
+        stages=["fetch"],
+    ):
+        if (
+            hasattr(job, "executor")
+            and hasattr(job.executor, "cleanup")
+            and root_group
+        ):
+            root_group.add_cleanup(job.executor.cleanup)
+        job.run(**kwargs)
+
+    if "fetch" in stages:
+        stages.remove("fetch")
+
     for job in config.get_jobs(
         components=components,
         distributions=distributions,
@@ -58,22 +79,6 @@ def _all_package_stage(obj: ContextObj):
     stages = obj.config.get_stages()
     if obj.config.automatic_upload_on_publish:
         stages.remove("upload")
-    # run "fetch" first as other stages may depend on configuration fetched
-    # by it
-    if "fetch" in stages:
-        _component_stage(
-            config=obj.config,
-            components=obj.components,
-            distributions=obj.distributions,
-            stages=["fetch"],
-        )
-        stages.remove("fetch")
-    _component_stage(
-        config=obj.config,
-        components=obj.components,
-        distributions=obj.distributions,
-        stages=["init-cache"],
-    )
     _component_stage(
         config=obj.config,
         components=obj.components,

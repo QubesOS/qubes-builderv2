@@ -107,6 +107,9 @@ class PublishPlugin(DistributionComponentPlugin):
         component = kwargs.get("component")
         config = kwargs.get("config")
         dist = kwargs.get("dist")
+        stage = kwargs.get("stage")
+        if stage != "publish":
+            return None
         if component and not component.has_packages:
             return None
         if not cls.is_publish_configured(config, dist, component):
@@ -171,7 +174,7 @@ class PublishPlugin(DistributionComponentPlugin):
     def create(self, repository_publish: str):
         return
 
-    def run(self):
+    def run(self, **kwargs):
         # Run stage defined by parent class
         super().run()
 

@@ -57,7 +57,7 @@ class ArchLinuxSourcePlugin(ArchlinuxDistributionPlugin, SourcePlugin):
 
         self.environment.update({"DIST": self.dist.name, "LC_ALL": "C"})
 
-    def run(self):
+    def run(self, **kwargs):
         """
         Run plugin for given stage.
         """
