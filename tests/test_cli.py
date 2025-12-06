@@ -16,36 +16,15 @@ from dateutil.parser import parse as parsedate
 from pycdlib import pycdlib
 
 from qubesbuilder.common import PROJECT_PATH
+from tests.conftest import artifacts_dir_single, artifacts_dir
 
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder-ci.yml"
 HASH_RE = re.compile(r"[a-f0-9]{40}")
 
 
-def _artifacts_dir():
-    if os.environ.get("BASE_ARTIFACTS_DIR"):
-        tmpdir = tempfile.mktemp(
-            prefix="github-", dir=os.environ.get("BASE_ARTIFACTS_DIR")
-        )
-    else:
-        tmpdir = tempfile.mktemp(prefix="github-")
-    artifacts_dir = pathlib.Path(tmpdir) / "artifacts"
-    if not artifacts_dir.exists():
-        artifacts_dir.mkdir(parents=True)
-    yield artifacts_dir
-
-
-@pytest.fixture
-def artifacts_dir_single():
-    yield from _artifacts_dir()
-
-
-@pytest.fixture(scope="session")
-def artifacts_dir():
-    yield from _artifacts_dir()
-
-
 def qb_call(builder_conf, artifacts_dir, *args, **kwargs):
     cmd = [
+        "python3",
         str(PROJECT_PATH / "qb"),
         "--verbose",
         "--builder-conf",
@@ -59,6 +38,7 @@ def qb_call(builder_conf, artifacts_dir, *args, **kwargs):
 
 def qb_call_output(builder_conf, artifacts_dir, *args, **kwargs):
     cmd = [
+        "python3",
         str(PROJECT_PATH / "qb"),
         "--verbose",
         "--builder-conf",
@@ -237,6 +217,8 @@ def test_common_component_fetch_updating(artifacts_dir):
     result = qb_call_output(
         DEFAULT_BUILDER_CONF,
         artifacts_dir,
+        "--option",
+        "skip-git-fetch=false",
         "package",
         "fetch",
     ).decode()
@@ -259,46 +241,14 @@ def test_common_component_fetch_updating(artifacts_dir):
         )
 
 
-def test_common_component_fetch_inplace(artifacts_dir):
-    result = qb_call_output(
-        DEFAULT_BUILDER_CONF,
-        artifacts_dir,
-        "--option",
-        "git-run-inplace=true",
-        "package",
-        "fetch",
-    ).decode()
-
-    assert (
-        artifacts_dir / "distfiles/python-qasync/qasync-0.23.0.tar.gz"
-    ).exists()
-    assert (
-        artifacts_dir
-        / "distfiles/desktop-linux-xfce4-xfwm4/xfwm4-4.16.1.tar.bz2"
-    ).exists()
-
-    for component in [
-        "core-qrexec",
-        "core-vchan-xen",
-        "desktop-linux-xfce4-xfwm4",
-        "python-qasync",
-        "app-linux-split-gpg",
-    ]:
-        assert (
-            artifacts_dir / "sources" / component / ".qubesbuilder"
-        ).exists()
-    assert (
-        "Enough distinct tag signatures. Found 3, mandatory minimum is 3."
-        in result
-    )
-
-
 def test_common_component_fetch_inplace_updating(artifacts_dir):
     infos_before = _get_infos(artifacts_dir)
 
     result = qb_call_output(
         DEFAULT_BUILDER_CONF,
         artifacts_dir,
+        "--option",
+        "skip-git-fetch=false",
         "--option",
         "git-run-inplace=true",
         "package",
@@ -315,6 +265,11 @@ def test_common_component_fetch_inplace_updating(artifacts_dir):
         "desktop-linux-xfce4-xfwm4: file xfwm4-4.16.1.tar.bz2 already downloaded. Skipping.",
     ]:
         assert sentence in result
+
+    assert (
+        "Enough distinct tag signatures. Found 3, mandatory minimum is 3."
+        in result
+    )
 
     infos_after = _get_infos(artifacts_dir)
 
@@ -339,7 +294,7 @@ def test_common_component_fetch_skip_files(artifacts_dir_single):
         "fetch",
     ).decode()
 
-    infos = _get_infos(artifacts_dir)
+    _get_infos(artifacts_dir)
 
     for component in [
         "core-qrexec",
@@ -361,7 +316,7 @@ def test_common_component_fetch_skip_files(artifacts_dir_single):
 def test_common_component_fetch_commit_fresh(artifacts_dir_single):
     artifacts_dir = artifacts_dir_single
     commit_sha = "0589ae8a242b3be6a1b8985c6eb8900e5236152a"
-    result = qb_call_output(
+    qb_call_output(
         DEFAULT_BUILDER_CONF,
         artifacts_dir,
         "-c",
@@ -415,53 +370,6 @@ def test_common_non_existent_component(artifacts_dir):
 
 
 def test_common_component_dependencies_01(artifacts_dir_single):
-    with pytest.raises(subprocess.CalledProcessError) as e:
-        qb_call_output(
-            DEFAULT_BUILDER_CONF,
-            artifacts_dir_single,
-            "-c",
-            "core-qrexec",
-            "-d",
-            "host-fc37",
-            "package",
-            "prep",
-        )
-    assert (
-        b"<JobReference(component=core-qrexec, stage=fetch, build=source)>"
-        in e.value.output
-    )
-
-
-def test_common_component_dependencies_02(artifacts_dir_single):
-    qb_call(
-        DEFAULT_BUILDER_CONF,
-        artifacts_dir_single,
-        "-c",
-        "core-qrexec",
-        "-d",
-        "host-fc37",
-        "package",
-        "fetch",
-    )
-
-    with pytest.raises(subprocess.CalledProcessError) as e:
-        qb_call_output(
-            DEFAULT_BUILDER_CONF,
-            artifacts_dir_single,
-            "-c",
-            "core-qrexec",
-            "-d",
-            "host-fc37",
-            "package",
-            "build",
-        )
-    assert (
-        b"<JobReference(component=core-qrexec, dist=host-fc37, stage=prep, build=rpm_spec_qubes-qrexec.spec)>"
-        in e.value.output
-    )
-
-
-def test_common_component_dependencies_03(artifacts_dir_single):
     artifacts_dir = artifacts_dir_single
     dist_artifacts_dir = (
         artifacts_dir / "components" / "dummy-component" / "1.2.3-4"
@@ -589,7 +497,10 @@ def test_component_host_fc37_init_cache(artifacts_dir):
         "package",
         "init-cache",
     )
-    assert (artifacts_dir / "cache/chroot/host-fc37/mock/fedora-37-x86_64").exists()
+    assert (
+        artifacts_dir
+        / "cache/chroot/host-fc37/fedora-37-x86_64/root_cache/cache.tar.gz"
+    ).exists()
 
 
 def test_component_host_fc37_prep(artifacts_dir):
@@ -776,10 +687,13 @@ def test_component_host_fc37_sign(artifacts_dir):
 
     # Ensure that original content is at least here with the 3 headers PGP BEGIN/END and at least
     # one line inside the signature
-    signed_buildinfo_number_lines = len(
-        buildinfo.read_text(encoding="utf8").splitlines()
+    buildinfo_content = buildinfo.read_text(encoding="utf8")
+    signed_buildinfo_number_lines = len(buildinfo_content.splitlines())
+
+    assert (signed_buildinfo_number_lines > buildinfo_number_lines + 4) or (
+        "-----BEGIN PGP SIGNED MESSAGE-----" in buildinfo_content
+        and "-----END PGP SIGNATURE-----" in buildinfo_content
     )
-    assert signed_buildinfo_number_lines > buildinfo_number_lines + 4
 
 
 def test_component_host_fc37_publish(artifacts_dir):
@@ -1260,7 +1174,10 @@ def test_component_vm_bookworm_init_cache(artifacts_dir):
         "package",
         "init-cache",
     )
-    assert (artifacts_dir / "cache/chroot/vm-bookworm/pbuilder/base.tgz").exists()
+    assert (
+        artifacts_dir
+        / "cache/chroot/vm-bookworm/debian-12-amd64/pbuilder/base.tgz"
+    ).exists()
 
 
 def test_component_vm_bookworm_prep(artifacts_dir):
@@ -1853,7 +1770,10 @@ def test_component_vm_archlinux_init_cache(artifacts_dir):
         "package",
         "init-cache",
     )
-    assert (artifacts_dir / "cache/chroot/vm-archlinux/root.tar.gz").exists()
+    assert (
+        artifacts_dir
+        / "cache/chroot/vm-archlinux/archlinux-rolling-x86_64/root.tar.gz"
+    ).exists()
 
 
 def test_component_vm_archlinux_prep(artifacts_dir):

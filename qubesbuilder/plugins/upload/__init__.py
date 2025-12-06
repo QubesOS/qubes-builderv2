@@ -54,25 +54,6 @@ class UploadPlugin(DistributionPlugin):
     ):
         super().__init__(config=config, dist=dist, stage=stage, **kwargs)
 
-        # order upload after all publish jobs
-        for component in config.get_components():
-            if not component.has_packages:
-                continue
-            # specify build as "None" to skip implicit copy-in and
-            # check_dependencies - some configured packages may not be
-            # published and that's okay; but still order after all publish jobs
-            self.dependencies.append(
-                JobDependency(
-                    JobReference(
-                        component=component,
-                        dist=self.dist,
-                        stage="publish",
-                        build=None,
-                        template=None,
-                    )
-                )
-            )
-
     @classmethod
     def supported_distribution(cls, distribution: QubesDistribution):
         return (
@@ -82,7 +63,7 @@ class UploadPlugin(DistributionPlugin):
             or distribution.is_archlinux()
         )
 
-    def run(self, repository_publish: Optional[str] = None):
+    def run(self, repository_publish: Optional[str] = None, **kwargs):
         if not isinstance(self.executor, LocalExecutor):
             raise UploadError("This plugin only supports local executor.")
 

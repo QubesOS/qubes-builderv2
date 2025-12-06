@@ -35,8 +35,3 @@ class ChrootPlugin(DistributionPlugin):
     """
 
     name = "chroot"
-
-    def __init__(
-        self, dist: QubesDistribution, config: Config, stage: str, **kwargs
-    ):
-        super().__init__(dist=dist, config=config, stage=stage, **kwargs)

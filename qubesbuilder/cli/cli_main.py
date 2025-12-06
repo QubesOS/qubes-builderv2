@@ -242,6 +242,9 @@ def main(
 
     ctx.obj = obj
 
+    # Define a config session based on click context object
+    obj.config.set("session", obj)
+
     # init QubesBuilderLogger
     init_logger(verbose=obj.config.verbose, log_file=log_file)
 

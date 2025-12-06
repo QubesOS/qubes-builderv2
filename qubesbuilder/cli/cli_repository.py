@@ -11,6 +11,12 @@ from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.plugins import PluginError
 from qubesbuilder.plugins.publish import PublishPlugin, COMPONENT_REPOSITORIES
+from qubesbuilder.plugins.publish_archlinux import (
+    ArchlinuxPublishPlugin,
+    ArchlinuxRepoPlugin,
+)
+from qubesbuilder.plugins.publish_deb import DEBPublishPlugin, DEBRepoPlugin
+from qubesbuilder.plugins.publish_rpm import RPMPublishPlugin, RPMRepoPlugin
 from qubesbuilder.plugins.template import (
     TemplateBuilderPlugin,
     TEMPLATE_REPOSITORIES,
@@ -53,7 +59,7 @@ def _publish(
         raise CliError(f"Unknown repository '{repository_publish}'")
 
     for job in jobs:
-        if create_and_sign_metadata_only:
+        if create_and_sign_metadata_only and hasattr(job, "create"):
             job.create(repository_publish=repository_publish)
         else:
             job.run(

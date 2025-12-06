@@ -81,6 +81,9 @@ class SignPlugin(DistributionComponentPlugin):
         component = kwargs.get("component")
         config = kwargs.get("config")
         dist = kwargs.get("dist")
+        stage = kwargs.get("stage")
+        if stage != "sign":
+            return None
         if component and not component.has_packages:
             return None
         if not cls.supported_distribution(dist):
@@ -89,7 +92,7 @@ class SignPlugin(DistributionComponentPlugin):
             return None
         return super().from_args(**kwargs)
 
-    def run(self):
+    def run(self, **kwargs):
         # Run stage defined by parent class
         super().run()
 

@@ -85,7 +85,7 @@ class RPMSourcePlugin(RPMDistributionPlugin, SourcePlugin):
             }
         )
 
-    def run(self):
+    def run(self, **kwargs):
         """
         Run plugin for given stage.
         """
@@ -236,12 +236,12 @@ class RPMSourcePlugin(RPMDistributionPlugin, SourcePlugin):
 
             # Add prepared chroot cache
             chroot_cache_topdir = (
-                self.config.cache_dir / "chroot" / self.dist.name / "mock"
+                self.config.cache_dir / "chroot" / self.dist.distribution
             )
             chroot_cache = chroot_cache_topdir / mock_conf.replace(".cfg", "")
             if chroot_cache.exists():
                 copy_in += [
-                    (chroot_cache_topdir, self.executor.get_cache_dir())
+                    (chroot_cache, self.executor.get_cache_dir() / "mock")
                 ]
                 cmd += [
                     f"sudo chown -R root:mock {self.executor.get_cache_dir() / 'mock'}"

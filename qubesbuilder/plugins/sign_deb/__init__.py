@@ -65,7 +65,7 @@ class DEBSignPlugin(DEBDistributionPlugin, SignPlugin):
             PluginDependency("build_deb"),
         ]
 
-    def run(self):
+    def run(self, **kwargs):
         """
         Run plugin for given stage.
         """

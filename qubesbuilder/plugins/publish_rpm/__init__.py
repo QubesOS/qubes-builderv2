@@ -21,9 +21,6 @@ import os
 import shutil
 from typing import Optional
 
-from qubesbuilder.component import QubesComponent
-from qubesbuilder.config import Config
-from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
 from qubesbuilder.plugins import RPMDistributionPlugin, PluginDependency
 from qubesbuilder.plugins.publish import PublishPlugin, PublishError

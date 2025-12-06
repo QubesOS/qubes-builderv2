@@ -74,7 +74,7 @@ class DEBSourcePlugin(DEBDistributionPlugin, SourcePlugin):
             }
         )
 
-    def run(self):
+    def run(self, **kwargs):
         """
         Run plugin for given stage.
         """
