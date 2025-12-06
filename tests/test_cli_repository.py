@@ -30,6 +30,7 @@ def artifacts_dir():
 
 def qb_call(builder_conf, artifacts_dir, *args, **kwargs):
     cmd = [
+        "python3",
         str(PROJECT_PATH / "qb"),
         "--verbose",
         "--builder-conf",
@@ -63,6 +64,16 @@ def test_repository_create_vm_fc40(artifacts_dir):
 
         env["GNUPGHOME"] = gnupghome
         env["HOME"] = tmpdir
+
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir,
+            "-c",
+            "qubes-release",
+            "package",
+            "fetch",
+            env=env,
+        )
 
         qb_call(
             DEFAULT_BUILDER_CONF,

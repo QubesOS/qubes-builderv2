@@ -109,6 +109,9 @@ class Config:
             PROJECT_PATH / "qubesbuilder" / "plugins"
         ]
 
+        # Session (context object only for now)
+        self._session = None
+
     # fmt: off
     # Mypy does not support this form yet (see https://github.com/python/mypy/issues/8083).
     verbose: Union[bool, property]                       = property(lambda self: self.get("verbose", False))
@@ -134,6 +137,7 @@ class Config:
     iso_is_final: Union[bool, property]                  = property(lambda self: self.get("iso", {}).get("is-final", False))
     increment_devel_versions: Union[bool, property]      = property(lambda self: self.get("increment-devel-versions", False))
     automatic_upload_on_publish: Union[bool, property]   = property(lambda self: self.get("automatic-upload-on-publish", False))
+    session: Union[Any, property]                        = property(lambda self: self.get("session", None))
     # fmt: on
 
     def __repr__(self):

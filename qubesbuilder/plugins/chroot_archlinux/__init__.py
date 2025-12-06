@@ -111,16 +111,13 @@ class ArchlinuxChrootPlugin(ArchlinuxDistributionPlugin, ChrootPlugin):
         Run plugin for given stage.
         """
 
-        cache_chroot_dir = (
-            self.config.cache_dir / "chroot" / self.dist.distribution
-        )
-        chroot_name = "root"
-        chroot_archive = f"{chroot_name}.tar.gz"
+        chroot_dir = self.config.cache_dir / "chroot" / self.dist.distribution
+        chroot_archive = f"root.tar.gz"
 
         artifacts_info = self.get_artifacts_info(
             stage=self.stage,
-            basename=chroot_name,
-            artifacts_dir=cache_chroot_dir,
+            basename=self.dist.nva,
+            artifacts_dir=chroot_dir / self.dist.nva,
         )
 
         existing_packages = artifacts_info.get("packages", [])
@@ -154,10 +151,10 @@ class ArchlinuxChrootPlugin(ArchlinuxDistributionPlugin, ChrootPlugin):
             if not recreate:
                 return
 
-            (cache_chroot_dir / chroot_archive).unlink()
+            (chroot_dir / self.dist.nva / chroot_archive).unlink()
 
         # Create chroot cache dir
-        cache_chroot_dir.mkdir(exist_ok=True, parents=True)
+        (chroot_dir / self.dist.nva).mkdir(exist_ok=True, parents=True)
 
         copy_in = self.default_copy_in(
             self.executor.get_plugins_dir(), self.executor.get_sources_dir()
@@ -171,7 +168,7 @@ class ArchlinuxChrootPlugin(ArchlinuxDistributionPlugin, ChrootPlugin):
         copy_out = [
             (
                 self.executor.get_cache_dir() / chroot_archive,
-                cache_chroot_dir,
+                chroot_dir / self.dist.nva,
             )
         ]
 
@@ -194,10 +191,10 @@ class ArchlinuxChrootPlugin(ArchlinuxDistributionPlugin, ChrootPlugin):
             servers=servers,
         )
 
-        chroot_dir = self.executor.get_cache_dir() / chroot_name
+        executor_chroot_dir = self.executor.get_cache_dir() / "root"
 
         cmd = pacman_cmd + get_archchroot_cmd(
-            chroot_dir,
+            executor_chroot_dir,
             pacman_conf,
             makepkg_conf,
             additional_packages=additional_packages,
@@ -205,7 +202,7 @@ class ArchlinuxChrootPlugin(ArchlinuxDistributionPlugin, ChrootPlugin):
 
         cmd += [
             f"cd {self.executor.get_cache_dir()}",
-            f"sudo tar cf {chroot_archive} {chroot_name}",
+            f"sudo tar cf {chroot_archive} root",
         ]
 
         try:
@@ -225,9 +222,9 @@ class ArchlinuxChrootPlugin(ArchlinuxDistributionPlugin, ChrootPlugin):
         }
         self.save_artifacts_info(
             stage=self.stage,
-            basename=chroot_name,
+            basename=self.dist.nva,
             info=info,
-            artifacts_dir=cache_chroot_dir,
+            artifacts_dir=chroot_dir / self.dist.nva,
         )
 
 

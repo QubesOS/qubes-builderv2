@@ -17,7 +17,7 @@ debug: true
 verbose: true
 qubes-release: r4.2
 
-skip-git-fetch: false
+skip-git-fetch: true
 
 use-qubes-repo:
   version: 4.2
@@ -38,6 +38,9 @@ cache:
   host-fc37:
     packages:
       - gcc
+      - python3-devel
+      - python3-sphinx
+      - systemd-devel
   vm-bookworm:
     packages:
       - quilt

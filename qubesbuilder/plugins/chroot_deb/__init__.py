@@ -51,17 +51,14 @@ class DEBChrootPlugin(DEBDistributionPlugin, ChrootPlugin):
         Run plugin for given stage.
         """
 
-        chroot_dir = (
-            self.config.cache_dir
-            / "chroot"
-            / self.dist.distribution
-            / "pbuilder"
-        )
+        chroot_dir = self.config.cache_dir / "chroot" / self.dist.distribution
+
+        pbuilder_dir = chroot_dir / self.dist.nva / "pbuilder"
 
         artifacts_info = self.get_artifacts_info(
             stage=self.stage,
-            basename="base",
-            artifacts_dir=chroot_dir,
+            basename=self.dist.nva,
+            artifacts_dir=chroot_dir / self.dist.nva,
         )
 
         existing_packages = artifacts_info.get("packages", [])
@@ -95,10 +92,10 @@ class DEBChrootPlugin(DEBDistributionPlugin, ChrootPlugin):
             if not recreate:
                 return
 
-            shutil.rmtree(chroot_dir)
+            shutil.rmtree(pbuilder_dir)
 
         # Create chroot cache dir
-        chroot_dir.mkdir(exist_ok=True, parents=True)
+        pbuilder_dir.mkdir(exist_ok=True, parents=True)
 
         files_inside_executor_with_placeholders = [
             "@PLUGINS_DIR@/chroot_deb/pbuilder/pbuilderrc"
@@ -111,7 +108,7 @@ class DEBChrootPlugin(DEBDistributionPlugin, ChrootPlugin):
         copy_out = [
             (
                 self.executor.get_builder_dir() / "pbuilder/base.tgz",
-                chroot_dir,
+                pbuilder_dir,
             )
         ]
         cmd = [
@@ -149,14 +146,14 @@ class DEBChrootPlugin(DEBDistributionPlugin, ChrootPlugin):
                 self.executor.get_plugins_dir(), self.executor.get_sources_dir()
             ) + [
                 (
-                    chroot_dir / "base.tgz",
+                    pbuilder_dir / "base.tgz",
                     self.executor.get_builder_dir() / "pbuilder",
                 )
             ]
             copy_out = [
                 (
                     self.executor.get_cache_dir() / "aptcache",
-                    chroot_dir,
+                    pbuilder_dir,
                 )
             ]
             cmd = [
@@ -190,9 +187,9 @@ class DEBChrootPlugin(DEBDistributionPlugin, ChrootPlugin):
         }
         self.save_artifacts_info(
             stage=self.stage,
-            basename="base",
+            basename=self.dist.nva,
             info=info,
-            artifacts_dir=chroot_dir,
+            artifacts_dir=chroot_dir / self.dist.nva,
         )
 
 

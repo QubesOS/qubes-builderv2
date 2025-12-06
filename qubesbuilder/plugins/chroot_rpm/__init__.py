@@ -51,17 +51,14 @@ class RPMChrootPlugin(RPMDistributionPlugin, ChrootPlugin):
         Run plugin for given stage.
         """
 
-        mock_conf = f"{self.dist.fullname}-{self.dist.version}-{self.dist.architecture}.cfg"
+        mock_conf = f"{self.dist.nva}.cfg"
 
         chroot_dir = self.config.cache_dir / "chroot" / self.dist.distribution
 
-        # FIXME: Parse from mock cfg?
-        mock_chroot_name = mock_conf.replace(".cfg", "")
-
         artifacts_info = self.get_artifacts_info(
             stage=self.stage,
-            basename=mock_chroot_name,
-            artifacts_dir=chroot_dir / mock_chroot_name,
+            basename=self.dist.nva,
+            artifacts_dir=chroot_dir / self.dist.nva,
         )
 
         existing_packages = artifacts_info.get("packages", [])
@@ -89,7 +86,7 @@ class RPMChrootPlugin(RPMDistributionPlugin, ChrootPlugin):
             if not recreate:
                 return
 
-            shutil.rmtree(chroot_dir / mock_chroot_name)
+            shutil.rmtree(chroot_dir / self.dist.nva)
 
         # Create chroot cache dir
         chroot_dir.mkdir(exist_ok=True, parents=True)
@@ -129,7 +126,7 @@ class RPMChrootPlugin(RPMDistributionPlugin, ChrootPlugin):
         )
         copy_out = [
             (
-                self.executor.get_cache_dir() / f"mock/{mock_chroot_name}",
+                self.executor.get_cache_dir() / f"mock/{self.dist.nva}",
                 chroot_dir,
             )
         ]
@@ -149,21 +146,21 @@ class RPMChrootPlugin(RPMDistributionPlugin, ChrootPlugin):
         # Create a second cage for downloading the packages
         if additional_packages:
             # Remove dnf_cache
-            if (chroot_dir / mock_chroot_name / "dnf_cache").exists():
-                shutil.rmtree(chroot_dir / mock_chroot_name / "dnf_cache")
+            if (chroot_dir / self.dist.nva / "dnf_cache").exists():
+                shutil.rmtree(chroot_dir / self.dist.nva / "dnf_cache")
             copy_in = self.default_copy_in(
                 self.executor.get_plugins_dir(), self.executor.get_sources_dir()
             ) + [
                 (
-                    chroot_dir / mock_chroot_name,
+                    chroot_dir / self.dist.nva,
                     self.executor.get_cache_dir() / f"mock",
                 ),
             ]
             copy_out = [
                 (
                     self.executor.get_cache_dir()
-                    / f"mock/{mock_chroot_name}/dnf_cache",
-                    chroot_dir / mock_chroot_name,
+                    / f"mock/{self.dist.nva}/dnf_cache",
+                    chroot_dir / self.dist.nva,
                 )
             ]
             for package in additional_packages:
@@ -189,9 +186,9 @@ class RPMChrootPlugin(RPMDistributionPlugin, ChrootPlugin):
         }
         self.save_artifacts_info(
             stage=self.stage,
-            basename=mock_chroot_name,
+            basename=self.dist.nva,
             info=info,
-            artifacts_dir=chroot_dir / mock_chroot_name,
+            artifacts_dir=chroot_dir / self.dist.nva,
         )
 
 

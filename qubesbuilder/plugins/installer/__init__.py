@@ -250,6 +250,7 @@ class InstallerPlugin(DistributionPlugin):
         self,
         iso_timestamp: str = None,
         cache_templates_only: bool = False,
+        **kwargs,
     ):
         super().run()
 

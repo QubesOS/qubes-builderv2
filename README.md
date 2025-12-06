@@ -788,7 +788,7 @@ Options available in `builder.yml`:
   - `branch: str` --- git branch (default: main).
   - `maintainers: List[str]` --- List of extra fingerprint allowed for signature verification of git commit and tag. See `key-dirs` option for providing the public keys.
 
-- `skip-git-fetch: bool` --- When set, do not update already downloaded git repositories (those in `sources` artifacts dir). New components are still fetched (once). Useful when doing development builds from non-default branches, local modifications etc.
+- `skip-git-fetch: bool` --- When set, do not update already downloaded git repositories (those in `sources` artifacts dir). New components are still fetched (once). Useful when doing development builds from non-default branches, local modifications etc. The default is `True`.
 
 - `skip-files-fetch: bool` --- When set, do not fetch component files like source tarballs (those in the `distfiles` artifacts dir). Component builds *will fail* without those files. Useful to save time and space when fetching git repositories.
 

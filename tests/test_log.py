@@ -51,9 +51,10 @@ distributions:
 
 @pytest.fixture
 def plugins(config):
-    src_dir = (config.sources_dir / "linux-utils")
+    src_dir = config.sources_dir / "linux-utils"
     src_dir.mkdir(parents=True)
-    (src_dir / ".qubesbuilder").write_text("""
+    (src_dir / ".qubesbuilder").write_text(
+        """
 host:
   rpm:
     build:
@@ -63,7 +64,7 @@ vm:
     build:
     - debian
 """
-)
+    )
     (src_dir / "version").write_text("1.2.3")
     (src_dir / "rel").write_text("4")
     return config.get_jobs(

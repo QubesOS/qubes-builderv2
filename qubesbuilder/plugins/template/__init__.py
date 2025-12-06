@@ -695,6 +695,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
         ignore_min_age: bool = False,
         unpublish: bool = False,
         template_timestamp: Optional[str] = None,
+        **kwargs,
     ):
         repository_dir = self.config.repository_dir / self.dist.distribution
         template_artifacts_dir = self.config.templates_dir

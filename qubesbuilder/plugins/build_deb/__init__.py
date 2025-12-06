@@ -277,11 +277,12 @@ class DEBBuildPlugin(DEBDistributionPlugin, BuildPlugin):
 
             # Add downloaded packages and prepared chroot cache
             chroot_dir = self.config.cache_dir / "chroot" / self.dist.distribution
-            aptcache_dir = chroot_dir / "pbuilder/aptcache"
-            base_tgz = chroot_dir / "pbuilder/base.tgz"
+            pbuilder_dir = chroot_dir / self.dist.nva / "pbuilder"
+            aptcache_dir = pbuilder_dir / "aptcache"
+            base_tgz = pbuilder_dir / "base.tgz"
             if aptcache_dir.exists():
                 copy_in += [(
-                    chroot_dir / "pbuilder/aptcache",
+                    pbuilder_dir / "aptcache",
                     self.executor.get_cache_dir(),
                 )]
             if base_tgz.exists():
