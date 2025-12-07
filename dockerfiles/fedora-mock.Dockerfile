@@ -14,6 +14,7 @@ RUN dnf -y update && \
         debian-keyring \
         debootstrap \
         devscripts \
+        dosfstools \
         dnf-plugins-core \
         dosfstools \
         dpkg-dev \
@@ -37,6 +38,7 @@ RUN dnf -y update && \
         rpmdevtools \
         rsync  \
         systemd-udev \
+        sudo \
         tree \
         wget \
         which \
