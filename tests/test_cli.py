@@ -2078,7 +2078,7 @@ def _get_template_timestamp(artifacts_dir, template_name, stage):
 #
 
 
-def test_template_fedora_40_prep(artifacts_dir):
+def test_template_fedora_40_minimal_prep(artifacts_dir):
     qb_call(
         DEFAULT_BUILDER_CONF,
         artifacts_dir,
@@ -2109,7 +2109,7 @@ def test_template_fedora_40_prep(artifacts_dir):
     ).exists()
 
 
-def test_template_fedora_40_build(artifacts_dir):
+def test_template_fedora_40_minimal_build(artifacts_dir):
     qb_call(
         DEFAULT_BUILDER_CONF,
         artifacts_dir,
