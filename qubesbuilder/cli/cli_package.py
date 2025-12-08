@@ -37,9 +37,10 @@ def _component_stage(
     else:
         root_group = ctx.find_root().command
 
-    # Define if fetching source is required by calling 'fetch' command
-    if root_group == "fetch":
-        config.set("skip-git-fetch", False)
+    # Mark whether 'fetch' was explicitly requested on the CLI.
+    # This lets the Plugin distinguish "explicit fetch"
+    # from "fetch only because of a dependency (e.g. prep)".
+    config.set("skip-git-fetch", "fetch" not in stages)
 
     for job in config.get_jobs(
         components=components,

@@ -711,6 +711,25 @@ class TemplateBuilderPlugin(TemplatePlugin):
         #
 
         if self.stage == "prep":
+            force_prep = (
+                self.config.get("force-template-prep", False)
+                or template_timestamp is not None
+            )
+
+            if not force_prep:
+                # Try to detect existing prep artifacts.
+                try:
+                    existing_timestamp = self.get_template_timestamp("prep")
+                except TemplateError:
+                    existing_timestamp = None
+
+                root_img = qubeized_image / "root.img"
+                if existing_timestamp and root_img.exists():
+                    self.log.info(
+                        f"{self.template}: prep already done for timestamp {existing_timestamp}. Skipping."
+                    )
+                    return
+
             if template_timestamp:
                 template_timestamp = parsedate(template_timestamp).strftime(
                     "%Y%m%d%H%M"
@@ -777,7 +796,16 @@ class TemplateBuilderPlugin(TemplatePlugin):
 
         if self.stage == "build":
             if not self.template.timestamp:
-                self.template.timestamp = self.get_template_timestamp("prep")
+                self.get_template_timestamp("prep")
+
+            if (
+                self.template.timestamp
+                == self.get_template_timestamp_for_stage("build")
+            ):
+                self.log.info(
+                    f"{self.template}: build already done for timestamp {self.template.timestamp}. Skipping."
+                )
+                return
 
             self.environment.update(
                 {"TEMPLATE_TIMESTAMP": self.template.timestamp}

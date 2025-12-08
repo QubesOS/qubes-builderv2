@@ -202,7 +202,7 @@ class Plugin:
         self._parameters: Dict[str, Any] = {}
 
         # Environment
-        self.environment = {}
+        self.environment: Dict[str, Any] = {}
         if self.config.verbose:
             self.environment["VERBOSE"] = "1"
         if self.config.debug:
@@ -706,25 +706,30 @@ class TemplatePlugin(DistributionPlugin):
         if info_path.exists():
             info_path.unlink()
 
-    def get_template_timestamp(self, stage="build") -> str:
+    def get_template_timestamp_for_stage(self, stage: str) -> Optional[str]:
+        info = self.get_template_artifacts_info(stage)
+        if not info:
+            return None
+
+        raw_ts = info.get("timestamp")
+        if not raw_ts:
+            return None
+
+        try:
+            return parsedate(raw_ts).strftime("%Y%m%d%H%M")
+        except (dateutil.parser.ParserError, IndexError) as e:
+            msg = f"{self.template}: Failed to parse {stage} timestamp format."
+            raise PluginError(msg) from e
+
+    def get_template_timestamp(self, stage: str = "build") -> str:
         if not self.template.timestamp:
-            # Read information from build stage. We need info from 'prep' stage
-            # only when retrying timestamp information in 'build' stage if the
-            # build occurs in two calls instead of one.
-            info = self.get_template_artifacts_info(stage)
-            if not info.get("timestamp", None):
+            ts = self.get_template_timestamp_for_stage(stage)
+            if ts is None:
                 raise PluginError(
                     f"{self.template}: Cannot determine template timestamp. Missing '{stage}' stage?"
                 )
-            try:
-                self.template.timestamp = parsedate(info["timestamp"]).strftime(
-                    "%Y%m%d%H%M"
-                )
-            except (dateutil.parser.ParserError, IndexError) as e:
-                msg = (
-                    f"{self.template}: Failed to parse build timestamp format."
-                )
-                raise PluginError(msg) from e
+            self.template.timestamp = ts
+
         return self.template.timestamp
 
 
