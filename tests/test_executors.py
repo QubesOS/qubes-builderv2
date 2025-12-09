@@ -151,12 +151,13 @@ def test_simple(executor):
             f.write("Hello!\n")
 
         # Copy-in the previously created local file
-        copy_in = [(hello, Path("/tmp"))]
+        copy_in = [(hello, executor.get_builder_dir())]
 
         # Copy-out the modified file
-        copy_out = [(Path("/tmp/hello.md"), Path(temp_dir))]
+        copy_out = [(executor.get_builder_dir() / "hello.md", Path(temp_dir))]
+
         # Command that appends a line to the file
-        cmd = ["echo It works! >> /tmp/hello.md"]
+        cmd = [f"echo It works! >> {executor.get_builder_dir()}/hello.md"]
 
         # Execute the command
         executor.run(cmd, copy_in, copy_out)
@@ -177,14 +178,15 @@ def test_environment(executor):
             f.write("Hello!\n")
 
         # Copy-in the previously created local file
-        copy_in = [(hello, Path("/tmp"))]
+        copy_in = [(hello, executor.get_builder_dir())]
 
         # Copy-out the modified file
-        copy_out = [(Path("/tmp/hello.md"), Path(temp_dir))]
+        copy_out = [(executor.get_builder_dir() / "hello.md", Path(temp_dir))]
+
         # Command that appends a line to the file
         cmd = [
-            "echo ${MY_ANSWER} >> /tmp/hello.md",
-            "echo ${MY_QUESTION} >> /tmp/hello.md",
+            f"echo ${{MY_ANSWER}} >> {executor.get_builder_dir()}/hello.md",
+            f"echo ${{MY_QUESTION}} >> {executor.get_builder_dir()}/hello.md",
         ]
 
         # Execute the command
