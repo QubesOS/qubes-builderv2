@@ -132,6 +132,25 @@ def get_relative_artifacts_path(job_ref: JobReference) -> Path:
             / job_ref.stage
             / filename
         )
+    elif job_ref.dist:
+        if not job_ref.build:
+            raise PluginError(
+                "JobReference for DistributionPlugin requires a build identifier."
+            )
+        if job_ref.stage == "init-cache":
+            build = PackagePath(job_ref.build).mangle()
+            filename = Plugin.get_artifacts_info_filename(job_ref.stage, build)
+            relative_path = (
+                Path("cache")
+                / "chroot"
+                / job_ref.dist.distribution
+                / build
+                / filename
+            )
+        else:
+            raise PluginError(
+                "JobReference for non init-cache stage are not implemented."
+            )
     else:
         raise PluginError(
             "Missing distribution, component or template in JobReference!"
@@ -142,7 +161,7 @@ def get_relative_artifacts_path(job_ref: JobReference) -> Path:
 def get_artifacts_path(config, job_ref: JobReference) -> Path:
     if job_ref.template:
         base_dir = config.templates_dir
-    elif job_ref.component:
+    elif job_ref.component or job_ref.dist:
         base_dir = config.artifacts_dir
     else:
         raise PluginError(
@@ -183,7 +202,7 @@ class Plugin:
         self._parameters: Dict[str, Any] = {}
 
         # Environment
-        self.environment = {}
+        self.environment: Dict[str, Any] = {}
         if self.config.verbose:
             self.environment["VERBOSE"] = "1"
         if self.config.debug:
@@ -211,54 +230,72 @@ class Plugin:
         return {"config": self.config}
 
     def check_dependencies(self):
+        """
+        Check that all declared dependencies are satisfied.
+
+        - For plugin dependencies, ensure the plugin exists.
+
+        - For component dependencies, ensure the component exists in the config
+          and that its sources have been fetched into sources_dir.
+
+        - For job dependencies, ensure the job's artifacts are present. If the
+          job is tied to a component (ref.component is not None), also perform
+          checks that sources are available to executors.
+        """
+
+        def _check_component_sources(component_name, component_obj):
+            if not (self.config.sources_dir / component_name).exists():
+                raise PluginError(
+                    f"Cannot find source component '{component_name}' in artifacts. "
+                    f"Is package fetch stage done for '{component_name}'?"
+                )
+            self.log.info(
+                "dependency '%s' (commit hash: %s)",
+                component_name,
+                component_obj.get_source_commit_hash(),
+            )
+
         for dependency in self.dependencies:
             if dependency.builder_object == "plugin":
                 if not self.manager.entities.get(dependency.reference, None):
-                    raise PluginError(f"Cannot find plugin '{dependency}'.")
-            elif dependency.builder_object == "component":
-                component = self.config.get_components(
-                    filtered_components=[dependency.reference]
-                )
-                if not component:
                     raise PluginError(
-                        f"Cannot find component '{dependency}' in configuration file."
+                        f"Cannot find plugin '{dependency.reference}'."
                     )
-                if not (
-                    self.config.sources_dir / dependency.reference
-                ).exists():
-                    raise PluginError(
-                        f"Cannot find source component '{dependency.reference}' in artifacts."
-                        f"Is package fetch stage done for '{dependency.reference}'"
-                    )
-                self.log.info(
-                    f"dependency '{dependency.reference}' (commit hash: {component[0].get_source_commit_hash()})"
-                )
-            elif dependency.builder_object == "job":
-                if not dependency.reference.build:
-                    # non-build-specific dependencies are only for
-                    # ordering, ignore for check_dependencies
-                    continue
-                artifact_path = None
-                try:
-                    artifact_path = get_artifacts_path(
-                        self.config,
-                        dependency.reference,
-                    )
-                finally:
-                    if not artifact_path or (
-                        isinstance(artifact_path, Path)
-                        and not artifact_path.exists()
-                    ):
-                        # FIXME: improve formatting
-                        raise PluginError(
-                            f"Failed to retrieve artifact path for job '{str(dependency.reference)}'"
-                        )
-            else:
-                raise PluginError(
-                    f"Unknown dependency associated with builder object '{dependency.builder_object}'."
-                )
 
-    def run(self):
+            elif dependency.builder_object == "component":
+                # dependency.reference is the component name
+                component_name = dependency.reference
+                components = self.config.get_components(
+                    filtered_components=[component_name]
+                )
+                if not components:
+                    raise PluginError(
+                        f"Cannot find component '{component_name}' in configuration file."
+                    )
+                component_obj = components[0]
+                _check_component_sources(component_name, component_obj)
+
+            elif dependency.builder_object == "job":
+                ref = dependency.reference
+
+                # If the job dependency is tied to a component, also enforce
+                # component sources availability (same as ComponentDependency).
+                if getattr(ref, "component", None) is not None:
+                    component_name = ref.component.name
+                    _check_component_sources(component_name, ref.component)
+
+                # Non-build-specific deps are only for ordering, nothing
+                # to check on disk for artifacts.
+                if not ref.build:
+                    continue
+
+                artifact_path = get_artifacts_path(self.config, ref)
+                if not artifact_path or not artifact_path.exists():
+                    raise PluginError(
+                        f"Failed to retrieve artifact path for job '{str(ref)}'"
+                    )
+
+    def run(self, **kwargs):
         log_file = self.log.get_log_file()
         if log_file:
             self.log.info(f"Log file: {log_file}")
@@ -353,28 +390,42 @@ class Plugin:
             if dependency.builder_object == "component":
                 copy_in.append(
                     (
-                        (self.config.sources_dir / dependency.reference),
+                        self.config.sources_dir / dependency.reference,
                         sources_dir,
                     )
                 )
+
             if dependency.builder_object == "job":
-                if dependency.reference.build is None:
+                job_ref = dependency.reference
+
+                # If this job dependency is associated with a component,
+                # also copy that component's sources into sources_dir, so we
+                # don't need a separate ComponentDependency just to get the
+                # sources into the executor.
+                if getattr(job_ref, "component", None) is not None:
+                    copy_in.append(
+                        (
+                            self.config.sources_dir / job_ref.component.name,
+                            sources_dir,
+                        )
+                    )
+
+                if job_ref.build is None:
                     # ordering-only dependency
                     continue
-                artifact_path = get_artifacts_path(
-                    self.config, dependency.reference
-                )
+
+                artifact_path = get_artifacts_path(self.config, job_ref)
                 info = self._get_artifacts_info(artifact_path)
+
                 for file in info.get("files", []):
                     dependencies_dir = (
                         self.executor.get_dependencies_dir()
-                        / get_relative_artifacts_path(
-                            dependency.reference
-                        ).parent
+                        / get_relative_artifacts_path(job_ref).parent
                     )
                     copy_in.append(
                         (artifact_path.parent / file, dependencies_dir)
                     )
+
         return copy_in
 
 
@@ -527,7 +578,7 @@ class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
             **kwargs,
         )
 
-    def run(self):
+    def run(self, **kwargs):
         super().run()
 
         if not self.get_parameters(self.stage).get("build", []):
@@ -632,7 +683,6 @@ class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
         )
 
     def has_component_packages(self, stage: str):
-        self.update_parameters(stage)
         return self.component.has_packages and self.get_parameters(stage).get(
             "build", []
         )
@@ -688,25 +738,30 @@ class TemplatePlugin(DistributionPlugin):
         if info_path.exists():
             info_path.unlink()
 
-    def get_template_timestamp(self, stage="build") -> str:
+    def get_template_timestamp_for_stage(self, stage: str) -> Optional[str]:
+        info = self.get_template_artifacts_info(stage)
+        if not info:
+            return None
+
+        raw_ts = info.get("timestamp")
+        if not raw_ts:
+            return None
+
+        try:
+            return parsedate(raw_ts).strftime("%Y%m%d%H%M")
+        except (dateutil.parser.ParserError, IndexError) as e:
+            msg = f"{self.template}: Failed to parse {stage} timestamp format."
+            raise PluginError(msg) from e
+
+    def get_template_timestamp(self, stage: str = "build") -> str:
         if not self.template.timestamp:
-            # Read information from build stage. We need info from 'prep' stage
-            # only when retrying timestamp information in 'build' stage if the
-            # build occurs in two calls instead of one.
-            info = self.get_template_artifacts_info(stage)
-            if not info.get("timestamp", None):
+            ts = self.get_template_timestamp_for_stage(stage)
+            if ts is None:
                 raise PluginError(
                     f"{self.template}: Cannot determine template timestamp. Missing '{stage}' stage?"
                 )
-            try:
-                self.template.timestamp = parsedate(info["timestamp"]).strftime(
-                    "%Y%m%d%H%M"
-                )
-            except (dateutil.parser.ParserError, IndexError) as e:
-                msg = (
-                    f"{self.template}: Failed to parse build timestamp format."
-                )
-                raise PluginError(msg) from e
+            self.template.timestamp = ts
+
         return self.template.timestamp
 
 

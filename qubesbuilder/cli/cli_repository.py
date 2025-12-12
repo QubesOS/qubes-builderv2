@@ -11,6 +11,12 @@ from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.plugins import PluginError
 from qubesbuilder.plugins.publish import PublishPlugin, COMPONENT_REPOSITORIES
+from qubesbuilder.plugins.publish_archlinux import (
+    ArchlinuxPublishPlugin,
+    ArchlinuxRepoPlugin,
+)
+from qubesbuilder.plugins.publish_deb import DEBPublishPlugin, DEBRepoPlugin
+from qubesbuilder.plugins.publish_rpm import RPMPublishPlugin, RPMRepoPlugin
 from qubesbuilder.plugins.template import (
     TemplateBuilderPlugin,
     TEMPLATE_REPOSITORIES,
@@ -41,6 +47,7 @@ def _publish(
             distributions=distributions,
             templates=[],
             stages=["publish"],
+            with_dependencies=not create_and_sign_metadata_only,
         )
     elif repository_publish in TEMPLATE_REPOSITORIES:
         jobs = config.get_jobs(
@@ -48,19 +55,20 @@ def _publish(
             components=[],
             distributions=[],
             stages=["publish"],
+            with_dependencies=not create_and_sign_metadata_only,
         )
     else:
         raise CliError(f"Unknown repository '{repository_publish}'")
 
     for job in jobs:
-        if create_and_sign_metadata_only:
-            job.create(repository_publish=repository_publish)
-        else:
-            job.run(
-                repository_publish=repository_publish,
-                ignore_min_age=ignore_min_age,
-                unpublish=unpublish,
-            )
+        if job.stage != "publish":
+            continue
+        job.run(
+            repository_publish=repository_publish,
+            ignore_min_age=ignore_min_age,
+            unpublish=unpublish,
+            create_and_sign_metadata_only=create_and_sign_metadata_only,
+        )
 
 
 #

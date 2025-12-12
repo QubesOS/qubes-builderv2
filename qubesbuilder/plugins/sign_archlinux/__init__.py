@@ -60,7 +60,7 @@ class ArchlinuxSignPlugin(ArchlinuxDistributionPlugin, SignPlugin):
 
         self.dependencies.append(PluginDependency("sign"))
 
-    def run(self):
+    def run(self, **kwargs):
         """
         Run plugin for given stage.
         """

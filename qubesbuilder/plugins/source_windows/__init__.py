@@ -51,7 +51,7 @@ class WindowsSourcePlugin(WindowsDistributionPlugin, SourcePlugin):
             component=component, dist=dist, config=config, stage=stage
         )
 
-    def run(self):
+    def run(self, **kwargs):
         """
         Run plugin for given stage.
         """

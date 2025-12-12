@@ -21,9 +21,6 @@ import os
 import shutil
 from typing import Optional
 
-from qubesbuilder.component import QubesComponent
-from qubesbuilder.config import Config
-from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
 from qubesbuilder.plugins import RPMDistributionPlugin, PluginDependency
 from qubesbuilder.plugins.publish import PublishPlugin, PublishError
@@ -178,7 +175,10 @@ class RPMRepoPlugin(RPMDistributionPlugin):
             executor=executor, repository_publish=repository_publish
         )
 
-    def create(self, repository_publish: str):
+    def create(self, repository_publish: Optional[str]):
+        if not repository_publish:
+            self.log.error("Cannot create repository without repository name!")
+
         # Create skeleton
         self.create_repository_skeleton()
 
@@ -192,9 +192,13 @@ class RPMRepoPlugin(RPMDistributionPlugin):
         repository_publish: Optional[str] = None,
         ignore_min_age: bool = False,
         unpublish: bool = False,
+        create_and_sign_metadata_only: bool = False,
         **kwargs,
     ):
-        super().run()
+        if create_and_sign_metadata_only:
+            self.create(repository_publish)
+        else:
+            super().run()
 
 
 class RPMPublishPlugin(RPMRepoPlugin, PublishPlugin):
@@ -320,6 +324,7 @@ class RPMPublishPlugin(RPMRepoPlugin, PublishPlugin):
         repository_publish: Optional[str] = None,
         ignore_min_age: bool = False,
         unpublish: bool = False,
+        create_and_sign_metadata_only: bool = False,
         **kwargs,
     ):
         """

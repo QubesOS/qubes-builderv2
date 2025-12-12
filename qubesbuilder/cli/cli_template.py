@@ -26,6 +26,11 @@ def _template_stage(
     """
     click.echo(f"Running template stages: {', '.join(stages)}")
 
+    # Mark whether 'prep' was explicitly requested on the CLI.
+    # This lets the TemplateBuilderPlugin distinguish "explicit prep"
+    # from "prep only because of a dependency (e.g. build)".
+    config.set("force-template-prep", "prep" in stages)
+
     try:
         ctx = click.get_current_context()
     except RuntimeError:

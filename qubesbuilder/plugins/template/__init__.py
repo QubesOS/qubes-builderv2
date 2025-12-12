@@ -39,7 +39,8 @@ from qubesbuilder.plugins import (
     PluginError,
     TemplatePlugin,
     PluginDependency,
-    ComponentDependency,
+    JobDependency,
+    JobReference,
 )
 from qubesbuilder.template import QubesTemplate
 
@@ -98,7 +99,51 @@ class TemplateBuilderPlugin(TemplatePlugin):
         )
         self.template_version = ""
 
-        self.dependencies.append(PluginDependency("publish"))
+        self.update_parameters(self.stage)
+
+        self.dependencies += [
+            PluginDependency("publish"),
+            PluginDependency("publish_rpm"),
+        ]
+
+        if stage == "build":
+            self.dependencies.append(
+                JobDependency(
+                    JobReference(
+                        component=None,
+                        dist=None,
+                        stage="prep",
+                        build=None,
+                        template=template,
+                    )
+                )
+            )
+
+        if stage == "sign":
+            self.dependencies.append(
+                JobDependency(
+                    JobReference(
+                        component=None,
+                        dist=None,
+                        stage="build",
+                        build=None,
+                        template=template,
+                    )
+                )
+            )
+
+        if stage == "publish":
+            self.dependencies.append(
+                JobDependency(
+                    JobReference(
+                        component=None,
+                        dist=None,
+                        stage="sign",
+                        build=None,
+                        template=template,
+                    )
+                )
+            )
 
     @classmethod
     def from_args(cls, **kwargs):
@@ -192,10 +237,19 @@ class TemplateBuilderPlugin(TemplatePlugin):
         ) or self.config.get("mirrors", {}).get(self.dist.name, [])
 
         if self.template.distribution.is_rpm():
+            component = self.config.get_component("builder-rpm")
             self.dependencies += [
                 PluginDependency("chroot_rpm"),
                 PluginDependency("source_rpm"),
-                ComponentDependency("builder-rpm"),
+                JobDependency(
+                    JobReference(
+                        component=component,
+                        stage="fetch",
+                        build="source",
+                        dist=None,
+                        template=None,
+                    )
+                ),
             ]
             template_content_dir = str(
                 self.executor.get_sources_dir() / "builder-rpm/template_rpm"
@@ -212,11 +266,20 @@ class TemplateBuilderPlugin(TemplatePlugin):
             self.template.distribution.is_deb()
             or self.template.distribution.is_ubuntu()
         ):
+            component = self.config.get_component("builder-debian")
             self.dependencies += [
                 PluginDependency("chroot_deb"),
                 PluginDependency("source_deb"),
                 PluginDependency("build_deb"),
-                ComponentDependency("builder-debian"),
+                JobDependency(
+                    JobReference(
+                        component=component,
+                        stage="fetch",
+                        build="source",
+                        dist=None,
+                        template=None,
+                    )
+                ),
             ]
             template_content_dir = str(
                 self.executor.get_sources_dir()
@@ -235,7 +298,18 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 "whonix-gateway",
                 "whonix-workstation",
             ):
-                self.dependencies += [ComponentDependency("template-whonix")]
+                component = self.config.get_component("template-whonix")
+                self.dependencies += [
+                    JobDependency(
+                        JobReference(
+                            component=component,
+                            stage="fetch",
+                            build="source",
+                            dist=None,
+                            template=None,
+                        )
+                    ),
+                ]
                 template_content_dir = str(
                     self.executor.get_sources_dir() / "template-whonix"
                 )
@@ -254,8 +328,17 @@ class TemplateBuilderPlugin(TemplatePlugin):
                     f"+whonix-workstation:{self.executor.get_sources_dir()}/template-whonix",
                 ]
             if self.template.flavor in ("kicksecure",):
+                component = self.config.get_component("template-kicksecure")
                 self.dependencies += [
-                    ComponentDependency("template-kicksecure")
+                    JobDependency(
+                        JobReference(
+                            component=component,
+                            stage="fetch",
+                            build="source",
+                            dist=None,
+                            template=None,
+                        )
+                    ),
                 ]
                 template_content_dir = str(
                     self.executor.get_sources_dir() / "template-kicksecure"
@@ -269,7 +352,18 @@ class TemplateBuilderPlugin(TemplatePlugin):
                     }
                 )
             if self.template.flavor.startswith("kali"):
-                self.dependencies += [ComponentDependency("template-kali")]
+                component = self.config.get_component("template-kali")
+                self.dependencies += [
+                    JobDependency(
+                        JobReference(
+                            component=component,
+                            stage="fetch",
+                            build="source",
+                            dist=None,
+                            template=None,
+                        )
+                    ),
+                ]
                 template_content_dir = str(
                     self.executor.get_sources_dir() / "template-kali"
                 )
@@ -287,9 +381,18 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 ]
 
         elif self.template.distribution.is_archlinux():
+            component = self.config.get_component("builder-archlinux")
             self.dependencies += [
                 PluginDependency("chroot_archlinux"),
-                ComponentDependency("builder-archlinux"),
+                JobDependency(
+                    JobReference(
+                        component=component,
+                        stage="fetch",
+                        build="source",
+                        dist=None,
+                        template=None,
+                    )
+                ),
             ]
             template_content_dir = str(
                 self.executor.get_sources_dir()
@@ -308,7 +411,18 @@ class TemplateBuilderPlugin(TemplatePlugin):
             )
             self.environment.update({"ARCHLINUX_MIRROR": ",".join(mirrors)})
         elif self.template.distribution.is_gentoo():
-            self.dependencies += [ComponentDependency("builder-gentoo")]
+            component = self.config.get_component("builder-gentoo")
+            self.dependencies += [
+                JobDependency(
+                    JobReference(
+                        component=component,
+                        stage="fetch",
+                        build="source",
+                        dist=None,
+                        template=None,
+                    )
+                ),
+            ]
             template_content_dir = str(
                 self.executor.get_sources_dir() / "builder-gentoo/scripts"
             )
@@ -573,7 +687,12 @@ class TemplateBuilderPlugin(TemplatePlugin):
         # Create and sign metadata
         self.create_and_sign_repository_metadata(repository_publish)
 
-    def create(self, repository_publish: str):
+    def create(self, repository_publish: Optional[str]):
+        if not repository_publish:
+            self.log.error(
+                "Cannot create repository without a repository name!"
+            )
+
         # Create skeleton
         self.create_repository_skeleton()
 
@@ -588,8 +707,13 @@ class TemplateBuilderPlugin(TemplatePlugin):
         ignore_min_age: bool = False,
         unpublish: bool = False,
         template_timestamp: Optional[str] = None,
+        create_and_sign_metadata_only: bool = False,
+        **kwargs,
     ):
-        self.update_parameters(self.stage)
+        if create_and_sign_metadata_only:
+            self.create(repository_publish)
+            return
+
         repository_dir = self.config.repository_dir / self.dist.distribution
         template_artifacts_dir = self.config.templates_dir
         qubeized_image = (
@@ -604,6 +728,25 @@ class TemplateBuilderPlugin(TemplatePlugin):
         #
 
         if self.stage == "prep":
+            force_prep = (
+                self.config.get("force-template-prep", False)
+                or template_timestamp is not None
+            )
+
+            if not force_prep:
+                # Try to detect existing prep artifacts.
+                try:
+                    existing_timestamp = self.get_template_timestamp("prep")
+                except TemplateError:
+                    existing_timestamp = None
+
+                root_img = qubeized_image / "root.img"
+                if existing_timestamp and root_img.exists():
+                    self.log.info(
+                        f"{self.template}: prep already done for timestamp {existing_timestamp}. Skipping."
+                    )
+                    return
+
             if template_timestamp:
                 template_timestamp = parsedate(template_timestamp).strftime(
                     "%Y%m%d%H%M"
@@ -670,7 +813,16 @@ class TemplateBuilderPlugin(TemplatePlugin):
 
         if self.stage == "build":
             if not self.template.timestamp:
-                self.template.timestamp = self.get_template_timestamp("prep")
+                self.get_template_timestamp("prep")
+
+            if (
+                self.template.timestamp
+                == self.get_template_timestamp_for_stage("build")
+            ):
+                self.log.info(
+                    f"{self.template}: build already done for timestamp {self.template.timestamp}. Skipping."
+                )
+                return
 
             self.environment.update(
                 {"TEMPLATE_TIMESTAMP": self.template.timestamp}

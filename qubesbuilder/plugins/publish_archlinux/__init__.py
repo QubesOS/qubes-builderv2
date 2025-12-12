@@ -62,15 +62,6 @@ class ArchlinuxRepoPlugin(ArchlinuxDistributionPlugin):
             msg = f"{self.log_prefix}:{directory}:  Failed to sign metadata"
             raise PublishError(msg) from e
 
-    def run(
-        self,
-        repository_publish: Optional[str] = None,
-        ignore_min_age: bool = False,
-        unpublish: bool = False,
-        **kwargs,
-    ):
-        super().run()
-
 
 class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
 
