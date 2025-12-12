@@ -202,6 +202,8 @@ builderv2-github:
   stage: build
   tags:
     - qubes
+  variables:
+    RELEASE: 4.3
   before_script:
     - docker pull registry.gitlab.com/qubesos/docker-images/qubes-builder-fedora:latest
     - docker tag registry.gitlab.com/qubesos/docker-images/qubes-builder-fedora:latest qubes-builder-fedora:latest
@@ -210,7 +212,7 @@ builderv2-github:
     - sudo dnf install -y python3-debian dpkg-dev openssl tree pacman
   script:
     - ./qb --builder-conf tests/builder-ci.yml -c builder-rpm -c builder-debian -c template-whonix -c template-kicksecure -c builder-archlinux -c qubes-release package fetch
-    - ./qb --builder-conf tests/builder-ci.yml -t "${CI_JOB_NAME#qubes-template-}" --option executor:type=qubes --option executor:options:dispvm=builder-dvm template all
+    - ./qb --builder-conf tests/builder-ci.yml -o use-qubes-repo:version=${RELEASE} -o qubes-release=r${RELEASE} -t "${CI_JOB_NAME#qubes-template-}" --option executor:type=qubes --option executor:options:dispvm=builder-dvm template all
 
 .installer_iso:
   rules:
