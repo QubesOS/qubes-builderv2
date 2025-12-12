@@ -171,9 +171,6 @@ class PublishPlugin(DistributionComponentPlugin):
 
         return True
 
-    def create(self, repository_publish: str):
-        return
-
     def run(self, **kwargs):
         # Run stage defined by parent class
         super().run()

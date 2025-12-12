@@ -352,6 +352,15 @@ class Config:
             return result
         return self._components
 
+    def get_component(self, component_name):
+        filtered_components = self.get_components(
+            filtered_components=[component_name]
+        )
+        if not filtered_components:
+            return None
+        else:
+            return filtered_components[0]
+
     @property
     def artifacts_dir(self):
         if not self._artifacts_dir:
@@ -774,6 +783,7 @@ class Config:
         distributions: List[QubesDistribution],
         templates: List[QubesTemplate],
         stages: List[str],
+        with_dependencies: bool = True,
     ):
         """
         Collects jobs related to given constraints.
@@ -837,6 +847,10 @@ class Config:
             # Template
             for tmpl in templates:
                 add_job(JobReference(None, None, tmpl, stage, None))
+
+        # If we don't want dependencies, just return in collection order.
+        if not with_dependencies:
+            return jobs
 
         # build DAG and apply topological sort
         graph = {}

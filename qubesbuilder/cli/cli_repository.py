@@ -47,6 +47,7 @@ def _publish(
             distributions=distributions,
             templates=[],
             stages=["publish"],
+            with_dependencies=not create_and_sign_metadata_only,
         )
     elif repository_publish in TEMPLATE_REPOSITORIES:
         jobs = config.get_jobs(
@@ -54,19 +55,20 @@ def _publish(
             components=[],
             distributions=[],
             stages=["publish"],
+            with_dependencies=not create_and_sign_metadata_only,
         )
     else:
         raise CliError(f"Unknown repository '{repository_publish}'")
 
     for job in jobs:
-        if create_and_sign_metadata_only and hasattr(job, "create"):
-            job.create(repository_publish=repository_publish)
-        else:
-            job.run(
-                repository_publish=repository_publish,
-                ignore_min_age=ignore_min_age,
-                unpublish=unpublish,
-            )
+        if job.stage != "publish":
+            continue
+        job.run(
+            repository_publish=repository_publish,
+            ignore_min_age=ignore_min_age,
+            unpublish=unpublish,
+            create_and_sign_metadata_only=create_and_sign_metadata_only,
+        )
 
 
 #

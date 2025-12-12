@@ -37,7 +37,8 @@ from qubesbuilder.plugins import (
     PluginError,
     DistributionPlugin,
     PluginDependency,
-    ComponentDependency,
+    JobDependency,
+    JobReference,
 )
 from qubesbuilder.template import QubesTemplate
 
@@ -64,9 +65,23 @@ class InstallerPlugin(DistributionPlugin):
     ):
         super().__init__(config=config, dist=dist, stage=stage, **kwargs)
 
+        installer_component = self.config.get_component("qubes-release")
+        if not installer_component:
+            raise InstallerError(
+                "Cannot find 'qubes-release' component in config."
+            )
+
         self.dependencies += [
             PluginDependency("chroot_rpm"),
-            ComponentDependency("qubes-release"),
+            JobDependency(
+                JobReference(
+                    component=installer_component,
+                    stage="fetch",
+                    build="source",
+                    dist=None,
+                    template=None,
+                )
+            ),
         ]
 
         self.iso_name = ""
@@ -253,6 +268,9 @@ class InstallerPlugin(DistributionPlugin):
         **kwargs,
     ):
         super().run()
+
+        if self.stage not in self.stages:
+            return
 
         self.update_parameters(stage=self.stage, iso_timestamp=iso_timestamp)
 

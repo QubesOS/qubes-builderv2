@@ -147,7 +147,12 @@ class DEBRepoPlugin(DEBDistributionPlugin):
                 )
                 raise PublishError(msg) from e
 
-    def create(self, repository_publish: str):
+    def create(self, repository_publish: Optional[str]):
+        if not repository_publish:
+            self.log.error(
+                "Cannot create repository without a repository name!"
+            )
+
         # Create skeleton
         self.create_repository_skeleton()
 
@@ -162,9 +167,13 @@ class DEBRepoPlugin(DEBDistributionPlugin):
         repository_publish: Optional[str] = None,
         ignore_min_age: bool = False,
         unpublish: bool = False,
+        create_and_sign_metadata_only: bool = False,
         **kwargs,
     ):
-        super().run()
+        if create_and_sign_metadata_only:
+            self.create(repository_publish)
+        else:
+            super().run()
 
 
 class DEBPublishPlugin(DEBRepoPlugin, PublishPlugin):
@@ -278,6 +287,7 @@ class DEBPublishPlugin(DEBRepoPlugin, PublishPlugin):
         repository_publish: Optional[str] = None,
         ignore_min_age: bool = False,
         unpublish: bool = False,
+        create_and_sign_metadata_only: bool = False,
         **kwargs,
     ):
         """

@@ -41,7 +41,6 @@ from qubesbuilder.plugins import (
     PluginDependency,
     JobDependency,
     JobReference,
-    ComponentDependency,
 )
 from qubesbuilder.template import QubesTemplate
 
@@ -102,13 +101,17 @@ class TemplateBuilderPlugin(TemplatePlugin):
 
         self.update_parameters(self.stage)
 
-        self.dependencies.append(PluginDependency("publish"))
+        self.dependencies += [
+            PluginDependency("publish"),
+            PluginDependency("publish_rpm"),
+        ]
+
         if stage == "build":
             self.dependencies.append(
                 JobDependency(
                     JobReference(
                         component=None,
-                        dist=self.dist,
+                        dist=None,
                         stage="prep",
                         build=None,
                         template=template,
@@ -121,8 +124,21 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 JobDependency(
                     JobReference(
                         component=None,
-                        dist=self.dist,
+                        dist=None,
                         stage="build",
+                        build=None,
+                        template=template,
+                    )
+                )
+            )
+
+        if stage == "publish":
+            self.dependencies.append(
+                JobDependency(
+                    JobReference(
+                        component=None,
+                        dist=None,
+                        stage="sign",
                         build=None,
                         template=template,
                     )
@@ -221,11 +237,10 @@ class TemplateBuilderPlugin(TemplatePlugin):
         ) or self.config.get("mirrors", {}).get(self.dist.name, [])
 
         if self.template.distribution.is_rpm():
-            component = self.config.get_components(["builder-rpm"])[0]
+            component = self.config.get_component("builder-rpm")
             self.dependencies += [
                 PluginDependency("chroot_rpm"),
                 PluginDependency("source_rpm"),
-                ComponentDependency("builder-rpm"),
                 JobDependency(
                     JobReference(
                         component=component,
@@ -251,12 +266,11 @@ class TemplateBuilderPlugin(TemplatePlugin):
             self.template.distribution.is_deb()
             or self.template.distribution.is_ubuntu()
         ):
-            component = self.config.get_components(["builder-debian"])[0]
+            component = self.config.get_component("builder-debian")
             self.dependencies += [
                 PluginDependency("chroot_deb"),
                 PluginDependency("source_deb"),
                 PluginDependency("build_deb"),
-                ComponentDependency("builder-debian"),
                 JobDependency(
                     JobReference(
                         component=component,
@@ -284,9 +298,8 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 "whonix-gateway",
                 "whonix-workstation",
             ):
-                component = self.config.get_components(["template-whonix"])[0]
+                component = self.config.get_component("template-whonix")
                 self.dependencies += [
-                    ComponentDependency("template-whonix"),
                     JobDependency(
                         JobReference(
                             component=component,
@@ -315,11 +328,8 @@ class TemplateBuilderPlugin(TemplatePlugin):
                     f"+whonix-workstation:{self.executor.get_sources_dir()}/template-whonix",
                 ]
             if self.template.flavor in ("kicksecure",):
-                component = self.config.get_components(["template-kicksecure"])[
-                    0
-                ]
+                component = self.config.get_component("template-kicksecure")
                 self.dependencies += [
-                    ComponentDependency("template-kicksecure"),
                     JobDependency(
                         JobReference(
                             component=component,
@@ -342,9 +352,8 @@ class TemplateBuilderPlugin(TemplatePlugin):
                     }
                 )
             if self.template.flavor.startswith("kali"):
-                component = self.config.get_components(["template-kali"])[0]
+                component = self.config.get_component("template-kali")
                 self.dependencies += [
-                    ComponentDependency("template-kali"),
                     JobDependency(
                         JobReference(
                             component=component,
@@ -372,10 +381,9 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 ]
 
         elif self.template.distribution.is_archlinux():
-            component = self.config.get_components(["builder-archlinux"])[0]
+            component = self.config.get_component("builder-archlinux")
             self.dependencies += [
                 PluginDependency("chroot_archlinux"),
-                ComponentDependency("builder-archlinux"),
                 JobDependency(
                     JobReference(
                         component=component,
@@ -403,9 +411,8 @@ class TemplateBuilderPlugin(TemplatePlugin):
             )
             self.environment.update({"ARCHLINUX_MIRROR": ",".join(mirrors)})
         elif self.template.distribution.is_gentoo():
-            component = self.config.get_components(["builder-gentoo"])[0]
+            component = self.config.get_component("builder-gentoo")
             self.dependencies += [
-                ComponentDependency("builder-gentoo"),
                 JobDependency(
                     JobReference(
                         component=component,
@@ -680,7 +687,12 @@ class TemplateBuilderPlugin(TemplatePlugin):
         # Create and sign metadata
         self.create_and_sign_repository_metadata(repository_publish)
 
-    def create(self, repository_publish: str):
+    def create(self, repository_publish: Optional[str]):
+        if not repository_publish:
+            self.log.error(
+                "Cannot create repository without a repository name!"
+            )
+
         # Create skeleton
         self.create_repository_skeleton()
 
@@ -695,8 +707,13 @@ class TemplateBuilderPlugin(TemplatePlugin):
         ignore_min_age: bool = False,
         unpublish: bool = False,
         template_timestamp: Optional[str] = None,
+        create_and_sign_metadata_only: bool = False,
         **kwargs,
     ):
+        if create_and_sign_metadata_only:
+            self.create(repository_publish)
+            return
+
         repository_dir = self.config.repository_dir / self.dist.distribution
         template_artifacts_dir = self.config.templates_dir
         qubeized_image = (
