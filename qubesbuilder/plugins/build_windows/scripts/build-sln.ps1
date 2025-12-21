@@ -134,10 +134,7 @@ if ($distfiles -ne "") {
 
 LogDebug "msbuild args: $build_args"
 
-# Start-Process -Wait hangs here for some reason, but waiting separately works properly
-# seems to be related to msbuild leaving some worker processes running
-# TODO: investigate, this doesn't return correct exit code if build fails
-# ($proc.ExitCode is null?!)
-$proc = Start-Process -FilePath $msbuild -NoNewWindow -PassThru -ArgumentList $build_args
-$proc.WaitForExit()
-return $proc.ExitCode
+$status = StreamProcess $msbuild $build_args
+if ($status -ne 0) {
+    LogError "Build failed, see msbuild output"
+}
