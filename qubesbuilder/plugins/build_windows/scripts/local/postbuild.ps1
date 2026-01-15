@@ -4,6 +4,8 @@ param (
     [string]$build_configuration # Debug/Release
 )
 
+$ErrorActionPreference = "Stop"
+
 # Skip if running from Qubes Builder
 if (! (Test-Path -Path env:QB_LOCAL)) {
     exit 0
