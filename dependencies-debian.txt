@@ -1,6 +1,7 @@
 createrepo-c
 devscripts
 docker.io
+docker-cli
 gpg
 mktorrent
 openssl
