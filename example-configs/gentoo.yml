@@ -1,7 +1,14 @@
 git:
   baseurl: https://github.com
-  prefix: qubesos/qubes-
-  branch: main
+  prefix: QubesOS/qubes-
+  branch: release4.2
+  maintainers:
+    # marmarek
+    - '0064428F455451B3EBE78A7F063938BA42CFA724'
+    # simon
+    - '274E12AB03F2FE293765FC06DA0434BC706E1FCF'
+    # lubellier
+    #- 'F3FD7EAAE0731AC4C4477D32552BC8B26E38D080'
 
 backend-vmm: xen
 debug: true
@@ -9,6 +16,8 @@ verbose: true
 qubes-release: r4.2
 
 template-root-size: "30G"
+distributions:
+  - vm-gentoo
 
 templates:
   - gentoo:
@@ -26,20 +35,163 @@ templates:
 components:
   - builder-gentoo:
       packages: False
-      url: https://github.com/QubesOS/qubes-builder-gentoo
+      # TODO switch back to url: https://github.com/QubesOS/qubes-builder-gentoo
+      url: https://github.com/lubellier/qubes-builder-gentoo
+      branch: ci-integration
       maintainers:
         # fepitre's @qubes-os.org
         - 9FA64B92F95E706BF28E2CA6484010B5CDC576E2
         # fepitre's @invisiblethingslab.com
         - 77EEEF6D0386962AEA8CF84A9B8273F80AC219E6
+        # lubellier
+        - 'F3FD7EAAE0731AC4C4477D32552BC8B26E38D080'
+  - vmm-xen
+  - vmm-xen-guest
+  - core-libvirt
+  - core-vchan-xen
+  - core-qubesdb
+  - core-qrexec
+  - linux-utils
+  - plymouth
+  - dracut
+  - python-objgraph:
+      branch: main
+  - python-fido2:
+      branch: main
+  - python-qasync
+  - python-panflute:
+      branch: main
+  - rpm-oxide
+  - core-admin
+  - core-admin-client
+  - core-admin-addon-whonix
+  - core-admin-linux
+  - core-agent-linux
+  - intel-microcode:
+      branch: main
+  - linux-firmware
+  - linux-kernel:
+      branch: stable-6.12
+      timeout: 21600
+  - linux-kernel-latest:
+      url: https://github.com/QubesOS/qubes-linux-kernel
+      branch: main
+      timeout: 21600
+  - artwork
+  - grub2
+  - grub2-theme
+  - gui-common
+  - gui-daemon
+  - gui-agent-linux
+  - seabios
+  - vmm-xen-stubdom-linux
+  - app-linux-split-gpg:
+      branch: main
+  - app-linux-split-gpg2:
+      branch: main
+  - app-linux-gpg-sign:
+      branch: main
+  - app-thunderbird:
+      branch: main
+  - app-linux-pdf-converter:
+      branch: main
+  - app-linux-img-converter:
+      branch: main
+  - app-linux-input-proxy:
+      branch: main
+  - app-linux-usb-proxy
+  - app-linux-snapd-helper:
+      branch: main
+  - app-shutdown-idle:
+      branch: main
+  - app-yubikey:
+      branch: main
+  - app-u2f:
+      branch: main
+  - video-companion:
+      branch: main
+  - notification-proxy
+  - screenshot-helper
+  - python-looseversion
+  - salt
+  - mgmt-salt
+  - mgmt-salt-base
+  - mgmt-salt-base-topd
+  - mgmt-salt-base-config
+  - mgmt-salt-dom0-qvm
+  - mgmt-salt-dom0-virtual-machines
+  - mgmt-salt-dom0-update
+  - infrastructure:
+      branch: main
+  - repo-templates
+  - meta-packages
+  - manager
+  - desktop-linux-common
+  - desktop-linux-kde
+  - desktop-linux-xfce4
+  - desktop-linux-xfce4-xfwm4
+  - desktop-linux-xfce4-xfwm4-420:
+      url: https://github.com/QubesOS/qubes-desktop-linux-xfce4-xfwm4
+      branch: xfce-4.20
+  - desktop-linux-i3
+  - desktop-linux-i3-settings-qubes
+  - desktop-linux-awesome
+  - desktop-linux-manager
+  - desktop-linux-menu
+  - disk-password-gui
+  - libwnck3
+  - xfdesktop
+  - fwupd
+  - flashrom
+  - grubby-dummy:
+      branch: main
+  - dummy-psu
+  - dummy-backlight
+  - zfs
+  - zfs-dkms
+  - xorg-x11-server
+  - xorg-x11-drv-intel
+  - xorg-x11-drv-amdgpu
+  - linux-pvgrub2
+  - linux-gbulb:
+      branch: main
+  - linux-scrypt
+  - lvm2
+  - qubes-release
+  - dist-upgrade
+  - pykickstart
+  - blivet
+  - lorax
+  - lorax-templates
+  - anaconda
+  - anaconda-addon
+  - initial-setup
+  - sbsigntools:
+      branch: main
+  - tpm-extra
+  - trousers-changer
+  - antievilmaid
+  - xscreensaver
+  - remote-support
+  - openssh
 
 executor:
- type: docker
- options:
-   image: "qubes-builder-fedora:latest"
+  type: docker
+  options:
+    image: "qubes-builder-fedora:latest"
 
 stages:
   - fetch
   - prep
   - build
-
+  - post
+  - verify
+  - sign:
+      executor:
+        type: local
+  - publish:
+      executor:
+        type: local
+  - upload:
+      executor:
+        type: local
