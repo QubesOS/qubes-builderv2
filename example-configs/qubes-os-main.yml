@@ -49,6 +49,9 @@ templates:
         - install-kernel
 
 components:
+  - builderv2:
+      packages: False
+      branch: main
   - builder-rpm:
       packages: False
       branch: main
