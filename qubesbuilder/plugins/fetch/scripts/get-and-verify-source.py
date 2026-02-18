@@ -49,32 +49,31 @@ def verify_git_obj(gpg_client, keyring_dir, repository_dir, obj_type, obj_path):
         output = subprocess.run(
             command,
             capture_output=True,
-            universal_newlines=True,
             cwd=repository_dir,
             env=env,
             check=True,
         ).stderr
 
         # Count the occurrences of [GNUPG:] NEWSIG in the output
-        newsig_number = output.count("[GNUPG:] NEWSIG")
+        newsig_number = output.count(b"[GNUPG:] NEWSIG")
 
         # Check if there is exactly one [GNUPG:] NEWSIG and if TRUST_FULLY or TRUST_ULTIMATE is 0
         if newsig_number == 1:
             if any(
-                line.startswith("[GNUPG:] TRUST_FULLY 0 pgp")
-                or line.startswith("[GNUPG:] TRUST_ULTIMATE 0 pgp")
+                line.startswith(b"[GNUPG:] TRUST_FULLY 0 pgp")
+                or line.startswith(b"[GNUPG:] TRUST_ULTIMATE 0 pgp")
                 for line in output.splitlines()
             ):
                 valid_sig_key = None
                 valid_sig_re = re.compile(
-                    r"^\[GNUPG:\] VALIDSIG ([a-fA-F0-9]{40}) [0-9]{4}-[0-9]{2}-[0-9]{2}.*"
+                    rb"^\[GNUPG:\] VALIDSIG ([a-fA-F0-9]{40}) [0-9]{4}-[0-9]{2}-[0-9]{2}.*"
                 )
                 for line in output.splitlines():
                     parsed_sig = valid_sig_re.match(line)
                     if parsed_sig:
                         valid_sig_key = parsed_sig.group(1)
                 if valid_sig_key:
-                    return valid_sig_key
+                    return valid_sig_key.decode()
     except subprocess.CalledProcessError as e:
         print(f"ERROR: {e!r}; stderr: {e.stderr}")
 
