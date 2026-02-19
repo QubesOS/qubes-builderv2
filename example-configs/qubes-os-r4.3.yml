@@ -19,6 +19,7 @@ distributions:
   - vm-trixie
   - vm-fc42
   - vm-fc43
+  - vm-fc44
 
 templates:
   - fedora-42-xfce:
