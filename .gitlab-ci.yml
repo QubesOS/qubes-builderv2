@@ -366,6 +366,9 @@ cache-vm-fc42:
 cache-vm-fc43:
   extends: .init_cache_job
 
+cache-vm-fc44:
+  extends: .init_cache_job
+
 cache-vm-bookworm:
   extends: .init_cache_job
   script:
