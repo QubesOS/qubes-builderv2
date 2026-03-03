@@ -30,6 +30,7 @@ DEBIAN = {
     "bullseye": "11",
     "bookworm": "12",
     "trixie": "13",
+    "forky": "14",
 }
 
 # LTS

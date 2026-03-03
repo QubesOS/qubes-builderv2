@@ -44,7 +44,7 @@ output_dir="$3"
 
 if [ "${fullname}" == "debian" ]; then
     name="Debian"
-    dists=(buster bullseye bookworm trixie)
+    dists=(buster bullseye bookworm trixie forky)
 elif [ "${fullname}" == "ubuntu" ]; then
     name="Ubuntu"
     dists=(bionic focal jammy lunar noble)
