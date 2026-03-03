@@ -153,7 +153,9 @@ class ArchlinuxChrootPlugin(ArchlinuxDistributionPlugin, ChrootPlugin):
             if not recreate:
                 return
 
-            (chroot_dir / self.dist.nva / chroot_archive).unlink()
+            (chroot_dir / self.dist.nva / chroot_archive).unlink(
+                missing_ok=True
+            )
 
         # Create chroot cache dir
         (chroot_dir / self.dist.nva).mkdir(exist_ok=True, parents=True)
