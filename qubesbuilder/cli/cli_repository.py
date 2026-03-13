@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Type, Union
 
 import click
 import yaml
@@ -17,6 +17,7 @@ from qubesbuilder.plugins.publish_archlinux import (
 )
 from qubesbuilder.plugins.publish_deb import DEBPublishPlugin, DEBRepoPlugin
 from qubesbuilder.plugins.publish_rpm import RPMPublishPlugin, RPMRepoPlugin
+from qubesbuilder.plugins.build_windows import WindowsBuildPlugin
 from qubesbuilder.plugins.template import (
     TemplateBuilderPlugin,
     TEMPLATE_REPOSITORIES,
@@ -162,15 +163,26 @@ def _check_release_status_for_component(config, components, distributions):
         release_status.setdefault(component.name, {})
         for dist in distributions:
             release_status[component.name].setdefault(dist.distribution, {})
+
+            # Windows distributions do not use a publish stage or package
+            # repositories: use the build plugin and check build artifacts.
+            plugin_cls: Union[Type[WindowsBuildPlugin], Type[PublishPlugin]]
+            if dist.is_windows():
+                plugin_cls = WindowsBuildPlugin
+                check_stage = "build"
+            else:
+                plugin_cls = PublishPlugin
+                check_stage = "publish"
+
             try:
-                plugin = PublishPlugin(
+                plugin = plugin_cls(
                     config=config,
                     component=component,
                     dist=dist,
-                    stage="publish",
+                    stage=check_stage,
                 )
-                parameters = plugin.get_parameters("publish")
-            except ComponentError:
+                parameters = plugin.get_parameters(check_stage)
+            except (ComponentError, PluginError):
                 release_status[component.name][dist.distribution][
                     "status"
                 ] = "no source"
@@ -205,17 +217,26 @@ def _check_release_status_for_component(config, components, distributions):
                 ] = "no version tag"
 
             try:
-                # Ensure we have all publish artifacts info
-                plugin.check_dist_stage_artifacts("publish")
+                plugin.check_dist_stage_artifacts(check_stage)
             except PluginError:
                 release_status[component.name][dist.distribution][
                     "status"
                 ] = "not released"
                 continue
 
+            # Windows components are built (and optionally signed) but never
+            # published to a repository: mark them as done and move on.
+            if dist.is_windows():
+                release_status[component.name][dist.distribution][
+                    "status"
+                ] = "built"
+                continue
+
             # We may have nothing to do for this component-distribution
             if not parameters["build"]:
                 continue
+
+            assert isinstance(plugin, PublishPlugin)
 
             # FIXME: we pick the first build target found as we have checks
             #  for all being processed for all stages

@@ -349,6 +349,11 @@ pytest-cli-installer-cache:
   variables:
     PYTEST_TARGETS: "tests/test_cli.py -k test_installer_init_cache"
 
+pytest-check-release-status:
+  extends: .pytest
+  variables:
+    PYTEST_TARGETS: "tests/test_check_release_status.py"
+
 #
 # Components
 #
