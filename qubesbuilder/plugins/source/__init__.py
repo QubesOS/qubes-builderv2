@@ -64,9 +64,8 @@ class SourcePlugin(DistributionComponentPlugin):
         self.dependencies.append(PluginDependency("fetch"))
 
         try:
-            if self.has_component_packages(stage):
-                self.dependencies += [
-                    PluginDependency("chroot_rpm"),
+            if self.has_component_packages(stage) and not self.dist.is_windows():
+                self.dependencies.append(
                     JobDependency(
                         JobReference(
                             component=None,
@@ -75,8 +74,8 @@ class SourcePlugin(DistributionComponentPlugin):
                             dist=self.dist,
                             template=None,
                         )
-                    ),
-                ]
+                    )
+                )
         except ComponentError as e:
             raise PluginError(
                 f"Cannot determine dependencies for {self.component}. Missing fetch?"
