@@ -66,7 +66,7 @@ builderv2-github:
     PYTEST_ARGS: >-
       -vv --color=yes --showlocals
       --tb=long
-      --show-capture=all
+      --capture=no
       -rA
       -o truncation_limit_chars=0
       -o truncation_limit_lines=0
