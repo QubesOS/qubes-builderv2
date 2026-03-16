@@ -240,7 +240,9 @@ class DEBBuildPlugin(DEBDistributionPlugin, BuildPlugin):
             )
             # extra_sources = ""
 
-            cmd = [
+            cmd = ["set -x"] if self.config.verbose else []
+
+            cmd += [
                 f"mkdir -p {self.executor.get_cache_dir()}/aptcache",
                 f"{self.executor.get_plugins_dir()}/build_deb/scripts/create-local-repo {self.executor.get_repository_dir()} {self.dist.fullname} {self.dist.name}",
             ]
