@@ -162,6 +162,7 @@ def _check_release_status_for_component(config, components, distributions):
         release_status.setdefault(component.name, {})
         for dist in distributions:
             release_status[component.name].setdefault(dist.distribution, {})
+
             try:
                 plugin = PublishPlugin(
                     config=config,
@@ -170,7 +171,7 @@ def _check_release_status_for_component(config, components, distributions):
                     stage="publish",
                 )
                 parameters = plugin.get_parameters("publish")
-            except ComponentError:
+            except (ComponentError, PluginError):
                 release_status[component.name][dist.distribution][
                     "status"
                 ] = "no source"

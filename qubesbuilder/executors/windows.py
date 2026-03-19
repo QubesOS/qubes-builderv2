@@ -18,6 +18,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import hashlib
 import os
 from abc import ABC
 from pathlib import Path, PurePath, PureWindowsPath
@@ -144,8 +145,9 @@ class BaseWindowsExecutor(Executor, ABC):
 class SSHWindowsExecutor(BaseWindowsExecutor):
     def __init__(
         self,
-        ewdk: str,
         ssh_ip: str,
+        ewdk: Optional[str] = None,
+        ewdk_skip_checksum: bool = False,
         ssh_key_path: str = "/home/user/.ssh/win-build.key",
         user: str = "user",
         ssh_vm: Optional[str] = None,
@@ -155,6 +157,11 @@ class SSHWindowsExecutor(BaseWindowsExecutor):
         self.ip = ssh_ip
         self.key_path = ssh_key_path
         self.vm = ssh_vm
+        self.ewdk_skip_checksum = ewdk_skip_checksum
+
+    @staticmethod
+    def decode_win(data: bytes) -> str:
+        return data.decode("utf-8", errors="replace")
 
     def ssh_cmd(self, cmd: List[str]) -> str:
         target = f"{self.user}@{self.ip}"
@@ -181,9 +188,9 @@ class SSHWindowsExecutor(BaseWindowsExecutor):
         )
         if ret != 0:
             raise ExecutorError(
-                f"Failed to run SSH cmd {cmd}: {stderr.decode('ascii', 'strict')}"
+                f"Failed to run SSH cmd {cmd}: {self.decode_win(stderr)}"
             )
-        return stdout.decode("utf-8")
+        return self.decode_win(stdout)
 
     def copy_in(self, source_path: Path, destination_dir: PurePath):
         src = str(source_path.expanduser().resolve())
@@ -230,6 +237,142 @@ class SSHWindowsExecutor(BaseWindowsExecutor):
             ]
         )
 
+    def _remote_file_exists(self, path: str) -> bool:
+        """
+        Check if a file exists on the remote Windows host.
+        """
+        try:
+            out = self._run_powershell(f"Test-Path '{path}'")
+            exists = out.strip().lower() == "true"
+            self.log.debug(
+                f"remote file '{path}': {'found' if exists else 'not found'}"
+            )
+            return exists
+        except ExecutorError:
+            self.log.debug(
+                f"remote file '{path}': check failed, assuming not found"
+            )
+            return False
+
+    def _remote_sha256(self, path: str) -> Optional[str]:
+        """
+        Return the lowercase SHA256 hex digest of a file on the remote host, or None if unavailable.
+        """
+        try:
+            out = self._run_powershell(
+                f"(Get-FileHash '{path}' -Algorithm SHA256).Hash"
+            )
+            return out.strip().lower()
+        except ExecutorError:
+            return None
+
+    @staticmethod
+    def _local_sha256(path: Path) -> str:
+        h = hashlib.sha256()
+        with path.open("rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    def _scp_file(self, local_path: Path, remote_path: str):
+        """
+        SCP a single file to the remote host at the exact path specified.
+        """
+        target = f"{self.user}@{self.ip}"
+        remote_path_fwd = remote_path.replace("\\", "/")
+        self.execute(
+            [
+                "scp",
+                "-i",
+                self.key_path,
+                "-B",
+                "-q",
+                str(local_path),
+                f"{target}:{remote_path_fwd}",
+            ]
+        )
+
+    def _run_powershell(self, ps_script: str):
+        """
+        Run a PowerShell script on the remote host.
+        """
+        target = f"{self.user}@{self.ip}"
+        ret, stdout, stderr = self.execute(
+            cmd=[
+                "ssh",
+                "-i",
+                self.key_path,
+                "-o",
+                "BatchMode yes",
+                "-o",
+                "StrictHostKeyChecking accept-new",
+                "-o",
+                "ConnectTimeout 60",
+                target,
+                "powershell",
+                "-NonInteractive",
+                "-Command",
+                ps_script,
+            ],
+            collect=True,
+            echo=False,
+        )
+        if ret != 0:
+            raise ExecutorError(
+                f"Failed to run PowerShell script: {self.decode_win(stderr)}"
+            )
+        return self.decode_win(stdout)
+
+    def setup_remote(self):
+        """
+        Transfer and set up the EWDK ISO on the remote host.
+        """
+        if not self.ewdk_path:
+            return
+
+        ewdk_iso = Path(self.ewdk_path)
+        if not ewdk_iso.is_file():
+            raise ExecutorError(f"EWDK image not found at '{self.ewdk_path}'")
+
+        remote_ewdk = f"c:\\Users\\{self.user}\\ewdk.iso"
+
+        if self.ewdk_skip_checksum:
+            if self._remote_file_exists(remote_ewdk):
+                self.log.debug(
+                    "EWDK ISO already present on remote host (checksum skipped)"
+                )
+            else:
+                self.log.debug(
+                    "EWDK ISO not found on remote host, transferring"
+                )
+                self._scp_file(ewdk_iso, remote_ewdk)
+        else:
+            local_digest = self._local_sha256(ewdk_iso)
+            remote_digest = self._remote_sha256(remote_ewdk)
+
+            if local_digest == remote_digest:
+                self.log.debug(
+                    "EWDK ISO already present on remote host with correct checksum"
+                )
+            else:
+                if remote_digest is None:
+                    self.log.debug(
+                        "EWDK ISO not found on remote host, transferring"
+                    )
+                else:
+                    self.log.debug(
+                        f"EWDK ISO checksum mismatch (local={local_digest[:8]}…,"
+                        f" remote={remote_digest[:8]}…), re-transferring"
+                    )
+                self._scp_file(ewdk_iso, remote_ewdk)
+
+        # Mount the ISO if not already mounted (idempotent)
+        self.log.debug("Ensuring EWDK ISO is mounted on remote host")
+        self._run_powershell(
+            f"if (-not (Get-DiskImage -ImagePath '{remote_ewdk}').Attached)"
+            f" {{ Mount-DiskImage -ImagePath '{remote_ewdk}' }}"
+        )
+
     def start_worker(self):
         assert self.vm is not None
         # we need the vm in a stopped state to attach EWDK block device
@@ -253,6 +396,8 @@ class SSHWindowsExecutor(BaseWindowsExecutor):
     ) -> str:
         if self.vm is not None:
             self.start_worker()
+        else:
+            self.setup_remote()
 
         # this executor doesn't use a dispvm, clear the build dir every time
         self.ssh_cmd(

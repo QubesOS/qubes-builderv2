@@ -93,7 +93,7 @@ class ArchlinuxChrootPlugin(ArchlinuxDistributionPlugin, ChrootPlugin):
     ArchlinuxChrootPlugin manages Archlinux chroot creation
 
     Stages:
-        - chroot - Create Archlinux cache chroot.
+        - init-cache - Create Archlinux cache chroot.
     """
 
     name = "chroot_archlinux"
