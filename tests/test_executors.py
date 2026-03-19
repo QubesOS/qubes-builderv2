@@ -154,7 +154,9 @@ def test_simple(executor):
         copy_in = [(hello, executor.get_builder_dir() / "tmp")]
 
         # Copy-out the modified file
-        copy_out = [(executor.get_builder_dir() / "tmp/hello.md", Path(temp_dir))]
+        copy_out = [
+            (executor.get_builder_dir() / "tmp/hello.md", Path(temp_dir))
+        ]
         # Command that appends a line to the file
         cmd = [f"echo It works! >> {executor.get_builder_dir()}/tmp/hello.md"]
 
@@ -180,7 +182,9 @@ def test_environment(executor):
         copy_in = [(hello, executor.get_builder_dir() / "tmp")]
 
         # Copy-out the modified file
-        copy_out = [(executor.get_builder_dir() / "tmp/hello.md", Path(temp_dir))]
+        copy_out = [
+            (executor.get_builder_dir() / "tmp/hello.md", Path(temp_dir))
+        ]
         # Command that appends a line to the file
         cmd = [
             f"echo ${{MY_ANSWER}} >> {executor.get_builder_dir()}/tmp/hello.md",

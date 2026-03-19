@@ -31,7 +31,7 @@ class DEBChrootPlugin(DEBDistributionPlugin, ChrootPlugin):
     ChrootPlugin manages Debian chroot creation
 
     Stages:
-        - chroot - Create pbuilder base.tgz.
+        - init-cache - Create pbuilder base.tgz.
     """
 
     name = "chroot_deb"

@@ -61,6 +61,7 @@ class UploadPlugin(DistributionPlugin):
             or distribution.is_deb()
             or distribution.is_ubuntu()
             or distribution.is_archlinux()
+            or distribution.is_windows()
         )
 
     def run(self, repository_publish: Optional[str] = None, **kwargs):
@@ -102,6 +103,10 @@ class UploadPlugin(DistributionPlugin):
                 directories_to_upload.append(f"{self.dist.package_set}/pool")
                 directories_to_upload.append(
                     f"{self.dist.package_set}/dists/{debian_suite}"
+                )
+            elif self.dist.is_windows():
+                directories_to_upload.append(
+                    f"{repository_publish}/{self.dist.package_set}/{self.dist.name}"
                 )
 
             if not directories_to_upload:

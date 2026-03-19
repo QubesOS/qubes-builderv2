@@ -1,31 +1,21 @@
 git:
-  prefix: omeg/qubes-
-  branch: omeg/builder-v2
+  baseurl: https://github.com
+  prefix: QubesOS/qubes-
+  branch: main
   maintainers:
-    # omeg
-    - 'CE8060B48282B234AE0A7815D32BF219E67BA830'
-
-#increment-devel-versions: true
+    # marmarek
+    - '0064428F455451B3EBE78A7F063938BA42CFA724'
+    # simon
+    - '274E12AB03F2FE293765FC06DA0434BC706E1FCF'
 
 debug: true
 verbose: true
 
-# this is for anything other than building, so source fetching etc
+# This is for anything other than building, so source fetching etc
 executor:
   type: qubes
   options:
     dispvm: qubes-builder-dvm
-
-# dev only
-less-secure-signed-commits-sufficient:
-  - vmm-xen-windows-pvdrivers
-  - core-vchan-xen
-  - windows-utils
-  - core-qubesdb
-  - core-agent-windows
-  - gui-common
-  - gui-agent-windows
-  - installer-windows-tools
 
 distributions:
   - vm-win10:
@@ -54,4 +44,4 @@ components:
   - core-agent-windows
   - gui-common
   - gui-agent-windows
-  - installer-windows-tools
+  - installer-qubes-os-windows-tools
