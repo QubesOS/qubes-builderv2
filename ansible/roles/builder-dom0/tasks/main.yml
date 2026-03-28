@@ -1,0 +1,69 @@
+---
+- name: Create builder executor template (disposable template base)
+  qubesos:
+    guest: "{{ builder_dvm_name }}"
+    state: present
+    label: "{{ builder_dvm_label }}"
+    template: "{{ builder_executor_template }}"
+    vmtype: AppVM
+    properties:
+      template_for_dispvms: true
+      netvm: "{{ builder_dvm_netvm }}"
+  tags: [builder_dvm]
+
+- name: Set private volume size for builder-dvm
+  command: >
+    qvm-volume extend {{ builder_dvm_name }}:private {{ builder_dvm_private_size }}
+  when: not skip_resize_dvm_volume | bool
+  changed_when: true
+  tags: [builder_dvm]
+
+- name: Create builder qube
+  qubesos:
+    guest: "{{ builder_qube_name }}"
+    state: present
+    label: "{{ builder_qube_label }}"
+    template: "{{ builder_qube_template if builder_qube_template else builder_executor_template }}"
+    properties:
+      netvm: "{{ builder_qube_netvm }}"
+      default_dispvm: "{{ builder_dvm_name }}"
+  tags: [builder_qube]
+
+- name: Set private volume size for builder qube
+  command: >
+    qvm-volume extend {{ builder_qube_name }}:private {{ builder_qube_private_size }}
+  when: not skip_resize_qube_volume | bool
+  changed_when: true
+  tags: [builder_qube]
+
+- name: Create Windows signing vault qube
+  qubesos:
+    guest: "{{ vault_windows_name }}"
+    state: present
+    label: "{{ vault_windows_label }}"
+    template: "{{ vault_windows_template }}"
+    vmtype: AppVM
+    properties:
+      netvm: ""
+  when: enable_windows | default(false) | bool
+  tags: [vault_windows]
+
+- name: Install Qubes executor RPC policy
+  ansible.builtin.template:
+    src: 50-qubesbuilder.policy.j2
+    dest: "{{ qubes_policy_dir }}/50-qubesbuilder.policy"
+    owner: root
+    group: qubes
+    mode: "0664"
+  when: install_policy | bool
+  tags: [policy]
+
+- name: Install Windows RPC policy
+  ansible.builtin.template:
+    src: 51-qubesbuilder-windows.policy.j2
+    dest: "{{ qubes_policy_dir }}/51-qubesbuilder-windows.policy"
+    owner: root
+    group: qubes
+    mode: "0664"
+  when: install_windows_policy | bool
+  tags: [vault_windows, policy]

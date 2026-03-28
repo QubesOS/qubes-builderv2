@@ -2,6 +2,7 @@ import os.path
 import subprocess
 import tempfile
 from pathlib import Path, PurePath
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -10,6 +11,7 @@ from qubesbuilder.executors import Executor, ExecutorError
 from qubesbuilder.executors.container import ContainerExecutor
 from qubesbuilder.executors.local import LocalExecutor
 from qubesbuilder.executors.qubes import LinuxQubesExecutor
+from qubesbuilder.executors.windows import SSHWindowsExecutor
 
 
 class MockExecutor(Executor):
@@ -154,7 +156,9 @@ def test_simple(executor):
         copy_in = [(hello, executor.get_builder_dir() / "tmp")]
 
         # Copy-out the modified file
-        copy_out = [(executor.get_builder_dir() / "tmp/hello.md", Path(temp_dir))]
+        copy_out = [
+            (executor.get_builder_dir() / "tmp/hello.md", Path(temp_dir))
+        ]
         # Command that appends a line to the file
         cmd = [f"echo It works! >> {executor.get_builder_dir()}/tmp/hello.md"]
 
@@ -180,7 +184,9 @@ def test_environment(executor):
         copy_in = [(hello, executor.get_builder_dir() / "tmp")]
 
         # Copy-out the modified file
-        copy_out = [(executor.get_builder_dir() / "tmp/hello.md", Path(temp_dir))]
+        copy_out = [
+            (executor.get_builder_dir() / "tmp/hello.md", Path(temp_dir))
+        ]
         # Command that appends a line to the file
         cmd = [
             f"echo ${{MY_ANSWER}} >> {executor.get_builder_dir()}/tmp/hello.md",
@@ -380,3 +386,171 @@ def test_qubes_on_error_noclean():
     )
 
     executor.cleanup()
+
+
+# SSHWindowsExecutor unit tests
+
+
+def _make_ssh_executor(**kwargs) -> SSHWindowsExecutor:
+    """Create an SSHWindowsExecutor with test defaults."""
+    defaults = dict(ssh_ip="10.0.0.1", user="user", ssh_key_path="/tmp/key")
+    defaults.update(kwargs)
+    return SSHWindowsExecutor(**defaults)
+
+
+def test_ssh_windows_invalid_ewdk_mode():
+    with pytest.raises(ExecutorError, match="Invalid ewdk-mode"):
+        _make_ssh_executor(ewdk_mode="invalid")
+
+
+def test_ssh_windows_ewdk_mode_attach_default():
+    ex = _make_ssh_executor()
+    assert ex.ewdk_mode == "attach"
+
+
+def test_ssh_windows_ewdk_mode_copy():
+    ex = _make_ssh_executor(ewdk_mode="copy")
+    assert ex.ewdk_mode == "copy"
+
+
+def test_ssh_windows_attach_without_ssh_vm_raises():
+    with pytest.raises(ExecutorError, match="requires ssh-vm"):
+        _make_ssh_executor(
+            ewdk="/some/ewdk.iso", ewdk_mode="attach", ssh_vm=None
+        )
+
+
+def test_ssh_windows_copy_without_ssh_vm_ok():
+    # copy mode is valid without ssh-vm (plain SSH machine)
+    ex = _make_ssh_executor(
+        ewdk="/some/ewdk.iso", ewdk_mode="copy", ssh_vm=None
+    )
+    assert ex.ewdk_mode == "copy"
+
+
+def test_ssh_windows_attach_without_ssh_vm_no_ewdk_ok():
+    # no ewdk set — attach mode without ssh-vm is fine (nothing to attach)
+    ex = _make_ssh_executor(ewdk_mode="attach", ssh_vm=None)
+    assert ex.ewdk_mode == "attach"
+
+
+def test_ssh_base_cmd_structure():
+    ex = _make_ssh_executor(
+        ssh_ip="1.2.3.4", user="bob", ssh_key_path="/id_rsa"
+    )
+    base = ex._ssh_base_cmd()
+    assert base[0] == "ssh"
+    assert "-i" in base
+    assert "/id_rsa" in base
+    assert "bob@1.2.3.4" in base
+    assert "BatchMode yes" in base
+    assert "StrictHostKeyChecking accept-new" in base
+
+
+@patch("qubesbuilder.executors.windows.vm_state", return_value="Running")
+@patch("qubesbuilder.executors.windows.start_vm")
+def test_start_worker_skips_start_when_already_running(
+    mock_start_vm, mock_vm_state
+):
+    ex = _make_ssh_executor(ssh_vm="win-build")
+
+    with patch.object(ex, "ssh_cmd") as mock_ssh:
+        ex.start_worker()
+
+    mock_start_vm.assert_not_called()
+    mock_ssh.assert_called_once_with(["exit 0"])
+
+
+@patch("qubesbuilder.executors.windows.vm_state", return_value="Halted")
+@patch("qubesbuilder.executors.windows.start_vm")
+def test_start_worker_reraises_start_error(mock_start_vm, mock_vm_state):
+    ex = _make_ssh_executor(ssh_vm="win-build")
+    mock_start_vm.side_effect = ExecutorError("SomethingElseWentWrong")
+
+    with patch.object(ex, "ssh_cmd"):
+        with pytest.raises(ExecutorError, match="SomethingElseWentWrong"):
+            ex.start_worker()
+
+
+@patch("qubesbuilder.executors.windows.vm_state", return_value="Halted")
+@patch("qubesbuilder.executors.windows.start_vm")
+def test_start_worker_copy_mode_calls_setup_remote(
+    mock_start_vm, mock_vm_state, tmp_path
+):
+    iso = tmp_path / "ewdk.iso"
+    iso.write_bytes(b"iso")
+    ex = _make_ssh_executor(ssh_vm="win-build", ewdk=str(iso), ewdk_mode="copy")
+
+    with patch.object(ex, "ssh_cmd"), patch.object(
+        ex, "setup_remote"
+    ) as mock_setup:
+        ex.start_worker()
+
+    mock_setup.assert_called_once()
+
+
+@patch("qubesbuilder.executors.windows.vm_state", return_value="Halted")
+@patch("qubesbuilder.executors.windows.start_vm")
+def test_start_worker_attach_mode_does_not_call_setup_remote(
+    mock_start_vm, mock_vm_state, tmp_path
+):
+    iso = tmp_path / "ewdk.iso"
+    iso.write_bytes(b"iso")
+    ex = _make_ssh_executor(
+        ssh_vm="win-build", ewdk=str(iso), ewdk_mode="attach"
+    )
+
+    with patch.object(ex, "ssh_cmd"), patch.object(
+        ex, "setup_remote"
+    ) as mock_setup, patch.object(ex, "attach_ewdk"):
+        ex.start_worker()
+
+    mock_setup.assert_not_called()
+
+
+@patch("qubesbuilder.executors.windows.vm_state", return_value="Halted")
+@patch("qubesbuilder.executors.windows.start_vm")
+def test_start_worker_halted_attach_mode_assigns_before_start(
+    mock_start_vm, mock_vm_state, tmp_path
+):
+    iso = tmp_path / "ewdk.iso"
+    iso.write_bytes(b"iso")
+    ex = _make_ssh_executor(
+        ssh_vm="win-build", ewdk=str(iso), ewdk_mode="attach"
+    )
+
+    call_order = []
+    with patch.object(ex, "ssh_cmd"), patch.object(
+        ex,
+        "attach_ewdk",
+        side_effect=lambda vm, vm_running: call_order.append(
+            ("attach_ewdk", vm_running)
+        ),
+    ):
+        mock_start_vm.side_effect = lambda *a, **kw: call_order.append(
+            ("start_vm",)
+        )
+        ex.start_worker()
+
+    assert call_order[0] == ("attach_ewdk", False)  # assign before start
+    assert call_order[1] == ("start_vm",)
+
+
+@patch("qubesbuilder.executors.windows.vm_state", return_value="Running")
+@patch("qubesbuilder.executors.windows.start_vm")
+def test_start_worker_running_attach_mode_hotplugs(
+    mock_start_vm, mock_vm_state, tmp_path
+):
+    iso = tmp_path / "ewdk.iso"
+    iso.write_bytes(b"iso")
+    ex = _make_ssh_executor(
+        ssh_vm="win-build", ewdk=str(iso), ewdk_mode="attach"
+    )
+
+    with patch.object(ex, "ssh_cmd"), patch.object(
+        ex, "attach_ewdk"
+    ) as mock_attach:
+        ex.start_worker()
+
+    mock_start_vm.assert_not_called()
+    mock_attach.assert_called_once_with(ex.vm, vm_running=True)

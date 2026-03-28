@@ -13,25 +13,31 @@ usage() {
 This script prepares an .iso image for the Windows builder executor qube.
 
 Options:
-    --iso     Path to unmodified Windows installation .iso file
-    --output  Path to output (edited) ISO file (default: ${EDITED_ISO})
+    --iso      Path to unmodified Windows installation .iso file
+    --output   Path to output (edited) ISO file (default: ${EDITED_ISO})
+    --verbose  Enable shell trace output (set -x)
 "
 }
 
-if ! OPTS=$(getopt -o hi:o: --long help,iso:,output: -n "$0" -- "$@"); then
+if ! OPTS=$(getopt -o hi:o:v --long help,iso:,output:,verbose -n "$0" -- "$@"); then
     exit 1
 fi
 
 eval set -- "$OPTS"
+
+VERBOSE=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h | --help) usage; exit 0 ;;
         -i | --iso) ISO="$2"; shift ;;
         -o | --output) EDITED_ISO="$2"; shift ;;
+        -v | --verbose) VERBOSE=1 ;;
     esac
     shift
 done
+
+[ "${VERBOSE}" -eq 1 ] && set -x
 
 if [ -z "${ISO}" ] || [ -z "${EDITED_ISO}" ]; then
     usage
@@ -39,7 +45,7 @@ if [ -z "${ISO}" ] || [ -z "${EDITED_ISO}" ]; then
 fi
 
 # download/verify prerequisites
-"$SCRIPT_DIR/get-files.sh" -o "$SCRIPT_DIR" "$SCRIPT_DIR/deps.txt"
+"$SCRIPT_DIR/get-files.sh" ${VERBOSE:+--verbose} -o "$SCRIPT_DIR" "$SCRIPT_DIR/deps.txt"
 
 # git installer
 cp -f "${SCRIPT_DIR}/git.exe" "${SCRIPT_DIR}/iso-files/sources/\$OEM\$/\$1/qubes/"
@@ -58,4 +64,4 @@ fi
 cp -f "${SSH_KEY}.pub" "${SCRIPT_DIR}/iso-files/sources/\$OEM\$/\$1/qubes"
 
 # prepare edited iso
-"${SCRIPT_DIR}/edit-iso.sh" --input "$ISO" --output "$EDITED_ISO" --files "${SCRIPT_DIR}/iso-files"
+"${SCRIPT_DIR}/edit-iso.sh" ${VERBOSE:+--verbose} --input "$ISO" --output "$EDITED_ISO" --files "${SCRIPT_DIR}/iso-files"

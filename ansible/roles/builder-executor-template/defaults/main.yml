@@ -1,0 +1,17 @@
+---
+# Packages needed inside the template that qubes-builder-dvm is based on.
+# Read from the symlinked dependencies-fedora-qubes-executor.txt.
+builder_executor_packages: >-
+  {{ lookup('file', role_path ~ '/files/dependencies-fedora-qubes-executor.txt').splitlines()
+     | select
+     | list }}
+
+# Additional packages for the genisoimage tool needed by the Windows ISO
+# generation script (only required if building Windows components).
+builder_executor_windows_packages:
+  - genisoimage
+
+# Install osslsigncode so the qubesbuilder.WinSign.Timestamp RPC service
+# can run in disposables based on this template.
+builder_executor_winsign_packages:
+  - osslsigncode

@@ -1,0 +1,72 @@
+---
+
+# Set the Python interpreter to suppress auto-discovery warnings.
+ansible_python_interpreter: /usr/bin/python3
+
+# AppVM / StandaloneVM that hosts the builder.
+builder_qube_name: build-qubesos
+
+# Disposable template used as the build cage for the Qubes executor.
+builder_dvm_name: builder-dvm
+
+# Template VM that qubes-builder-dvm is based on.
+builder_executor_template: fedora-42-xfce
+
+# Template VM that build-qubesos is based on (used to install host deps).
+builder_qube_template: fedora-42-xfce
+
+# Label colours for created qubes.
+builder_qube_label: blue
+builder_dvm_label: orange
+
+# Private storage for qubes-builder-dvm (disposable template).
+builder_dvm_private_size: "32212254720"   # 30 GiB in bytes
+
+# Private storage for the builder AppVM.
+builder_qube_private_size: "53687091200"  # 50 GiB in bytes
+
+# NetVM for the builder qube ("" = no network, name = specific netVM).
+builder_qube_netvm: sys-firewall
+
+# The builder DVM must have no network access.
+builder_dvm_netvm: sys-firewall
+
+# Where to clone qubes-builderv2 inside the builder qube.
+builder_dir: /home/user/qubes-builderv2
+
+# Git URL for qubes-builderv2. Change to a fork or local mirror as needed.
+builder_git_url: https://github.com/QubesOS/qubes-builderv2
+
+# Git branch / tag to check out.
+builder_git_version: main
+
+# GPG client used for signing. Set to qubes-gpg-client-wrapper to enable Split GPG.
+gpg_client: gpg
+
+# Packages additionally required when running inside Qubes OS.
+builder_host_packages_qubes:
+  - qubes-gpg-split
+
+# Path where Qubes RPC policy files are stored.
+qubes_policy_dir: /etc/qubes/policy.d
+
+# Set to true to enable the Windows executor and vault setup.
+enable_windows: false
+
+# Name of the vault qube that performs Authenticode signing.
+vault_windows_name: vault-sign
+
+# Template VM for the vault qube.
+vault_windows_template: fedora-42-minimal
+
+# Label colour for the vault qube.
+vault_windows_label: red
+
+# Name of the Windows worker qube.
+windows_builder_name: win-build
+
+# Path to the EWDK ISO inside the builder qube.
+windows_ewdk_path: tools/windows/ewdk.iso
+
+# SSH private key for the windows-ssh executor.
+windows_ssh_key_path: ~/.ssh/win-build.key

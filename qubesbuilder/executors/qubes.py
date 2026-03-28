@@ -376,10 +376,9 @@ class WindowsQubesExecutor(BaseWindowsExecutor, QubesExecutor):
         self.copy_out_service = "qubesbuilder.WinFileCopyOut"
 
     def start_worker(self):
-        # we need the dispvm in a stopped state to attach EWDK block device
         self.dispvm = create_dispvm(self, self._dispvm_template)
         self.log.debug(f"dispvm: {self.dispvm}")
-        self.attach_ewdk(self.dispvm)
+        self.attach_ewdk(self.dispvm, vm_running=False)
         start_vm(self, self.dispvm)
 
         # wait for startup

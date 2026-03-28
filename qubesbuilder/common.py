@@ -16,6 +16,7 @@
 # with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
+import hashlib
 import os
 import re
 import shutil
@@ -48,6 +49,14 @@ STAGES_ALIAS = {
     "u": "upload",
 }
 FORBIDDEN_PATTERNS = [".."]
+
+
+def sha256sum(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 class VerificationMode(Enum):

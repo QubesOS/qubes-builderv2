@@ -19,20 +19,25 @@ usage() {
 This script creates a Windows builder qube.
 
 Options:
-    --iso            Path to Windows image prepared for unattended setup (required)
+    --iso            Path to Windows image prepared for unattended setup (required unless --fw-only)
     --name           Qube name (default: '$VM_NAME')
     --label          Qube label (default: '$VM_LABEL')
     --memory         RAM amount (MiB) (default: $VM_MEMORY)
     --cpus           Number of vcpus (default: $VM_CPUS)
     --build-vm-name  Name of the main builder qube (default: '$BUILD_VM_NAME')
+    --fw-only        Only (re)apply firewall rules to an existing qube
+    --verbose        Enable shell trace output (set -x)
 "
 }
 
-if ! OPTS=$(getopt -o hi:n:l:m:c:b: --long help,iso:,name:,label:,memory:,cpus:,build-vm-name: -n "$0" -- "$@"); then
+if ! OPTS=$(getopt -o hi:n:l:m:c:b:v --long help,iso:,name:,label:,memory:,cpus:,build-vm-name:,fw-only,verbose -n "$0" -- "$@"); then
     exit 1
 fi
 
 eval set -- "$OPTS"
+
+VERBOSE=0
+FW_ONLY=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -43,37 +48,49 @@ while [[ $# -gt 0 ]]; do
         -m | --memory) VM_MEMORY="$2"; shift ;;
         -c | --cpus) VM_CPUS="$2"; shift ;;
         -b | --build-vm-name) BUILD_VM_NAME="$2"; shift ;;
+        --fw-only) FW_ONLY=1 ;;
+        -v | --verbose) VERBOSE=1 ;;
     esac
     shift
 done
 
-if [ -z "$ISO" ]; then
-    usage && exit 1
-fi
+[ "${VERBOSE}" -eq 1 ] && set -x
 
-set +e
+if [ "$FW_ONLY" -eq 1 ]; then
+    if ! qvm-check "$VM_NAME" 2> /dev/null; then
+        echo "[!] Qube $VM_NAME does not exist!"
+        exit 1
+    fi
+else
+    if [ -z "$ISO" ]; then
+        usage && exit 1
+    fi
 
-if qvm-check "$VM_NAME" 2> /dev/null; then
-    echo "[!] Qube $VM_NAME already exists!"
-    exit 1
+    set +e
+    if qvm-check "$VM_NAME" 2> /dev/null; then
+        echo "[!] Qube $VM_NAME already exists!"
+        exit 1
+    fi
+    set -e
 fi
-set -e
 
 BUILD_VM_IP=$(qvm-prefs "$BUILD_VM_NAME" ip)
 FW_VM_NAME=$(qvm-prefs "$BUILD_VM_NAME" netvm)
 
-echo "[*] Creating qube: $VM_NAME"
-qvm-create --class StandaloneVM \
-           --property memory="$VM_MEMORY" \
-           --property vcpus="$VM_CPUS" \
-           --property stubdom_mem=1024 \
-           --property virt_mode=hvm \
-           --property kernel='' \
-           --property netvm="$FW_VM_NAME" \
-           --label "$VM_LABEL" \
-           "$VM_NAME"
+if [ "$FW_ONLY" -eq 0 ]; then
+    echo "[*] Creating qube: $VM_NAME"
+    qvm-create --class StandaloneVM \
+               --property memory="$VM_MEMORY" \
+               --property vcpus="$VM_CPUS" \
+               --property stubdom_mem=1024 \
+               --property virt_mode=hvm \
+               --property kernel='' \
+               --property netvm="$FW_VM_NAME" \
+               --label "$VM_LABEL" \
+               "$VM_NAME"
 
-qvm-volume extend "$VM_NAME:root" "$VM_SIZE"
+    qvm-volume extend "$VM_NAME:root" "$VM_SIZE"
+fi
 
 echo "[*] Configuring firewall"
 # disallow outbound network connections from the windows vm
@@ -91,30 +108,32 @@ if ! qvm-run -p "$FW_VM_NAME" "sudo nft list chain ip qubes custom-forward" | gr
 fi
 set -e
 
-ssh_check() {
-    qvm-run -p "$BUILD_VM_NAME" \
-        "ssh -q -o 'BatchMode yes' -o 'StrictHostKeyChecking accept-new' -o 'ConnectTimeout 10' -i $BUILD_SSH_KEY ${VM_USER}@${VM_IP} exit"
-}
+if [ "$FW_ONLY" -eq 0 ]; then
+    ssh_check() {
+        qvm-run -p "$BUILD_VM_NAME" \
+            "ssh -q -o 'BatchMode yes' -o 'StrictHostKeyChecking accept-new' -o 'ConnectTimeout 10' -i $BUILD_SSH_KEY ${VM_USER}@${VM_IP} exit"
+    }
 
-# prep the main builder vm for ssh connection
-qvm-run -p "$BUILD_VM_NAME" "ssh-keygen -R $VM_IP"
+    # prep the main builder vm for ssh connection
+    qvm-run -p "$BUILD_VM_NAME" "ssh-keygen -R $VM_IP"
 
-# unattended Windows install
-echo "[*] Installing Windows, this will take a while..."
-qvm-start --cdrom="$ISO" "$VM_NAME"
-FINISHED=0
-set +e
-while [ "$FINISHED" == "0" ]; do
-    if qvm-check --running "$VM_NAME" 2> /dev/null; then
-        if ssh_check; then
-            FINISHED=1
+    # unattended Windows install
+    echo "[*] Installing Windows, this will take a while..."
+    qvm-start --cdrom="$ISO" "$VM_NAME"
+    FINISHED=0
+    set +e
+    while [ "$FINISHED" == "0" ]; do
+        if qvm-check --running "$VM_NAME" 2> /dev/null; then
+            if ssh_check; then
+                FINISHED=1
+            fi
+        else
+            qvm-start "$VM_NAME"
         fi
-    else
-        qvm-start "$VM_NAME"
-    fi
-done
+    done
 
-# shutdown, builder will attach the EWDK iso
-qvm-shutdown --wait "$VM_NAME"
+    # shutdown, builder will attach the EWDK iso
+    qvm-shutdown --wait "$VM_NAME"
 
-echo "[*] Windows builder qube created successfully"
+    echo "[*] Windows builder qube created successfully"
+fi

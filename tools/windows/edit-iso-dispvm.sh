@@ -4,6 +4,14 @@
 
 set -efo pipefail
 
+VERBOSE=0
+for arg in "$@"; do
+    case "$arg" in
+        -v | --verbose) VERBOSE=1 ;;
+    esac
+done
+[ "${VERBOSE}" -eq 1 ] && set -x
+
 ISO_DEV="/dev/xvdi"
 ISO_FILES="/home/user/iso"
 OUTPUT="/home/user/win-build.iso"

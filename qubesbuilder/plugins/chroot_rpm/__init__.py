@@ -31,7 +31,7 @@ class RPMChrootPlugin(RPMDistributionPlugin, ChrootPlugin):
     ChrootPlugin manages RPM chroot creation
 
     Stages:
-        - chroot - Create Mock cache chroot.
+        - init-cache - Create Mock cache chroot.
     """
 
     name = "chroot_rpm"

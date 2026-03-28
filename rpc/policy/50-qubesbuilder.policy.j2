@@ -1,0 +1,15 @@
+admin.vm.CreateDisposable * {{ builder_qube_name }} dom0                allow target=dom0
+admin.vm.CreateDisposable * {{ builder_qube_name }} {{ builder_dvm_name }} allow target=dom0
+
+admin.vm.CurrentState * {{ builder_qube_name }} @tag:disp-created-by-{{ builder_qube_name }} allow target=dom0
+admin.vm.List          * {{ builder_qube_name }} @tag:disp-created-by-{{ builder_qube_name }} allow target=dom0
+admin.vm.Start         * {{ builder_qube_name }} @tag:disp-created-by-{{ builder_qube_name }} allow target=dom0
+admin.vm.Kill          * {{ builder_qube_name }} @tag:disp-created-by-{{ builder_qube_name }} allow target=dom0
+admin.vm.Remove        * {{ builder_qube_name }} @tag:disp-created-by-{{ builder_qube_name }} allow target=dom0
+
+qubesbuilder.FileCopyIn  * {{ builder_qube_name }} @tag:disp-created-by-{{ builder_qube_name }} allow
+qubesbuilder.FileCopyOut * {{ builder_qube_name }} @tag:disp-created-by-{{ builder_qube_name }} allow
+
+qubes.Filecopy      * {{ builder_qube_name }} @tag:disp-created-by-{{ builder_qube_name }} allow
+qubes.WaitForSession * {{ builder_qube_name }} @tag:disp-created-by-{{ builder_qube_name }} allow
+qubes.VMShell       * {{ builder_qube_name }} @tag:disp-created-by-{{ builder_qube_name }} allow

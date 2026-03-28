@@ -15,6 +15,7 @@ file_list should contain lines in the following format:
 
 Options:
     --output-dir  Output directory
+    --verbose     Enable shell trace output (set -x)
 "
 }
 
@@ -38,20 +39,25 @@ verify() {(
 )}
 
 
-if ! OPTS=$(getopt -o ho: --long help,output-dir: -n "$0" -- "$@"); then
+if ! OPTS=$(getopt -o ho:v --long help,output-dir:,verbose -n "$0" -- "$@"); then
     exit 1
 fi
 
 eval set -- "$OPTS"
 
+VERBOSE=0
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h | --help) usage; exit 0 ;;
         -o | --optput-dir) OUTDIR="$2"; shift ;;
+        -v | --verbose) VERBOSE=1 ;;
         *) FILE_LIST="$1" ;;
     esac
     shift
 done
+
+[ "${VERBOSE}" -eq 1 ] && set -x
 
 if [ -z "${FILE_LIST}" ]; then
     usage

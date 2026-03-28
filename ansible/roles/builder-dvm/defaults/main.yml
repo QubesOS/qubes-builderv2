@@ -1,0 +1,12 @@
+---
+# Directory inside the disposable where builder artifacts are bind-mounted.
+builder_bind_dir: /builder
+
+# Path to the bind-dirs configuration drop-in directory.
+bind_dirs_conf_dir: /rw/config/qubes-bind-dirs.d
+
+# Path to the persistent bind-dirs root.
+bind_dirs_root: /rw/bind-dirs
+
+# rc.local path for persistent startup configuration.
+rc_local_path: /rw/config/rc.local

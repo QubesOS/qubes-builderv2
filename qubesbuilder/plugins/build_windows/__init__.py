@@ -242,8 +242,9 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
             what=f"query signing key '{key_name}'",
         )
 
-        if f"Key '{mangle_key_name(key_name)}' exists" not in out.decode(
-            "utf-8"
+        if (
+            f"Key '{mangle_key_name(key_name)}' exists"
+            not in self.executor.decode_win(out)
         ):
             self.log.debug(f"key '{key_name}' does not exist")
             return

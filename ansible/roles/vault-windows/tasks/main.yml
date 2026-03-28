@@ -1,0 +1,25 @@
+---
+- name: Create /usr/local/etc/qubes-rpc directory
+  ansible.builtin.file:
+    path: /usr/local/etc/qubes-rpc
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install WinSign RPC services
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/usr/local/etc/qubes-rpc/{{ item }}"
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ vault_rpc_services }}"
+
+- name: Create signing keys directory
+  ansible.builtin.file:
+    path: "{{ vault_keys_dir }}"
+    state: directory
+    owner: user
+    group: user
+    mode: "0700"

@@ -1,0 +1,7 @@
+---
+# Packages installed in the builder qube template.
+# Read from the symlinked dependencies-fedora-qubes-executor.txt.
+builder_host_packages_fedora: >-
+  {{ lookup('file', role_path ~ '/files/dependencies-fedora-qubes-executor.txt').splitlines()
+     | select
+     | list }}

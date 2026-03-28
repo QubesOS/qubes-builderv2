@@ -1,0 +1,12 @@
+---
+# Directory inside vault-sign where signing keys are stored.
+vault_keys_dir: /home/user/win-sign/keys
+
+# RPC services to install in the vault qube.
+vault_rpc_services:
+  - qubesbuilder.WinSign.common
+  - qubesbuilder.WinSign.CreateKey
+  - qubesbuilder.WinSign.DeleteKey
+  - qubesbuilder.WinSign.GetCert
+  - qubesbuilder.WinSign.QueryKey
+  - qubesbuilder.WinSign.Sign
