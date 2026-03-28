@@ -1,0 +1,5 @@
+---
+- name: Install host builder dependencies
+  ansible.builtin.dnf:
+    name: "{{ builder_host_packages_fedora + builder_host_packages_qubes }}"
+    state: present

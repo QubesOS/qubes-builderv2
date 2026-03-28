@@ -1,0 +1,41 @@
+---
+# Qubes Builder v2 - Ansible inventory
+#
+# Host names here must match the actual Qubes VM names.
+# Adjust them to match your setup (see group_vars/all.yml for the
+# corresponding variable names that drive role behaviour).
+
+all:
+  children:
+    local:
+      hosts:
+        localhost:
+          ansible_connection: local
+
+    # Template VM that builder-dvm is based on.
+    # Packages from dependencies-fedora-qubes-executor.txt are installed here.
+    # Hosts are populated dynamically from the builder_executor_template variable.
+    builder_executor_templates:
+      hosts: {}
+
+    # Template VM that build-qubesos is based on (host builder dependencies).
+    # Hosts are populated dynamically from the builder_qube_template variable.
+    # Set builder_qube_template: "" to skip installing host deps into a template.
+    builder_qube_templates:
+      hosts: {}
+
+    # The disposable template used for build cages.
+    # Hosts are populated dynamically from the builder_dvm_name variable.
+    builder_dvms:
+      hosts: {}
+
+    # The AppVM (or StandaloneVM) where the builder itself runs.
+    # Hosts are populated dynamically from the builder_qube_name variable.
+    builder_qubes:
+      hosts: {}
+
+    # Optional: vault qube for Windows Authenticode signing.
+    # Add the VM name here (and set enable_windows: true in group_vars/all.yml)
+    # to enable Windows component signing. Leave hosts empty to skip.
+    vault_windows:
+      hosts: {}

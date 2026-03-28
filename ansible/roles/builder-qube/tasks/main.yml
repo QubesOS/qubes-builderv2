@@ -1,0 +1,35 @@
+---
+- name: Clone qubes-builderv2 repository
+  ansible.builtin.git:
+    repo: "{{ builder_git_url }}"
+    dest: "{{ builder_dir }}"
+    version: "{{ builder_git_version }}"
+    update: false        # do not overwrite local modifications on re-runs
+  become: false
+
+- name: Fetch git submodules
+  ansible.builtin.command:
+    cmd: git submodule update --init
+    chdir: "{{ builder_dir }}"
+  become: false
+  changed_when: false
+
+- name: Configure Split GPG macros in ~/.rpmmacros
+  ansible.builtin.blockinfile:
+    path: "/home/{{ builder_user }}/.rpmmacros"
+    create: true
+    owner: "{{ builder_user }}"
+    group: "{{ builder_user }}"
+    mode: "0644"
+    marker: "# {mark} ANSIBLE MANAGED - qubes-builder Split GPG"
+    block: |
+      %__gpg /usr/bin/qubes-gpg-client-wrapper
+
+      %__gpg_check_password_cmd   %{__gpg} \
+              gpg --batch --no-verbose -u "%{_gpg_name}" -s
+
+      %__gpg_sign_cmd /bin/sh sh -c '/usr/bin/qubes-gpg-client-wrapper \
+              --batch --no-verbose \
+              %{?_gpg_digest_algo:--digest-algo %{_gpg_digest_algo}} \
+              -u "%{_gpg_name}" -sb %{__plaintext_filename} >%{__signature_filename}'
+  when: configure_split_gpg | bool

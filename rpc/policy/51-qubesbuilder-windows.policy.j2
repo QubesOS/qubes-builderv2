@@ -1,0 +1,21 @@
+admin.vm.device.block.Attach     *  {{ builder_qube_name }}  @tag:disp-created-by-{{ builder_qube_name }}  allow  target=dom0
+admin.vm.device.block.Assign     *  {{ builder_qube_name }}  @tag:disp-created-by-{{ builder_qube_name }}  allow  target=dom0
+qubesbuilder.WinSign.Timestamp   *  {{ builder_qube_name }}  @tag:disp-created-by-{{ builder_qube_name }}  allow
+qubesbuilder.WinFileCopyIn       *  {{ builder_qube_name }}  @tag:disp-created-by-{{ builder_qube_name }}  allow
+qubesbuilder.WinFileCopyOut      *  {{ builder_qube_name }}  @tag:disp-created-by-{{ builder_qube_name }}  allow
+
+admin.vm.device.block.Available  *  {{ builder_qube_name }}  {{ builder_qube_name }}  allow  target=dom0
+
+admin.vm.CurrentState            *  {{ builder_qube_name }}  {{ windows_builder_name }}  allow  target=dom0
+admin.vm.List                    *  {{ builder_qube_name }}  {{ windows_builder_name }}  allow  target=dom0
+admin.vm.Start                   *  {{ builder_qube_name }}  {{ windows_builder_name }}  allow  target=dom0
+admin.vm.device.block.Attached   *  {{ builder_qube_name }}  {{ windows_builder_name }}  allow  target=dom0
+admin.vm.device.block.Assigned   *  {{ builder_qube_name }}  {{ windows_builder_name }}  allow  target=dom0
+admin.vm.device.block.Attach     *  {{ builder_qube_name }}  {{ windows_builder_name }}  allow  target=dom0
+admin.vm.device.block.Assign     *  {{ builder_qube_name }}  {{ windows_builder_name }}  allow  target=dom0
+
+qubesbuilder.WinSign.QueryKey   +Qubes__Windows__Tools  {{ builder_qube_name }}  {{ vault_windows_name }}  allow
+qubesbuilder.WinSign.CreateKey  +Qubes__Windows__Tools  {{ builder_qube_name }}  {{ vault_windows_name }}  allow
+qubesbuilder.WinSign.DeleteKey  +Qubes__Windows__Tools  {{ builder_qube_name }}  {{ vault_windows_name }}  allow
+qubesbuilder.WinSign.GetCert    +Qubes__Windows__Tools  {{ builder_qube_name }}  {{ vault_windows_name }}  allow
+qubesbuilder.WinSign.Sign       +Qubes__Windows__Tools  {{ builder_qube_name }}  {{ vault_windows_name }}  allow
