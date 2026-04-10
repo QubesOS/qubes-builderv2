@@ -17,8 +17,7 @@ HASH_RE = re.compile(r"[a-f0-9]{40}")
 
 class RandomData:
     COMPONENTS = [
-        "core-qrexec",
-        "core-vchan-xen",
+        "example-advanced",
     ]
     VERSIONS = ["1.0", "1.1", "1.2", "1.3"]
     DISTFILES = [f"distfile{i}.tar.gz" for i in range(1, 3)]
@@ -192,18 +191,20 @@ def test_cleanup_distfiles(artifacts_dir):
         DEFAULT_BUILDER_CONF,
         artifacts_dir,
         "-c",
-        "linux-gbulb",
+        "example-advanced",
         "package",
         "fetch",
     )
 
-    distfiles_dir = artifacts_dir / "distfiles" / "linux-gbulb"
+    distfiles_dir = artifacts_dir / "distfiles" / "example-advanced"
     distfiles_dir.mkdir(parents=True, exist_ok=True)
     dummy_file = distfiles_dir / "dummy.txt"
     dummy_file.write_text("dummy content")
     dummy_file2 = distfiles_dir / "dummy2.txt"
     dummy_file2.write_text("dummy content 2")
-    current_distfile = distfiles_dir / "gbulb-0.6.3.tar.gz"
+    current_distfile = (
+        distfiles_dir / "9FA64B92F95E706BF28E2CA6484010B5CDC576E2"
+    )
 
     qb_call(DEFAULT_BUILDER_CONF, artifacts_dir, "cleanup", "distfiles")
 
@@ -213,7 +214,7 @@ def test_cleanup_distfiles(artifacts_dir):
 
 
 def test_cleanup_build_artifacts(artifacts_dir):
-    components_dir = artifacts_dir / "components" / "linux-gbulb"
+    components_dir = artifacts_dir / "components" / "example-advanced"
     components_dir.mkdir(parents=True, exist_ok=True)
     for version in ["0.1.2-3", "0.4.5-6", "0.7.8-9", "1.0.0-1"]:
         old_version = components_dir / version
@@ -241,7 +242,7 @@ def test_cleanup_build_artifacts(artifacts_dir):
 
 
 def test_cleanup_build_artifacts_sequence(artifacts_dir):
-    components_dir = artifacts_dir / "components" / "linux-gbulb"
+    components_dir = artifacts_dir / "components" / "example-advanced"
     components_dir.mkdir(parents=True, exist_ok=True)
     for version in ["1.7", "1.8", "1.9", "1.10"]:
         old_version = components_dir / version
@@ -440,7 +441,7 @@ def test_cleanup_chroot_only_unused(artifacts_dir):
 
 
 def test_cleanup_distfiles_dry_run(artifacts_dir):
-    distfiles_dir = artifacts_dir / "distfiles" / "linux-gbulb"
+    distfiles_dir = artifacts_dir / "distfiles" / "example-advanced"
     distfiles_dir.mkdir(parents=True, exist_ok=True)
     dummy_file = distfiles_dir / "dummy.txt"
     dummy_file.write_text("dummy content")
@@ -453,7 +454,7 @@ def test_cleanup_distfiles_dry_run(artifacts_dir):
 
 
 def test_cleanup_build_artifacts_dry_run(artifacts_dir):
-    components_dir = artifacts_dir / "components" / "linux-gbulb"
+    components_dir = artifacts_dir / "components" / "example-advanced"
     components_dir.mkdir(parents=True, exist_ok=True)
     old_version = components_dir / "1.0.0"
     old_version.mkdir()

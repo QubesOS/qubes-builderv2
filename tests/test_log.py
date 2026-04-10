@@ -82,13 +82,15 @@ def root_logger():
 
 def teardown_logging():
     """Reset logging configuration to default"""
-    if QubesBuilderLogger.handlers:
-        logging.shutdown()
-        import importlib
-
-        importlib.reload(logging)
-        QubesBuilderLogger.handlers = []
-        QubesBuilderLogger.filters = []
+    # Remove all child loggers created under the qb hierarchy so they don't
+    # pollute the global logger registry for subsequent test modules.
+    manager = logging.Logger.manager
+    prefix = QubesBuilderLogger.name + "."
+    stale = [k for k in list(manager.loggerDict) if k.startswith(prefix)]
+    for name in stale:
+        del manager.loggerDict[name]
+    QubesBuilderLogger.handlers.clear()
+    QubesBuilderLogger.filters.clear()
 
 
 def test_file_formatter():

@@ -33,14 +33,6 @@ sign-key:
 iso:
   kickstart: conf/iso-online-testing.ks
 
-cache:
-  host-fc37:
-    packages:
-      - gcc
-      - python3-devel
-      - python3-sphinx
-      - systemd-devel
-
 distributions:
   - host-fc37
   - vm-win10:
@@ -60,7 +52,6 @@ distributions:
   - vm-bullseye
   - vm-bookworm
   - vm-trixie
-  - vm-fc40
   - vm-fc41
   - vm-fc42
   - vm-fc43
@@ -94,46 +85,14 @@ components:
       url: https://github.com/Kicksecure/qubes-template-kicksecure.git
       maintainers:
         - 916B8D99C38EAF5E8ADC7A2A8D66066A2EEACCDA
-  - builder-archlinux:
-      packages: False
+  - example-advanced:
+      url: https://github.com/fepitre/qubes-example-advanced
+      branch: main
+      maintainers:
+        # fepitre's @invisiblethingslab.com
+        - 77EEEF6D0386962AEA8CF84A9B8273F80AC219E6
   - python-qasync:
       branch: v0.23.0-2
-  - core-vchan-xen
-  - vmm-xen-windows-pvdrivers
-  - core-qrexec:
-      branch: v4.2.25
-  - desktop-linux-xfce4-xfwm4:
-      branch: v4.16.1-4
-  - app-linux-split-gpg:
-      branch: v2.0.67-builderv2-tests
-      url: https://github.com/fepitre/qubes-app-linux-split-gpg
-      min-distinct-maintainers: 3
-      maintainers:
-      - 0064428F455451B3EBE78A7F063938BA42CFA724
-      - 9FA64B92F95E706BF28E2CA6484010B5CDC576E2
-      - C4A2E4615A16BD191110DEE17320B2D2134763F3
-  - linux-gbulb:
-      url: https://github.com/marmarek/qubes-linux-gbulb
-      branch: files-git-builderv2-tests
-      verification-mode: less-secure-signed-commits-sufficient
-  - dummy-component:
-      # disable by default, as most CI jobs build only one dist at a time
-      packages: false
-      url: https://github.com/fepitre/qubes-dummy-component
-      verification-mode: less-secure-signed-commits-sufficient
-      host-fc37:
-        stages:
-          - prep:
-              needs:
-                - component: dummy-component
-                  distribution: vm-fc40
-                  stage: build
-                  build: dummy.spec
-                - component: dummy-component
-                  distribution: vm-fc41
-                  stage: build
-                  build: dummy.spec
-
 
 templates:
   - fedora-43-xfce:
@@ -179,15 +138,11 @@ less-secure-signed-commits-sufficient:
   - builder-archlinux
   - template-whonix
   - template-kicksecure
-  - python-qasync
-  - core-vchan-xen
-  - core-qrexec
-  - desktop-linux-xfce4-xfwm4
-  - app-linux-split-gpg
   - vmm-xen
   - vmm-xen-guest
   - qubes-release
-  - vmm-xen-windows-pvdrivers
+  - example-advanced
+  - python-qasync
 
 repository-publish:
   components: current-testing

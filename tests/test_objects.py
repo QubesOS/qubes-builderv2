@@ -572,7 +572,7 @@ def test_config_distributions_filter():
     with tempfile.NamedTemporaryFile("w") as config_file:
         config_file.write(
             """distributions:
- - vm-fc40
+ - vm-fc43
  - vm-bullseye
  - host-fc37
 """
@@ -581,18 +581,18 @@ def test_config_distributions_filter():
         config = Config(config_file.name)
 
         assert [d.distribution for d in config.get_distributions()] == [
-            "vm-fc40",
+            "vm-fc43",
             "vm-bullseye",
             "host-fc37",
         ]
         assert [
-            d.distribution for d in config.get_distributions(["vm-fc40"])
-        ] == ["vm-fc40"]
+            d.distribution for d in config.get_distributions(["vm-fc43"])
+        ] == ["vm-fc43"]
         assert [
             d.distribution
-            for d in config.get_distributions(["vm-fc40", "host-fc37"])
+            for d in config.get_distributions(["vm-fc43", "host-fc37"])
         ] == [
-            "vm-fc40",
+            "vm-fc43",
             "host-fc37",
         ]
         with pytest.raises(ConfigError):
@@ -603,8 +603,8 @@ def test_config_templates_filter():
     with tempfile.NamedTemporaryFile("w") as config_file:
         config_file.write(
             """templates:
-  - fedora-40-xfce:
-      dist: fc40
+  - fedora-43-xfce:
+      dist: fc43
       flavor: xfce
   - centos-stream-8:
       dist: centos-stream8
@@ -619,7 +619,7 @@ def test_config_templates_filter():
         config = Config(config_file.name)
 
         assert [t.name for t in config.get_templates()] == [
-            "fedora-40-xfce",
+            "fedora-43-xfce",
             "centos-stream-8",
             "debian-11",
         ]
@@ -628,9 +628,9 @@ def test_config_templates_filter():
         ]
         assert [
             t.name
-            for t in config.get_templates(["fedora-40-xfce", "debian-11"])
+            for t in config.get_templates(["fedora-43-xfce", "debian-11"])
         ] == [
-            "fedora-40-xfce",
+            "fedora-43-xfce",
             "debian-11",
         ]
         with pytest.raises(ConfigError):
