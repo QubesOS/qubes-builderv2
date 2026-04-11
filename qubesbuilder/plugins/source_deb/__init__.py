@@ -195,11 +195,21 @@ class DEBSourcePlugin(DEBDistributionPlugin, SourcePlugin):
                 source_debian = f"{package_release_name_full}.tar.xz"
             else:
                 source_debian = f"{package_release_name_full}.debian.tar.xz"
-            if parameters.get("files", []):
-                # FIXME: The first file is the source archive. Is it valid for all the cases?
+
+            # Create archive only if no external files are provided or if
+            # explicitly requested.
+            create_archive = not parameters.get("files", [])
+            create_archive = parameters.get("create-archive", create_archive)
+
+            archive_extensions = (".gz", ".bz2", ".xz", ".lzma2")
+            if not create_archive and parameters.get("files", []):
+                # The first file is expected to be the source archive.
                 ext = Path(get_archive_name(parameters["files"][0])).suffix
-                msg = f"{self.component}:{self.dist}:{directory}: Invalid extension '{ext}'."
-                if ext not in (".gz", ".bz2", ".xz", ".lzma2"):
+                msg = (
+                    f"{self.component}:{self.dist}:{directory}:"
+                    f" Invalid extension '{ext}'."
+                )
+                if ext not in archive_extensions:
                     raise SourceError(msg)
             else:
                 ext = ".gz"
@@ -260,21 +270,32 @@ class DEBSourcePlugin(DEBDistributionPlugin, SourcePlugin):
                         f"{self.executor.get_plugins_dir()}/source/salt/FORMULA-DEFAULTS {source_dir}/FORMULA"
                     ]
 
-                # Create archive only if no external files are provided or if explicitly requested.
-                create_archive = not parameters.get("files", [])
-                create_archive = parameters.get(
-                    "create-archive", create_archive
-                )
                 if create_archive:
                     cmd += [
                         f"{self.executor.get_plugins_dir()}/fetch/scripts/create-archive {source_dir} {source_orig}",
                         f"mv {source_dir}/{source_orig} {self.executor.get_builder_dir()}",
                     ]
-                for file in parameters.get("files", []):
-                    fn = get_archive_name(file)
-                    cmd.append(
-                        f"mv {self.executor.get_distfiles_dir() / self.component.name / fn} {self.executor.get_builder_dir()}/{source_orig}"
-                    )
+                    # Extra distfiles (non-archive) are moved into the source
+                    # directory so debian/rules can reference them.
+                    for file in parameters.get("files", []):
+                        fn = get_archive_name(file)
+                        cmd.append(
+                            f"mv {self.executor.get_distfiles_dir() / self.component.name / fn} {source_dir}"
+                        )
+                else:
+                    # The first file replaces the orig archive; remaining files
+                    # are extra distfiles moved into the source directory.
+                    files = parameters.get("files", [])
+                    if files:
+                        fn = get_archive_name(files[0])
+                        cmd.append(
+                            f"mv {self.executor.get_distfiles_dir() / self.component.name / fn} {self.executor.get_builder_dir()}/{source_orig}"
+                        )
+                    for file in files[1:]:
+                        fn = get_archive_name(file)
+                        cmd.append(
+                            f"mv {self.executor.get_distfiles_dir() / self.component.name / fn} {source_dir}"
+                        )
 
             # Update changelog, after create-archive
             cmd += [
