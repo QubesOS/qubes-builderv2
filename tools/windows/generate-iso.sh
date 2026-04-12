@@ -25,7 +25,7 @@ fi
 
 eval set -- "$OPTS"
 
-VERBOSE=0
+VERBOSE=
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-[ "${VERBOSE}" -eq 1 ] && set -x
+[ -n "$VERBOSE" ] && set -x
 
 if [ -z "${ISO}" ] || [ -z "${EDITED_ISO}" ]; then
     usage
