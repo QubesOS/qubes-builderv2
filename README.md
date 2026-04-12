@@ -1087,6 +1087,7 @@ Options available in `builder.yml`:
   - `rpm: str` --- RPM content.
   - `deb: str` --- Debian content.
   - `iso: str` --- ISO content.
+  - `windows: str` --- Windows content.
 
 - `cache: Dict` --- List of distributions cache options.
   - `<distribution_name>: Dict` --- Distribution name provided as in `distributions`.
@@ -1213,6 +1214,13 @@ Publishing requires `repository-publish: components` to be set in `builder.yml`:
 ```yaml
 repository-publish:
   components: current-testing
+```
+
+To upload published artifacts to a remote host, set `repository-upload-remote-host: windows`:
+
+```yaml
+repository-upload-remote-host:
+  windows: user@host:/path/to/windows/r4.2
 ```
 
 To also GPG-sign the `SHA256SUMS` manifest, set the `sign-key: windows` fingerprint:
