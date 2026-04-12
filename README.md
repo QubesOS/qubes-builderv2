@@ -310,6 +310,7 @@ Copy the `rpc/qubesbuilder.WinSign.*` scripts into `vault-sign` and make them pe
 # Inside vault-sign (or via qvm-run)
 sudo mkdir -p /usr/local/etc/qubes-rpc
 sudo cp qubesbuilder.WinSign.{common,CreateKey,DeleteKey,GetCert,QueryKey,Sign} /usr/local/etc/qubes-rpc/
+sudo restorecon -R /usr/local/etc/qubes-rpc/
 ```
 
 Signing keys are stored in `/home/user/win-sign/keys/` inside the vault qube.
@@ -323,6 +324,7 @@ The `qubesbuilder.WinSign.Timestamp` service runs in the default Linux disposabl
 ```bash
 # Inside qubes-builder-dvm (or via qvm-run)
 sudo cp rpc/qubesbuilder.WinSign.Timestamp /usr/local/etc/qubes-rpc/
+sudo restorecon -R /usr/local/etc/qubes-rpc/
 ```
 
 `osslsigncode` must be installed in the template used by `qubes-builder-dvm`.
