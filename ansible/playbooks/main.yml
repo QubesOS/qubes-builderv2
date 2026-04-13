@@ -16,15 +16,6 @@
       when: builder_qubes_names is defined
       tags: [inventory, builder_qube]
 
-    - name: Fail on deprecated builder_qube_name variable
-      ansible.builtin.fail:
-        msg: >-
-          'builder_qube_name' is deprecated. Use 'builder_qube_names'
-          instead (CSV or YAML list), for example:
-          -e builder_qube_names=work-qubesos
-      when: builder_qube_name is defined
-      tags: [inventory, builder_qube]
-
     - name: Ensure builder_qube_names resolves to a non-empty list
       ansible.builtin.assert:
         that:
