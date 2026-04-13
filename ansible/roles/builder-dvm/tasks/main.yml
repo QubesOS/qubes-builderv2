@@ -41,18 +41,26 @@
     line: "mount {{ builder_bind_dir }} -o dev,suid,remount"
     state: present
 
-- name: Copy qubesbuilder.FileCopyIn RPC service
-  ansible.builtin.copy:
-    src: qubesbuilder.FileCopyIn
-    dest: /etc/qubes-rpc/qubesbuilder.FileCopyIn
+- name: Create /usr/local/etc/qubes-rpc directory
+  ansible.builtin.file:
+    path: /usr/local/etc/qubes-rpc
+    state: directory
     owner: root
     group: root
     mode: "0755"
 
-- name: Copy qubesbuilder.FileCopyOut RPC service
+- name: Install qubesbuilder.FileCopyIn RPC service
+  ansible.builtin.copy:
+    src: qubesbuilder.FileCopyIn
+    dest: /usr/local/etc/qubes-rpc/qubesbuilder.FileCopyIn
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install qubesbuilder.FileCopyOut RPC service
   ansible.builtin.copy:
     src: qubesbuilder.FileCopyOut
-    dest: /etc/qubes-rpc/qubesbuilder.FileCopyOut
+    dest: /usr/local/etc/qubes-rpc/qubesbuilder.FileCopyOut
     owner: root
     group: root
     mode: "0755"
