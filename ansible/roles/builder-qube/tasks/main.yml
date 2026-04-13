@@ -7,6 +7,55 @@
     update: false        # do not overwrite local modifications on re-runs
   become: false
 
+- name: Create temporary GPG keyring for signature verification
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: .gnupg
+  register: git_verify_gnupghome
+  when:
+    - builder_git_verify | default(true) | bool
+    - builder_git_verify_key | default("") | length > 0
+  become: false
+
+- name: Fetch trusted key from keyserver into temporary keyring
+  ansible.builtin.command:
+    cmd: >
+      gpg --homedir "{{ git_verify_gnupghome.path }}"
+          --keyserver "{{ builder_git_verify_keyserver }}"
+          --recv-keys "{{ builder_git_verify_key }}"
+  when:
+    - builder_git_verify | default(true) | bool
+    - builder_git_verify_key | default("") | length > 0
+  become: false
+  changed_when: false
+
+- name: Verify git tag or commit signature
+  ansible.builtin.shell:
+    cmd: >
+      git verify-tag "{{ builder_git_version }}" 2>/dev/null ||
+      git verify-commit HEAD
+    chdir: "{{ builder_dir }}"
+  environment: >-
+    {{
+      {'GNUPGHOME': git_verify_gnupghome.path}
+      if (builder_git_verify | default(true) | bool and
+          builder_git_verify_key | default('') | length > 0)
+      else {}
+    }}
+  when: builder_git_verify | default(true) | bool
+  become: false
+  changed_when: false
+
+- name: Remove temporary GPG keyring
+  ansible.builtin.file:
+    path: "{{ git_verify_gnupghome.path }}"
+    state: absent
+  when:
+    - builder_git_verify | default(true) | bool
+    - builder_git_verify_key | default("") | length > 0
+    - git_verify_gnupghome is defined
+  become: false
+
 - name: Fetch git submodules
   ansible.builtin.command:
     cmd: git submodule update --init

@@ -61,10 +61,14 @@ builder_git_version: main
 # Set to false to skip verification (e.g. when using an unsigned fork).
 builder_git_verify: true
 
-# Path to an armored GPG public key (.asc) to use for signature verification.
-# If empty, uses the default GPG keyring (key must already be imported).
-# Example: builder_git_verify_key: /path/to/qubes-developers-keys.asc
-builder_git_verify_key: ""
+# GPG key fingerprint to use for signature verification.
+# The key is fetched from builder_git_verify_keyserver at runtime.
+# Set to "" to accept any key in the default keyring (not recommended).
+# For qubes-builderv2, tags and commits are signed by Marek Marczykowski-Górecki.
+builder_git_verify_key: "0064428F455451B3EBE78A7F063938BA42CFA724"
+
+# Keyserver used to fetch builder_git_verify_key.
+builder_git_verify_keyserver: keys.openpgp.org
 
 # GPG client used for signing. Set to qubes-gpg-client-wrapper to enable Split GPG.
 gpg_client: gpg
