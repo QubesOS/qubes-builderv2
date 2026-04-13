@@ -44,34 +44,34 @@
 
 - name: Create Windows disposable template qube (optional)
   qubesos:
-    guest: "{{ windows_builder_name }}"
+    guest: "{{ windows_builder_dvm_name }}"
     state: present
-    label: "{{ windows_builder_label }}"
-    template: "{{ windows_builder_template }}"
+    label: "{{ windows_builder_dvm_label }}"
+    template: "{{ windows_builder_executor_template }}"
     vmtype: AppVM
     properties:
-      netvm: "{{ windows_builder_netvm }}"
+      netvm: "{{ windows_builder_dvm_netvm }}"
   when:
     - enable_windows | default(false) | bool
-    - windows_builder_template | default("") | length > 0
-    - windows_builder_template != windows_builder_name
+    - windows_builder_executor_template | default("") | length > 0
+    - windows_builder_executor_template != windows_builder_dvm_name
   tags: [windows_executor]
 
 - name: Verify Windows disposable template exists
-  command: qvm-check --quiet {{ windows_builder_name }}
+  command: qvm-check --quiet {{ windows_builder_dvm_name }}
   changed_when: false
   when: enable_windows | default(false) | bool
   tags: [windows_executor]
 
 - name: Read Windows template_for_dispvms property
-  command: qvm-prefs --get {{ windows_builder_name }} template_for_dispvms
+  command: qvm-prefs --get {{ windows_builder_dvm_name }} template_for_dispvms
   register: windows_template_for_dispvms
   changed_when: false
   when: enable_windows | default(false) | bool
   tags: [windows_executor]
 
 - name: Enable template_for_dispvms on Windows template
-  command: qvm-prefs {{ windows_builder_name }} template_for_dispvms true
+  command: qvm-prefs {{ windows_builder_dvm_name }} template_for_dispvms true
   when:
     - enable_windows | default(false) | bool
     - (windows_template_for_dispvms.stdout | trim | lower) != "true"

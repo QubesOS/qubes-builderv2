@@ -54,8 +54,17 @@ builder_dir: /home/user/qubes-builderv2
 # Git URL for qubes-builderv2. Change to a fork or local mirror as needed.
 builder_git_url: https://github.com/QubesOS/qubes-builderv2
 
-# Git branch / tag to check out.
+# Git branch / tag / commit SHA to check out.
 builder_git_version: main
+
+# Verify GPG signature of the cloned repository (tag or commit).
+# Set to false to skip verification (e.g. when using an unsigned fork).
+builder_git_verify: true
+
+# Path to an armored GPG public key (.asc) to use for signature verification.
+# If empty, uses the default GPG keyring (key must already be imported).
+# Example: builder_git_verify_key: /path/to/qubes-developers-keys.asc
+builder_git_verify_key: ""
 
 # GPG client used for signing. Set to qubes-gpg-client-wrapper to enable Split GPG.
 gpg_client: gpg
@@ -80,20 +89,19 @@ vault_windows_template: fedora-42-minimal
 # Label colour for the vault qube.
 vault_windows_label: red
 
-# Name of the Windows qube used as disposable template for the `windows`
-# executor. It is the Windows equivalent of builder-dvm.
-windows_builder_name: win-builder-dvm
+# Windows DVM name (equivalent of builder_dvm_name).
+windows_builder_dvm_name: win-builder-dvm
 
-# Optional source template used to create windows_builder_name as an AppVM
-# (for example: windows-10). If equal to windows_builder_name, no clone is
-# created.
-windows_builder_template: windows-10
+# TemplateVM for windows_builder_dvm_name AppVM (equivalent of builder_executor_template);
+# must already exist (generally built using qvm-create-windows-qube).
+# If equal to windows_builder_dvm_name, AppVM creation is skipped.
+windows_builder_executor_template: windows-10
 
-# Label color for windows_builder_name when created by Ansible.
-windows_builder_label: orange
+# Label color for windows_builder_dvm_name when created by Ansible.
+windows_builder_dvm_label: orange
 
-# NetVM for windows_builder_name when created by Ansible.
-windows_builder_netvm: ""
+# NetVM for windows_builder_dvm_name when created by Ansible.
+windows_builder_dvm_netvm: ""
 
 # Path to the EWDK ISO inside the builder qube.
 windows_ewdk_path: tools/windows/ewdk.iso
