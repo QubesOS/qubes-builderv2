@@ -28,6 +28,8 @@ variables:
     description: "Run all builderv2-github jobs, default: 0"
   CI_RUN_WINDOWS_JOBS:
     description: "Run Windows build jobs, default: 0"
+  CI_RUN_ANSIBLE_JOBS:
+    description: "Run Ansible deployment tests, default: 0"
   CI_RUN_ALL_JOBS:
     description: "Run all jobs, default: 0"
 
@@ -384,6 +386,47 @@ pytest-windows:
   extends: .pytest
   variables:
     PYTEST_TARGETS: "tests/test_windows.py"
+
+.ansible-deploy:
+  rules:
+    - if: $CI_RUN_ANSIBLE_JOBS == "1" || $CI_RUN_ALL_JOBS == "1"
+      when: always
+    - when: never
+  stage: test
+  tags:
+    - vm-kvm
+  before_script:
+    # Install Ansible and the Qubes dom0 modules
+    - sudo qubes-dom0-update -y ansible qubes-ansible-dom0
+    # Install the Qubes Ansible connection plugin in the management VM template
+    - sudo qvm-run --pass-io -u root "$(qvm-prefs default-mgmt-dvm template)" "dnf install -y qubes-ansible qubes-ansible-vm"
+    - sudo qvm-shutdown --wait "$(qvm-prefs default-mgmt-dvm template)"
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/main.yml
+        -e builder_qube_names=ci-work-qubesos
+        -e builder_dvm_name=ci-builder-dvm
+        -e "builder_git_version=$(git tag --sort=-creatordate | grep '^mm_' | head -1)"
+    # dom0: list created qubes and check key properties
+    - qvm-ls
+    - qvm-prefs ci-builder-dvm template_for_dispvms
+    - qvm-prefs ci-work-qubesos default_dispvm
+    # dom0: RPC policy
+    - cat /etc/qubes/policy.d/50-qubesbuilder.policy
+    # ci-builder-dvm: bind-dirs and rc.local
+    - qvm-run --pass-io ci-builder-dvm "cat /rw/config/qubes-bind-dirs.d/builder.conf"
+    - qvm-run --pass-io ci-builder-dvm "cat /rw/config/rc.local"
+    # ci-builder-dvm: RPC services
+    - qvm-run --pass-io ci-builder-dvm "cat /usr/local/etc/qubes-rpc/qubesbuilder.FileCopyIn"
+    - qvm-run --pass-io ci-builder-dvm "cat /usr/local/etc/qubes-rpc/qubesbuilder.FileCopyOut"
+    # ci-work-qubesos: repository clone and submodules
+    - qvm-run --pass-io ci-work-qubesos "ls ~/qubes-builderv2"
+    - qvm-run --pass-io ci-work-qubesos "git -C ~/qubes-builderv2 submodule status"
+
+r4.3:ansible-deploy:
+  extends: .ansible-deploy
+  variables:
+    VM_IMAGE: qubes_4.3_64bit_stable.qcow2
 
 #
 # Components
