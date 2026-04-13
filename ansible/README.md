@@ -82,8 +82,8 @@ Variables are in [group_vars/all.yml](group_vars/all.yml). Common overrides:
 | `builder_git_url` | GitHub qubes-builderv2 | Repository to clone |
 | `builder_git_version` | `main` | Branch, tag, or exact commit SHA to check out |
 | `builder_git_verify` | `true` | Verify GPG signature of the cloned tag or commit; set to `false` for unsigned forks |
-| `builder_git_verify_key` | Marek's signing key | GPG key fingerprint for signature verification; fetched at runtime from `builder_git_verify_keyserver`. Set to `""` to accept any key in the default keyring |
-| `builder_git_verify_keyserver` | `keys.openpgp.org` | Keyserver used to fetch `builder_git_verify_key` |
+| `builder_git_verify_keys` | Marek's signing key | List of GPG key fingerprints for signature verification; all keys are fetched at runtime from `builder_git_verify_keyserver`. Set to `[]` to accept any key in the default keyring |
+| `builder_git_verify_keyserver` | `keys.openpgp.org` | Keyserver used to fetch `builder_git_verify_keys` |
 | `builder_dir` | `/home/user/qubes-builderv2` | Clone destination |
 | `gpg_client` | `gpg` | `gpg` or `qubes-gpg-client-wrapper` (enables Split GPG) |
 | `configure_split_gpg` | derived from `gpg_client` | Configure `~/.rpmmacros` for Split GPG; set automatically when `gpg_client` is `qubes-gpg-client-wrapper` |

@@ -62,12 +62,13 @@ builder_git_version: main
 builder_git_verify: true
 
 # GPG key fingerprint to use for signature verification.
-# The key is fetched from builder_git_verify_keyserver at runtime.
-# Set to "" to accept any key in the default keyring (not recommended).
+# Keys are fetched from builder_git_verify_keyserver at runtime.
+# Set to [] to accept any key in the default keyring (not recommended).
 # For qubes-builderv2, tags and commits are signed by Marek Marczykowski-Górecki.
-builder_git_verify_key: "0064428F455451B3EBE78A7F063938BA42CFA724"
+builder_git_verify_keys:
+  - "0064428F455451B3EBE78A7F063938BA42CFA724"
 
-# Keyserver used to fetch builder_git_verify_key.
+# Keyserver used to fetch builder_git_verify_keys.
 builder_git_verify_keyserver: keys.openpgp.org
 
 # GPG client used for signing. Set to qubes-gpg-client-wrapper to enable Split GPG.

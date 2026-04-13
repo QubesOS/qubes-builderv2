@@ -14,18 +14,20 @@
   register: git_verify_gnupghome
   when:
     - builder_git_verify | default(true) | bool
-    - builder_git_verify_key | default("") | length > 0
+    - builder_git_verify_keys | default([]) | length > 0
   become: false
 
-- name: Fetch trusted key from keyserver into temporary keyring
+- name: Fetch trusted keys from keyserver into temporary keyring
   ansible.builtin.command:
-    cmd: >
-      gpg --homedir "{{ git_verify_gnupghome.path }}"
-          --keyserver "{{ builder_git_verify_keyserver }}"
-          --recv-keys "{{ builder_git_verify_key }}"
+    argv: >-
+      {{
+        ['gpg', '--homedir', git_verify_gnupghome.path,
+         '--keyserver', builder_git_verify_keyserver,
+         '--recv-keys'] + builder_git_verify_keys
+      }}
   when:
     - builder_git_verify | default(true) | bool
-    - builder_git_verify_key | default("") | length > 0
+    - builder_git_verify_keys | default([]) | length > 0
   become: false
   changed_when: false
 
@@ -39,7 +41,7 @@
     {{
       {'GNUPGHOME': git_verify_gnupghome.path}
       if (builder_git_verify | default(true) | bool and
-          builder_git_verify_key | default('') | length > 0)
+          builder_git_verify_keys | default([]) | length > 0)
       else {}
     }}
   when: builder_git_verify | default(true) | bool
@@ -52,7 +54,7 @@
     state: absent
   when:
     - builder_git_verify | default(true) | bool
-    - builder_git_verify_key | default("") | length > 0
+    - builder_git_verify_keys | default([]) | length > 0
     - git_verify_gnupghome is defined
   become: false
 
