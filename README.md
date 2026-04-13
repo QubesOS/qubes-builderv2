@@ -283,6 +283,8 @@ qvm-prefs win-build template_for_dispvms true
 
 The `qubesbuilder.WinFileCopyIn` and `qubesbuilder.WinFileCopyOut` RPC handlers (from `rpc/`) are copied into the disposable qube at runtime by the executor, so no manual persistent installation is required in `win-build`.
 
+> **Note:** The `c:\build` directory must **not** exist in the `win-build` template. Its presence can cause build failures when the executor copies files into the disposable. If you converted a qube previously used for SSH-based builds into the disposable template, make sure to delete that directory before marking it as `template_for_dispvms`.
+
 Once `win-build` is ready, configure the builder:
 
 ```yaml
