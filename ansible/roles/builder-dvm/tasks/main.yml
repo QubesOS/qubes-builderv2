@@ -1,0 +1,66 @@
+---
+# Configure qubes-builder-dvm (disposable template) so that the /builder
+# directory is persistent across disposable restarts via bind-dirs.
+
+- name: Create bind-dirs root for /builder
+  ansible.builtin.file:
+    path: "{{ bind_dirs_root }}/builder"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create bind-dirs configuration directory
+  ansible.builtin.file:
+    path: "{{ bind_dirs_conf_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure bind-dirs for /builder
+  ansible.builtin.copy:
+    dest: "{{ bind_dirs_conf_dir }}/builder.conf"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      binds+=('{{ builder_bind_dir }}')
+
+- name: Ensure rc.local exists and is executable
+  ansible.builtin.file:
+    path: "{{ rc_local_path }}"
+    state: touch
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Add /builder remount to rc.local (allow suid/dev inside cage)
+  ansible.builtin.lineinfile:
+    path: "{{ rc_local_path }}"
+    line: "mount {{ builder_bind_dir }} -o dev,suid,remount"
+    state: present
+
+- name: Create /usr/local/etc/qubes-rpc directory
+  ansible.builtin.file:
+    path: /usr/local/etc/qubes-rpc
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install qubesbuilder.FileCopyIn RPC service
+  ansible.builtin.copy:
+    src: qubesbuilder.FileCopyIn
+    dest: /usr/local/etc/qubes-rpc/qubesbuilder.FileCopyIn
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install qubesbuilder.FileCopyOut RPC service
+  ansible.builtin.copy:
+    src: qubesbuilder.FileCopyOut
+    dest: /usr/local/etc/qubes-rpc/qubesbuilder.FileCopyOut
+    owner: root
+    group: root
+    mode: "0755"

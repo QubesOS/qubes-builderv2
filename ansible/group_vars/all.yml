@@ -1,0 +1,115 @@
+---
+
+# Set the Python interpreter to suppress auto-discovery warnings.
+ansible_python_interpreter: /usr/bin/python3
+
+# AppVM / StandaloneVMs that host the builder.
+builder_qube_names:
+  - work-qubesos
+
+# Normalized list form used internally (accepts YAML list or CSV string).
+builder_qube_names_resolved: >-
+  {%- set input = builder_qube_names | default('') -%}
+  {{
+    input
+    if (input is sequence and (input is not string))
+    else (
+      input
+      | string
+      | split(',')
+      | map('trim')
+      | reject('equalto', '')
+      | list
+    )
+  }}
+
+# Disposable template used as the build cage for the Qubes executor.
+builder_dvm_name: builder-dvm
+
+# Template VM that qubes-builder-dvm is based on.
+builder_executor_template: fedora-42-xfce
+
+# Template VM that build-qubesos is based on (used to install host deps).
+builder_qube_template: fedora-42-xfce
+
+# Label colours for created qubes.
+builder_qube_label: blue
+builder_dvm_label: orange
+
+# Private storage for qubes-builder-dvm (disposable template).
+builder_dvm_private_size: "32212254720"   # 30 GiB in bytes
+
+# Private storage for the builder AppVM.
+builder_qube_private_size: "53687091200"  # 50 GiB in bytes
+
+# NetVM for the builder qube ("" = no network, name = specific netVM).
+builder_qube_netvm: sys-firewall
+
+# The builder DVM must have no network access.
+builder_dvm_netvm: sys-firewall
+
+# Where to clone qubes-builderv2 inside the builder qube.
+builder_dir: /home/user/qubes-builderv2
+
+# Git URL for qubes-builderv2. Change to a fork or local mirror as needed.
+builder_git_url: https://github.com/QubesOS/qubes-builderv2
+
+# Git branch / tag / commit SHA to check out.
+builder_git_version: main
+
+# Verify GPG signature of the cloned repository (tag or commit).
+# Set to false to skip verification (e.g. when using an unsigned fork).
+builder_git_verify: true
+
+# GPG key fingerprint to use for signature verification.
+# Keys are fetched from builder_git_verify_keyserver at runtime.
+# Set to [] to accept any key in the default keyring (not recommended).
+# For qubes-builderv2, tags and commits are signed by Marek Marczykowski-Górecki.
+builder_git_verify_keys:
+  - "0064428F455451B3EBE78A7F063938BA42CFA724"
+
+# Keyserver used to fetch builder_git_verify_keys.
+builder_git_verify_keyserver: keys.openpgp.org
+
+# GPG client used for signing. Set to qubes-gpg-client-wrapper to enable Split GPG.
+gpg_client: gpg
+
+# Packages additionally required when running inside Qubes OS.
+builder_host_packages_qubes:
+  - qubes-gpg-split
+
+# Path where Qubes RPC policy files are stored.
+qubes_policy_dir: /etc/qubes/policy.d
+
+# Set to true to enable Windows policy, windows template validation,
+# and signing-vault setup.
+enable_windows: false
+
+# Name of the vault qube that performs Authenticode signing.
+vault_windows_name: vault-sign
+
+# Template VM for the vault qube.
+vault_windows_template: fedora-42-minimal
+
+# Label colour for the vault qube.
+vault_windows_label: red
+
+# Windows DVM name (equivalent of builder_dvm_name).
+windows_builder_dvm_name: win-builder-dvm
+
+# TemplateVM for windows_builder_dvm_name AppVM (equivalent of builder_executor_template);
+# must already exist (generally built using qvm-create-windows-qube).
+# If equal to windows_builder_dvm_name, AppVM creation is skipped.
+windows_builder_executor_template: windows-10
+
+# Label color for windows_builder_dvm_name when created by Ansible.
+windows_builder_dvm_label: orange
+
+# NetVM for windows_builder_dvm_name when created by Ansible.
+windows_builder_dvm_netvm: ""
+
+# Path to the EWDK ISO inside the builder qube.
+windows_ewdk_path: tools/windows/ewdk.iso
+
+# SSH private key for the windows-ssh executor.
+windows_ssh_key_path: ~/.ssh/win-build.key

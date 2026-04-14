@@ -1,0 +1,111 @@
+---
+- name: Create builder executor template (disposable template base)
+  qubesos:
+    guest: "{{ builder_dvm_name }}"
+    state: present
+    label: "{{ builder_dvm_label }}"
+    template: "{{ builder_executor_template }}"
+    vmtype: AppVM
+    properties:
+      template_for_dispvms: true
+      netvm: "{{ builder_dvm_netvm }}"
+  tags: [builder_dvm]
+
+- name: Set private volume size for builder-dvm
+  command: >
+    qvm-volume extend {{ builder_dvm_name }}:private {{ builder_dvm_private_size }}
+  when: not skip_resize_dvm_volume | bool
+  changed_when: true
+  tags: [builder_dvm]
+
+- name: Create builder qubes
+  qubesos:
+    guest: "{{ item }}"
+    state: present
+    label: "{{ builder_qube_label }}"
+    template: "{{ builder_qube_template if builder_qube_template else builder_executor_template }}"
+    properties:
+      netvm: "{{ builder_qube_netvm }}"
+      default_dispvm: "{{ builder_dvm_name }}"
+  loop: "{{ builder_qube_names_resolved }}"
+  loop_control:
+    label: "{{ item }}"
+  tags: [builder_qube]
+
+- name: Set private volume size for builder qubes
+  command: >
+    qvm-volume extend {{ item }}:private {{ builder_qube_private_size }}
+  when: not skip_resize_qube_volume | bool
+  loop: "{{ builder_qube_names_resolved }}"
+  loop_control:
+    label: "{{ item }}"
+  changed_when: true
+  tags: [builder_qube]
+
+- name: Create Windows disposable template qube (optional)
+  qubesos:
+    guest: "{{ windows_builder_dvm_name }}"
+    state: present
+    label: "{{ windows_builder_dvm_label }}"
+    template: "{{ windows_builder_executor_template }}"
+    vmtype: AppVM
+    properties:
+      netvm: "{{ windows_builder_dvm_netvm }}"
+  when:
+    - enable_windows | default(false) | bool
+    - windows_builder_executor_template | default("") | length > 0
+    - windows_builder_executor_template != windows_builder_dvm_name
+  tags: [windows_executor]
+
+- name: Verify Windows disposable template exists
+  command: qvm-check --quiet {{ windows_builder_dvm_name }}
+  changed_when: false
+  when: enable_windows | default(false) | bool
+  tags: [windows_executor]
+
+- name: Read Windows template_for_dispvms property
+  command: qvm-prefs --get {{ windows_builder_dvm_name }} template_for_dispvms
+  register: windows_template_for_dispvms
+  changed_when: false
+  when: enable_windows | default(false) | bool
+  tags: [windows_executor]
+
+- name: Enable template_for_dispvms on Windows template
+  command: qvm-prefs {{ windows_builder_dvm_name }} template_for_dispvms true
+  when:
+    - enable_windows | default(false) | bool
+    - (windows_template_for_dispvms.stdout | trim | lower) != "true"
+  changed_when: true
+  tags: [windows_executor]
+
+- name: Create Windows signing vault qube
+  qubesos:
+    guest: "{{ vault_windows_name }}"
+    state: present
+    label: "{{ vault_windows_label }}"
+    template: "{{ vault_windows_template }}"
+    vmtype: AppVM
+    properties:
+      netvm: ""
+  when: enable_windows | default(false) | bool
+  tags: [vault_windows]
+
+- name: Install Qubes executor RPC policy
+  ansible.builtin.template:
+    src: 50-qubesbuilder.policy.j2
+    dest: "{{ qubes_policy_dir }}/50-qubesbuilder.policy"
+    owner: root
+    group: qubes
+    mode: "0664"
+  when: install_policy | bool
+  tags: [policy, windows_executor]
+
+- name: Install Windows RPC policy
+  ansible.builtin.template:
+    src: 51-qubesbuilder-windows.policy.j2
+    dest: "{{ qubes_policy_dir }}/51-qubesbuilder-windows.policy"
+    owner: root
+    group: qubes
+    mode: "0664"
+  when: install_windows_policy | bool
+  tags: [vault_windows, policy, windows_executor]

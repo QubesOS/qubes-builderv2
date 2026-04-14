@@ -1,0 +1,6 @@
+---
+- name: Shut down {{ shutdown_guest }}
+  qubesos:
+    guest: "{{ shutdown_guest }}"
+    state: shutdown
+    wait: true

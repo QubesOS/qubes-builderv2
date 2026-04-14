@@ -192,7 +192,7 @@ def test_repository_create_template(artifacts_dir, release):
             artifacts_dir,
             release,
             "-t",
-            "fedora-40-xfce",
+            "fedora-43-xfce",
             "repository",
             "create",
             "templates-itl-testing",

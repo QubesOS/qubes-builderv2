@@ -21,6 +21,102 @@ from tests.conftest import artifacts_dir_single, artifacts_dir
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder-ci.yml"
 HASH_RE = re.compile(r"[a-f0-9]{40}")
 
+# Version constants: update these when bumping component/template versions
+QREXEC_VERSION = "4.2.25"
+FEDORA_MINIMAL = "fedora-43-minimal"
+FEDORA_XFCE = "fedora-43-xfce"
+HOST_FC_DIST = "fc37"
+
+
+def qrexec_rpm(pkg, release=1, devel=None):
+    """
+    Return an RPM filename for a core-qrexec sub-package.
+    """
+    rel = f"{release}.{devel}.{HOST_FC_DIST}" if devel is not None else f"{release}.{HOST_FC_DIST}"
+    return f"{pkg}-{QREXEC_VERSION}-{rel}.x86_64.rpm"
+
+
+def qrexec_srpm(pkg, release=1, devel=None):
+    """
+    Return an SRPM filename for a core-qrexec sub-package.
+    """
+    rel = f"{release}.{devel}.{HOST_FC_DIST}" if devel is not None else f"{release}.{HOST_FC_DIST}"
+    return f"{pkg}-{QREXEC_VERSION}-{rel}.src.rpm"
+
+
+def qrexec_deb(pkg, deb_dist="deb12u1", devel=None, arch="amd64", ext="deb"):
+    """
+    Return a .deb / source filename for a core-qrexec package.
+    """
+    devel_suffix = f"+devel{devel}" if devel is not None else ""
+    ver_str = f"{QREXEC_VERSION}-1+{deb_dist}{devel_suffix}"
+    if ext in ("deb", "buildinfo", "changes"):
+        return f"{pkg}_{ver_str}_{arch}.{ext}"
+    if ext in ("dsc", "debian.tar.xz"):
+        return f"{pkg}_{ver_str}.{ext}"
+    return f"{pkg}_{QREXEC_VERSION}.orig.tar.gz"
+
+
+def qrexec_component_dir(artifacts_dir, dist, stage=None, release=1):
+    """
+    Return the path to a core-qrexec component artifact directory.
+    """
+    base = artifacts_dir / f"components/core-qrexec/{QREXEC_VERSION}-{release}/{dist}"
+    return base / stage if stage else base
+
+
+def qrexec_build_rpms(devel=None):
+    """
+    Set of RPMs produced by the qrexec build stage.
+    """
+    return {
+        qrexec_rpm("qubes-core-qrexec", devel=devel),
+        qrexec_rpm("qubes-core-qrexec-debugsource", devel=devel),
+        qrexec_rpm("qubes-core-qrexec-libs", devel=devel),
+        qrexec_rpm("qubes-core-qrexec-libs-debuginfo", devel=devel),
+        qrexec_rpm("qubes-core-qrexec-devel", devel=devel),
+    }
+
+
+def qrexec_prep_rpms(devel=None):
+    """
+    Set of RPMs predicted by the SRPM spec.
+    """
+    return qrexec_build_rpms(devel=devel) | {
+        qrexec_rpm("qubes-core-qrexec-debuginfo", devel=devel),
+        qrexec_rpm("qubes-core-qrexec-libs-debugsource", devel=devel),
+    }
+
+
+def qrexec_dom0_rpms(devel=None):
+    """
+    Set of RPMs for the qubes-core-qrexec-dom0 sub-package.
+    """
+    return {
+        qrexec_rpm("qubes-core-qrexec-dom0", devel=devel),
+        qrexec_rpm("qubes-core-qrexec-dom0-debuginfo", devel=devel),
+        qrexec_rpm("qubes-core-qrexec-dom0-debugsource", devel=devel),
+    }
+
+
+def qrexec_all_signed_rpms(devel=None):
+    """
+    List of all qrexec RPMs/SRPMs that go through the sign stage.
+    """
+    return [
+        qrexec_srpm("qubes-core-qrexec", devel=devel),
+        *sorted(qrexec_build_rpms(devel=devel)),
+        qrexec_srpm("qubes-core-qrexec-dom0", devel=devel),
+        *sorted(qrexec_dom0_rpms(devel=devel)),
+    ]
+
+
+def qrexec_repo_dir(artifacts_dir, dist):
+    """
+    Local repository directory for a built component.
+    """
+    return artifacts_dir / f"repository/{dist}/core-qrexec_{QREXEC_VERSION}"
+
 
 def qb_call(builder_conf, artifacts_dir, *args, **kwargs):
     cmd = [
@@ -375,7 +471,7 @@ def test_common_component_dependencies_01(artifacts_dir_single):
         artifacts_dir / "components" / "dummy-component" / "1.2.3-4"
     )
 
-    # Directories for vm-fc40
+    # Directories for vm-fc40 (hardcoded in dummy-component .qubesbuilder)
     fc40_dir = dist_artifacts_dir / "vm-fc40" / "build"
     fc40_dir.mkdir(parents=True, exist_ok=True)
 
@@ -518,43 +614,21 @@ def test_component_host_fc37_prep(artifacts_dir):
         "prep",
     )
 
-    with open(
-        artifacts_dir
-        / "components/core-qrexec/4.2.18-1/host-fc37/prep/rpm_spec_qubes-qrexec.spec.prep.yml"
-    ) as f:
+    prep_dir = qrexec_component_dir(artifacts_dir, "host-fc37", "prep")
+
+    with open(prep_dir / "rpm_spec_qubes-qrexec.spec.prep.yml") as f:
         info = yaml.safe_load(f.read())
 
-    rpms = {
-        "qubes-core-qrexec-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-debugsource-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-debugsource-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-devel-4.2.18-1.fc37.x86_64.rpm",
-    }
-    srpm = "qubes-core-qrexec-4.2.18-1.fc37.src.rpm"
-
-    assert set(info.get("rpms", [])) == rpms
+    assert set(info.get("rpms", [])) == qrexec_prep_rpms()
     assert HASH_RE.match(info.get("source-hash", None))
-    assert info.get("srpm", None) == srpm
+    assert info.get("srpm", None) == qrexec_srpm("qubes-core-qrexec")
 
-    with open(
-        artifacts_dir
-        / "components/core-qrexec/4.2.18-1/host-fc37/prep/rpm_spec_qubes-qrexec-dom0.spec.prep.yml"
-    ) as f:
+    with open(prep_dir / "rpm_spec_qubes-qrexec-dom0.spec.prep.yml") as f:
         info = yaml.safe_load(f.read())
 
-    rpms = {
-        "qubes-core-qrexec-dom0-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debugsource-4.2.18-1.fc37.x86_64.rpm",
-    }
-    srpm = "qubes-core-qrexec-dom0-4.2.18-1.fc37.src.rpm"
-
-    assert set(info.get("rpms", [])) == rpms
+    assert set(info.get("rpms", [])) == qrexec_dom0_rpms()
     assert HASH_RE.match(info.get("source-hash", None))
-    assert info.get("srpm", None) == srpm
+    assert info.get("srpm", None) == qrexec_srpm("qubes-core-qrexec-dom0")
 
 
 def test_component_host_fc37_build(artifacts_dir):
@@ -569,65 +643,42 @@ def test_component_host_fc37_build(artifacts_dir):
         "build",
     )
 
-    with open(
-        artifacts_dir
-        / "components/core-qrexec/4.2.18-1/host-fc37/build/rpm_spec_qubes-qrexec.spec.build.yml"
-    ) as f:
+    build_dir = qrexec_component_dir(artifacts_dir, "host-fc37", "build")
+    repo_dir = qrexec_repo_dir(artifacts_dir, "host-fc37")
+
+    with open(build_dir / "rpm_spec_qubes-qrexec.spec.build.yml") as f:
         info = yaml.safe_load(f.read())
 
-    rpms = {
-        "qubes-core-qrexec-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-debugsource-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-devel-4.2.18-1.fc37.x86_64.rpm",
-    }
-    srpm = "qubes-core-qrexec-4.2.18-1.fc37.src.rpm"
-
-    for rpm in rpms.union({srpm}):
-        assert (
-            artifacts_dir / "repository/host-fc37/core-qrexec_4.2.18" / rpm
-        ).exists()
-
+    rpms = qrexec_build_rpms()
+    srpm = qrexec_srpm("qubes-core-qrexec")
+    for pkg in rpms | {srpm}:
+        assert (repo_dir / pkg).exists()
     assert set(info.get("rpms", [])) == rpms
     assert HASH_RE.match(info.get("source-hash", None))
     assert info.get("srpm", None) == srpm
 
-    with open(
-        artifacts_dir
-        / "components/core-qrexec/4.2.18-1/host-fc37/build/rpm_spec_qubes-qrexec-dom0.spec.build.yml"
-    ) as f:
+    with open(build_dir / "rpm_spec_qubes-qrexec-dom0.spec.build.yml") as f:
         info = yaml.safe_load(f.read())
 
-    rpms = {
-        "qubes-core-qrexec-dom0-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debugsource-4.2.18-1.fc37.x86_64.rpm",
-    }
-    srpm = "qubes-core-qrexec-dom0-4.2.18-1.fc37.src.rpm"
-
-    for rpm in rpms.union({srpm}):
-        assert (
-            artifacts_dir / "repository/host-fc37/core-qrexec_4.2.18" / rpm
-        ).exists()
-
+    rpms = qrexec_dom0_rpms()
+    srpm = qrexec_srpm("qubes-core-qrexec-dom0")
+    for pkg in rpms | {srpm}:
+        assert (repo_dir / pkg).exists()
     assert set(info.get("rpms", [])) == rpms
     assert HASH_RE.match(info.get("source-hash", None))
     assert info.get("srpm", None) == srpm
 
     # buildinfo
-    assert (
-        artifacts_dir
-        / "components/core-qrexec/4.2.18-1/host-fc37/build/rpm/qubes-core-qrexec-4.2.18-1.fc37.x86_64.buildinfo"
-    ).exists()
+    buildinfo = qrexec_rpm("qubes-core-qrexec").replace(".rpm", ".buildinfo")
+    assert (qrexec_component_dir(artifacts_dir, "host-fc37", "build/rpm") / buildinfo).exists()
 
 
 def test_component_host_fc37_sign(artifacts_dir):
     env = os.environ.copy()
 
     buildinfo = (
-        artifacts_dir
-        / "components/core-qrexec/4.2.18-1/host-fc37/build/rpm/qubes-core-qrexec-4.2.18-1.fc37.x86_64.buildinfo"
+        qrexec_component_dir(artifacts_dir, "host-fc37", "build/rpm")
+        / qrexec_rpm("qubes-core-qrexec").replace(".rpm", ".buildinfo")
     )
     buildinfo_number_lines = len(
         buildinfo.read_text(encoding="utf8").splitlines()
@@ -659,23 +710,9 @@ def test_component_host_fc37_sign(artifacts_dir):
     dbpath = artifacts_dir / "rpmdb/632F8C69E01B25C9E0C3ADF2F360C0D259FB650C"
     assert dbpath.exists()
 
-    rpms = [
-        "qubes-core-qrexec-4.2.18-1.fc37.src.rpm",
-        "qubes-core-qrexec-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-debugsource-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-devel-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-4.2.18-1.fc37.src.rpm",
-        "qubes-core-qrexec-dom0-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debugsource-4.2.18-1.fc37.x86_64.rpm",
-    ]
-    for rpm in rpms:
-        rpm_path = (
-            artifacts_dir
-            / f"components/core-qrexec/4.2.18-1/host-fc37/{f'prep/{rpm}' if rpm.endswith('.src.rpm') else f'build/rpm/{rpm}'}"
-        )
+    comp_dir = qrexec_component_dir(artifacts_dir, "host-fc37")
+    for rpm in qrexec_all_signed_rpms():
+        rpm_path = comp_dir / ("prep" if rpm.endswith(".src.rpm") else "build/rpm") / rpm
         assert rpm_path.exists()
         result = subprocess.run(
             f"rpm --dbpath {dbpath} -K {rpm_path}",
@@ -720,32 +757,15 @@ def test_component_host_fc37_publish(artifacts_dir):
             env=env,
         )
 
-        rpms = {
-            "qubes-core-qrexec-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-debugsource-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-libs-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-libs-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-devel-4.2.18-1.fc37.x86_64.rpm",
-        }
-        srpm = "qubes-core-qrexec-4.2.18-1.fc37.src.rpm"
+        rpms = qrexec_build_rpms()
+        srpm = qrexec_srpm("qubes-core-qrexec")
+        rpms_dom0 = qrexec_dom0_rpms()
+        srpm_dom0 = qrexec_srpm("qubes-core-qrexec-dom0")
 
-        rpms_dom0 = {
-            "qubes-core-qrexec-dom0-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-dom0-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-dom0-debugsource-4.2.18-1.fc37.x86_64.rpm",
-        }
-        srpm_dom0 = "qubes-core-qrexec-dom0-4.2.18-1.fc37.src.rpm"
-
-        with open(
-            artifacts_dir
-            / "components/core-qrexec/4.2.18-1/host-fc37/publish/rpm_spec_qubes-qrexec.spec.publish.yml"
-        ) as f:
+        publish_dir = qrexec_component_dir(artifacts_dir, "host-fc37", "publish")
+        with open(publish_dir / "rpm_spec_qubes-qrexec.spec.publish.yml") as f:
             info = yaml.safe_load(f.read())
-
-        with open(
-            artifacts_dir
-            / "components/core-qrexec/4.2.18-1/host-fc37/publish/rpm_spec_qubes-qrexec-dom0.spec.publish.yml"
-        ) as f:
+        with open(publish_dir / "rpm_spec_qubes-qrexec-dom0.spec.publish.yml") as f:
             info_dom0 = yaml.safe_load(f.read())
 
         assert set(info.get("rpms", [])) == rpms
@@ -775,16 +795,9 @@ def test_component_host_fc37_publish(artifacts_dir):
             "current-testing",
             env=env,
         )
-        with open(
-            artifacts_dir
-            / "components/core-qrexec/4.2.18-1/host-fc37/publish/rpm_spec_qubes-qrexec.spec.publish.yml"
-        ) as f:
+        with open(publish_dir / "rpm_spec_qubes-qrexec.spec.publish.yml") as f:
             info = yaml.safe_load(f.read())
-
-        with open(
-            artifacts_dir
-            / "components/core-qrexec/4.2.18-1/host-fc37/publish/rpm_spec_qubes-qrexec-dom0.spec.publish.yml"
-        ) as f:
+        with open(publish_dir / "rpm_spec_qubes-qrexec-dom0.spec.publish.yml") as f:
             info_dom0 = yaml.safe_load(f.read())
 
         assert set(info.get("rpms", [])) == rpms
@@ -813,14 +826,8 @@ def test_component_host_fc37_publish(artifacts_dir):
         fake_time = (
             datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=7)
         ).strftime("%Y%m%d%H%M")
-        publish_file = (
-            artifacts_dir
-            / "components/core-qrexec/4.2.18-1/host-fc37/publish/rpm_spec_qubes-qrexec.spec.publish.yml"
-        )
-        publish_dom0_file = (
-            artifacts_dir
-            / "components/core-qrexec/4.2.18-1/host-fc37/publish/rpm_spec_qubes-qrexec-dom0.spec.publish.yml"
-        )
+        publish_file = publish_dir / "rpm_spec_qubes-qrexec.spec.publish.yml"
+        publish_dom0_file = publish_dir / "rpm_spec_qubes-qrexec-dom0.spec.publish.yml"
 
         for r in info["repository-publish"]:
             if r["name"] == "current-testing":
@@ -896,18 +903,12 @@ def test_component_host_fc37_publish(artifacts_dir):
             artifacts_dir / "repository-publish/rpm/r4.2/current/host/fc37"
         ).exists()
 
-    rpms = {
-        "qubes-core-qrexec-4.2.18-1.fc37.src.rpm",
-        "qubes-core-qrexec-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-debugsource-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-devel-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-4.2.18-1.fc37.src.rpm",
-        "qubes-core-qrexec-dom0-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debugsource-4.2.18-1.fc37.x86_64.rpm",
-    }
+    rpms = (
+        qrexec_build_rpms()
+        | {qrexec_srpm("qubes-core-qrexec")}
+        | qrexec_dom0_rpms()
+        | {qrexec_srpm("qubes-core-qrexec-dom0")}
+    )
 
     # Check that packages are in the published repository
     for repository in ["unstable", "current-testing", "current"]:
@@ -950,31 +951,21 @@ repository-upload-remote-host:
             env=env,
         )
 
-        rpms = {
-            "qubes-core-qrexec-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-debugsource-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-libs-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-libs-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-devel-4.2.18-1.fc37.x86_64.rpm",
-        }
-        srpm = "qubes-core-qrexec-4.2.18-1.fc37.src.rpm"
-
-        rpms_dom0 = {
-            "qubes-core-qrexec-dom0-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-dom0-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-dom0-debugsource-4.2.18-1.fc37.x86_64.rpm",
-        }
-        srpm_dom0 = "qubes-core-qrexec-dom0-4.2.18-1.fc37.src.rpm"
-
-        for rpm in itertools.chain([srpm_dom0], rpms_dom0, rpms, [srpm]):
+        all_rpms = (
+            qrexec_build_rpms()
+            | {qrexec_srpm("qubes-core-qrexec")}
+            | qrexec_dom0_rpms()
+            | {qrexec_srpm("qubes-core-qrexec-dom0")}
+        )
+        for rpm in all_rpms:
             assert (
                 pathlib.Path(tmpdir)
                 / f"repo/rpm/r4.2/unstable/host/fc37/rpm/{rpm}"
             ).exists()
 
-        # vm-fc40 shouldn't exist, as nothing was published into it
+        # vm-fc43 shouldn't exist, as nothing was published into it
         assert not (
-            pathlib.Path(tmpdir) / f"repo/rpm/r4.2/unstable/vm/fc40"
+            pathlib.Path(tmpdir) / f"repo/rpm/r4.2/unstable/vm/fc43"
         ).exists()
 
         # and vm-bookworm same
@@ -1044,19 +1035,7 @@ def test_component_host_fc37_sign_skip(artifacts_dir):
             env=env,
         ).decode()
 
-    rpms = [
-        "qubes-core-qrexec-4.2.18-1.fc37.src.rpm",
-        "qubes-core-qrexec-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-debugsource-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-devel-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-4.2.18-1.fc37.src.rpm",
-        "qubes-core-qrexec-dom0-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debugsource-4.2.18-1.fc37.x86_64.rpm",
-    ]
-    for rpm in rpms:
+    for rpm in qrexec_all_signed_rpms():
         assert f"{rpm} has already a valid signature. Skipping." in result
 
 
@@ -1089,32 +1068,15 @@ def test_component_host_fc37_unpublish(artifacts_dir):
             env=env,
         ).decode()
 
-        rpms = {
-            "qubes-core-qrexec-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-debugsource-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-libs-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-libs-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-devel-4.2.18-1.fc37.x86_64.rpm",
-        }
-        srpm = "qubes-core-qrexec-4.2.18-1.fc37.src.rpm"
+        rpms = qrexec_build_rpms()
+        srpm = qrexec_srpm("qubes-core-qrexec")
+        rpms_dom0 = qrexec_dom0_rpms()
+        srpm_dom0 = qrexec_srpm("qubes-core-qrexec-dom0")
 
-        rpms_dom0 = {
-            "qubes-core-qrexec-dom0-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-dom0-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-            "qubes-core-qrexec-dom0-debugsource-4.2.18-1.fc37.x86_64.rpm",
-        }
-        srpm_dom0 = "qubes-core-qrexec-dom0-4.2.18-1.fc37.src.rpm"
-
-        with open(
-            artifacts_dir
-            / "components/core-qrexec/4.2.18-1/host-fc37/publish/rpm_spec_qubes-qrexec.spec.publish.yml"
-        ) as f:
+        publish_dir = qrexec_component_dir(artifacts_dir, "host-fc37", "publish")
+        with open(publish_dir / "rpm_spec_qubes-qrexec.spec.publish.yml") as f:
             info = yaml.safe_load(f.read())
-
-        with open(
-            artifacts_dir
-            / "components/core-qrexec/4.2.18-1/host-fc37/publish/rpm_spec_qubes-qrexec-dom0.spec.publish.yml"
-        ) as f:
+        with open(publish_dir / "rpm_spec_qubes-qrexec-dom0.spec.publish.yml") as f:
             info_dom0 = yaml.safe_load(f.read())
 
         assert set(info.get("rpms", [])) == rpms
@@ -1136,18 +1098,12 @@ def test_component_host_fc37_unpublish(artifacts_dir):
         }
 
     # Check that packages are in the published repository
-    rpms = {
-        "qubes-core-qrexec-4.2.18-1.fc37.src.rpm",
-        "qubes-core-qrexec-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-debugsource-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-devel-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-4.2.18-1.fc37.src.rpm",
-        "qubes-core-qrexec-dom0-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debuginfo-4.2.18-1.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debugsource-4.2.18-1.fc37.x86_64.rpm",
-    }
+    rpms = (
+        qrexec_build_rpms()
+        | {qrexec_srpm("qubes-core-qrexec")}
+        | qrexec_dom0_rpms()
+        | {qrexec_srpm("qubes-core-qrexec-dom0")}
+    )
     for repository in ["unstable", "current-testing", "current"]:
         repository_dir = f"file://{artifacts_dir}/repository-publish/rpm/r4.2/{repository}/host/fc37"
         packages = rpm_packages_list(repository_dir)
@@ -1710,50 +1666,28 @@ def test_increment_component_build(artifacts_dir):
             env=env,
         )
 
-    rpms = {
-        "qubes-core-qrexec-4.2.18-1.42.fc37.x86_64.rpm",
-        "qubes-core-qrexec-debugsource-4.2.18-1.42.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-4.2.18-1.42.fc37.x86_64.rpm",
-        "qubes-core-qrexec-libs-debuginfo-4.2.18-1.42.fc37.x86_64.rpm",
-        "qubes-core-qrexec-devel-4.2.18-1.42.fc37.x86_64.rpm",
-    }
-    srpm = "qubes-core-qrexec-4.2.18-1.42.fc37.src.rpm"
-
-    for rpm in rpms.union({srpm}):
-        assert (
-            artifacts_dir / "repository/host-fc37/core-qrexec_4.2.18" / rpm
-        ).exists()
-
-    rpms = {
-        "qubes-core-qrexec-dom0-4.2.18-1.42.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debuginfo-4.2.18-1.42.fc37.x86_64.rpm",
-        "qubes-core-qrexec-dom0-debugsource-4.2.18-1.42.fc37.x86_64.rpm",
-    }
-    srpm = "qubes-core-qrexec-dom0-4.2.18-1.42.fc37.src.rpm"
-
-    for rpm in rpms.union({srpm}):
-        assert (
-            artifacts_dir / "repository/host-fc37/core-qrexec_4.2.18" / rpm
-        ).exists()
+    repo_dir = qrexec_repo_dir(artifacts_dir, "host-fc37")
+    for pkg in qrexec_build_rpms(devel=42) | {qrexec_srpm("qubes-core-qrexec", devel=42)}:
+        assert (repo_dir / pkg).exists()
+    for pkg in qrexec_dom0_rpms(devel=42) | {qrexec_srpm("qubes-core-qrexec-dom0", devel=42)}:
+        assert (repo_dir / pkg).exists()
 
     deb_files = [
-        "libqrexec-utils-dev_4.2.18-1+deb12u1+devel42_amd64.deb",
-        "libqrexec-utils2-dbgsym_4.2.18-1+deb12u1+devel42_amd64.deb",
-        "libqrexec-utils2_4.2.18-1+deb12u1+devel42_amd64.deb",
-        "python3-qrexec_4.2.18-1+deb12u1+devel42_amd64.deb",
-        "qubes-core-qrexec-dbgsym_4.2.18-1+deb12u1+devel42_amd64.deb",
-        "qubes-core-qrexec_4.2.18-1+deb12u1+devel42.debian.tar.xz",
-        "qubes-core-qrexec_4.2.18-1+deb12u1+devel42.dsc",
-        "qubes-core-qrexec_4.2.18-1+deb12u1+devel42_amd64.buildinfo",
-        "qubes-core-qrexec_4.2.18-1+deb12u1+devel42_amd64.changes",
-        "qubes-core-qrexec_4.2.18-1+deb12u1+devel42_amd64.deb",
-        "qubes-core-qrexec_4.2.18.orig.tar.gz",
+        qrexec_deb("libqrexec-utils-dev", devel=42),
+        qrexec_deb("libqrexec-utils2-dbgsym", devel=42),
+        qrexec_deb("libqrexec-utils2", devel=42),
+        qrexec_deb("python3-qrexec", devel=42),
+        qrexec_deb("qubes-core-qrexec-dbgsym", devel=42),
+        qrexec_deb("qubes-core-qrexec", devel=42, ext="debian.tar.xz"),
+        qrexec_deb("qubes-core-qrexec", devel=42, ext="dsc"),
+        qrexec_deb("qubes-core-qrexec", devel=42, ext="buildinfo"),
+        qrexec_deb("qubes-core-qrexec", devel=42, ext="changes"),
+        qrexec_deb("qubes-core-qrexec", devel=42),
+        qrexec_deb("qubes-core-qrexec", ext="orig"),
     ]
-
+    repo_deb_dir = qrexec_repo_dir(artifacts_dir, "vm-bookworm")
     for file in deb_files:
-        assert (
-            artifacts_dir / "repository/vm-bookworm/core-qrexec_4.2.18" / file
-        ).exists()
+        assert (repo_deb_dir / file).exists()
 
 
 #
@@ -2054,9 +1988,9 @@ repository-upload-remote-host:
             / f"repo/archlinux/r4.2/unstable/vm/archlinux/pkgs/qubes-r4.2-unstable.db.tar.gz.sig"
         ).exists()
 
-        # vm-fc40 shouldn't exist, as nothing was published into it
+        # vm-fc43 shouldn't exist, as nothing was published into it
         assert not (
-            pathlib.Path(tmpdir) / f"repo/rpm/r4.2/unstable/vm/fc40"
+            pathlib.Path(tmpdir) / f"repo/rpm/r4.2/unstable/vm/fc43"
         ).exists()
 
         # and vm-bookworm same
@@ -2074,11 +2008,11 @@ def _get_template_timestamp(artifacts_dir, template_name, stage):
 
 
 #
-# Pipeline for Fedora 40 template
+# Pipeline for Fedora 43 template
 #
 
 
-def test_template_fedora_40_minimal_prep(artifacts_dir):
+def test_template_fedora_43_minimal_prep(artifacts_dir):
     qb_call(
         DEFAULT_BUILDER_CONF,
         artifacts_dir,
@@ -2094,49 +2028,40 @@ def test_template_fedora_40_minimal_prep(artifacts_dir):
         DEFAULT_BUILDER_CONF,
         artifacts_dir,
         "-t",
-        "fedora-40-minimal",
+        FEDORA_MINIMAL,
         "template",
         "prep",
     )
 
-    assert (artifacts_dir / "templates/fedora-40-minimal.prep.yml").exists()
+    assert (artifacts_dir / f"templates/{FEDORA_MINIMAL}.prep.yml").exists()
     assert (
-        artifacts_dir / "templates/qubeized_images/fedora-40-minimal/root.img"
+        artifacts_dir / f"templates/qubeized_images/{FEDORA_MINIMAL}/root.img"
     ).exists()
-    assert (artifacts_dir / "templates/fedora-40-minimal/appmenus").exists()
-    assert (
-        artifacts_dir / "templates/fedora-40-minimal/template.conf"
-    ).exists()
+    assert (artifacts_dir / f"templates/{FEDORA_MINIMAL}/appmenus").exists()
+    assert (artifacts_dir / f"templates/{FEDORA_MINIMAL}/template.conf").exists()
 
 
-def test_template_fedora_40_minimal_build(artifacts_dir):
+def test_template_fedora_43_minimal_build(artifacts_dir):
     qb_call(
         DEFAULT_BUILDER_CONF,
         artifacts_dir,
         "-t",
-        "fedora-40-minimal",
+        FEDORA_MINIMAL,
         "template",
         "build",
     )
 
-    template_prep_timestamp = _get_template_timestamp(
-        artifacts_dir, "fedora-40-minimal", "prep"
-    )
-
-    template_timestamp = _get_template_timestamp(
-        artifacts_dir, "fedora-40-minimal", "build"
-    )
-
+    template_prep_timestamp = _get_template_timestamp(artifacts_dir, FEDORA_MINIMAL, "prep")
+    template_timestamp = _get_template_timestamp(artifacts_dir, FEDORA_MINIMAL, "build")
     assert template_timestamp == template_prep_timestamp
 
-    rpm_path = (
+    assert (
         artifacts_dir
-        / f"templates/rpm/qubes-template-fedora-40-minimal-4.2.0-{template_timestamp}.noarch.rpm"
-    )
-    assert rpm_path.exists()
+        / f"templates/rpm/qubes-template-{FEDORA_MINIMAL}-4.2.0-{template_timestamp}.noarch.rpm"
+    ).exists()
 
 
-def test_template_fedora_40_minimal_sign(artifacts_dir):
+def test_template_fedora_43_minimal_sign(artifacts_dir):
     env = os.environ.copy()
     with tempfile.TemporaryDirectory() as tmpdir:
         gnupghome = f"{tmpdir}/gnupg"
@@ -2153,7 +2078,7 @@ def test_template_fedora_40_minimal_sign(artifacts_dir):
             DEFAULT_BUILDER_CONF,
             artifacts_dir,
             "-t",
-            "fedora-40-minimal",
+            FEDORA_MINIMAL,
             "template",
             "sign",
             env=env,
@@ -2162,13 +2087,10 @@ def test_template_fedora_40_minimal_sign(artifacts_dir):
     dbpath = artifacts_dir / "templates/rpmdb"
     assert dbpath.exists()
 
-    template_timestamp = _get_template_timestamp(
-        artifacts_dir, "fedora-40-minimal", "build"
-    )
-
+    template_timestamp = _get_template_timestamp(artifacts_dir, FEDORA_MINIMAL, "build")
     rpm_path = (
         artifacts_dir
-        / f"templates/rpm/qubes-template-fedora-40-minimal-4.2.0-{template_timestamp}.noarch.rpm"
+        / f"templates/rpm/qubes-template-{FEDORA_MINIMAL}-4.2.0-{template_timestamp}.noarch.rpm"
     )
     assert rpm_path.exists()
     result = subprocess.run(
@@ -2180,7 +2102,7 @@ def test_template_fedora_40_minimal_sign(artifacts_dir):
     assert "digests signatures OK" in result.stdout.decode()
 
 
-def test_template_fedora_40_minimal_publish(artifacts_dir):
+def test_template_fedora_43_minimal_publish(artifacts_dir):
     env = os.environ.copy()
     with tempfile.TemporaryDirectory() as tmpdir:
         gnupghome = f"{tmpdir}/gnupg"
@@ -2195,21 +2117,18 @@ def test_template_fedora_40_minimal_publish(artifacts_dir):
             DEFAULT_BUILDER_CONF,
             artifacts_dir,
             "-t",
-            "fedora-40-minimal",
+            FEDORA_MINIMAL,
             "repository",
             "publish",
             "templates-itl-testing",
             env=env,
         )
 
-        with open(
-            artifacts_dir / "templates/fedora-40-minimal.publish.yml"
-        ) as f:
+        publish_file = artifacts_dir / f"templates/{FEDORA_MINIMAL}.publish.yml"
+        with open(publish_file) as f:
             info = yaml.safe_load(f.read())
 
-        template_timestamp = _get_template_timestamp(
-            artifacts_dir, "fedora-40-minimal", "build"
-        )
+        template_timestamp = _get_template_timestamp(artifacts_dir, FEDORA_MINIMAL, "build")
 
         assert info.get("timestamp", []) == template_timestamp
         assert ["templates-itl-testing"] == [
@@ -2220,7 +2139,6 @@ def test_template_fedora_40_minimal_publish(artifacts_dir):
         fake_time = (
             datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=7)
         ).strftime("%Y%m%d%H%M")
-        publish_file = artifacts_dir / "templates/fedora-40-minimal.publish.yml"
 
         for r in info["repository-publish"]:
             if r["name"] == "templates-itl-testing":
@@ -2234,7 +2152,7 @@ def test_template_fedora_40_minimal_publish(artifacts_dir):
             DEFAULT_BUILDER_CONF,
             artifacts_dir,
             "-t",
-            "fedora-40-minimal",
+            FEDORA_MINIMAL,
             "repository",
             "publish",
             "templates-itl",
@@ -2251,7 +2169,7 @@ def test_template_fedora_40_minimal_publish(artifacts_dir):
 
     # Check that packages are in the published repository
     for repository in ["templates-itl-testing", "templates-itl"]:
-        rpm = f"qubes-template-fedora-40-minimal-4.2.0-{template_timestamp}.noarch.rpm"
+        rpm = f"qubes-template-{FEDORA_MINIMAL}-4.2.0-{template_timestamp}.noarch.rpm"
         repository_dir = (
             f"file://{artifacts_dir}/repository-publish/rpm/r4.2/{repository}"
         )
@@ -2271,7 +2189,7 @@ def test_template_fedora_40_minimal_publish(artifacts_dir):
 
 
 # @pytest.mark.depends(on=['test_template_publish_fedora_40_minimal'])
-def test_template_fedora_40_minimal_publish_new(artifacts_dir):
+def test_template_fedora_43_minimal_publish_new(artifacts_dir):
     env = os.environ.copy()
     with tempfile.TemporaryDirectory() as tmpdir:
         gnupghome = f"{tmpdir}/gnupg"
@@ -2281,10 +2199,9 @@ def test_template_fedora_40_minimal_publish_new(artifacts_dir):
         env["GNUPGHOME"] = gnupghome
         env["HOME"] = tmpdir
 
-        assert (
-            artifacts_dir / "templates/fedora-40-minimal.build.yml"
-        ).exists()
-        with open(artifacts_dir / "templates/fedora-40-minimal.build.yml") as f:
+        build_yml = artifacts_dir / f"templates/{FEDORA_MINIMAL}.build.yml"
+        assert build_yml.exists()
+        with open(build_yml) as f:
             data = yaml.safe_load(f.read())
         assert data.get("timestamp", None)
         template_timestamp = parsedate(data["timestamp"]).strftime("%Y%m%d%H%M")
@@ -2294,28 +2211,24 @@ def test_template_fedora_40_minimal_publish_new(artifacts_dir):
             parsedate(data["timestamp"]) + datetime.timedelta(minutes=1)
         ).strftime("%Y%m%d%H%M")
         data["timestamp"] = new_timestamp
-        with open(
-            artifacts_dir / "templates/fedora-40-minimal.prep.yml", "w"
-        ) as f:
+        with open(artifacts_dir / f"templates/{FEDORA_MINIMAL}.prep.yml", "w") as f:
             f.write(yaml.dump(data))
 
         qb_call(
             DEFAULT_BUILDER_CONF,
             artifacts_dir,
             "-t",
-            "fedora-40-minimal",
+            FEDORA_MINIMAL,
             "template",
             "build",
             "sign",
             env=env,
         )
 
-        rpm_path = (
+        assert (
             artifacts_dir
-            / f"templates/rpm/qubes-template-fedora-40-minimal-4.2.0-{new_timestamp}.noarch.rpm"
-        )
-        assert rpm_path.exists()
-
+            / f"templates/rpm/qubes-template-{FEDORA_MINIMAL}-4.2.0-{new_timestamp}.noarch.rpm"
+        ).exists()
         assert template_timestamp != new_timestamp
 
         # publish into templates-itl-testing
@@ -2323,14 +2236,14 @@ def test_template_fedora_40_minimal_publish_new(artifacts_dir):
             DEFAULT_BUILDER_CONF,
             artifacts_dir,
             "-t",
-            "fedora-40-minimal",
+            FEDORA_MINIMAL,
             "repository",
             "publish",
             "templates-itl-testing",
             env=env,
         )
 
-        publish_file = artifacts_dir / "templates/fedora-40-minimal.publish.yml"
+        publish_file = artifacts_dir / f"templates/{FEDORA_MINIMAL}.publish.yml"
         with open(publish_file) as f:
             info = yaml.safe_load(f.read())
 
@@ -2357,7 +2270,7 @@ def test_template_fedora_40_minimal_publish_new(artifacts_dir):
             DEFAULT_BUILDER_CONF,
             artifacts_dir,
             "-t",
-            "fedora-40-minimal",
+            FEDORA_MINIMAL,
             "repository",
             "publish",
             "templates-itl",
@@ -2375,8 +2288,8 @@ def test_template_fedora_40_minimal_publish_new(artifacts_dir):
     # Check that packages are in the published repository
     for repository in ["templates-itl-testing", "templates-itl"]:
         rpms = {
-            f"qubes-template-fedora-40-minimal-4.2.0-{template_timestamp}.noarch.rpm",
-            f"qubes-template-fedora-40-minimal-4.2.0-{new_timestamp}.noarch.rpm",
+            f"qubes-template-{FEDORA_MINIMAL}-4.2.0-{template_timestamp}.noarch.rpm",
+            f"qubes-template-{FEDORA_MINIMAL}-4.2.0-{new_timestamp}.noarch.rpm",
         }
         repository_dir = (
             f"file://{artifacts_dir}/repository-publish/rpm/r4.2/{repository}"
@@ -2396,7 +2309,7 @@ def test_template_fedora_40_minimal_publish_new(artifacts_dir):
         )
 
 
-def test_template_fedora_40_minimal_unpublish(artifacts_dir):
+def test_template_fedora_43_minimal_unpublish(artifacts_dir):
     env = os.environ.copy()
     with tempfile.TemporaryDirectory() as tmpdir:
         gnupghome = f"{tmpdir}/gnupg"
@@ -2406,23 +2319,21 @@ def test_template_fedora_40_minimal_unpublish(artifacts_dir):
         env["GNUPGHOME"] = gnupghome
         env["HOME"] = tmpdir
 
-        template_timestamp = _get_template_timestamp(
-            artifacts_dir, "fedora-40-minimal", "build"
-        )
+        template_timestamp = _get_template_timestamp(artifacts_dir, FEDORA_MINIMAL, "build")
 
         # unpublish from templates-itl
         qb_call(
             DEFAULT_BUILDER_CONF,
             artifacts_dir,
             "-t",
-            "fedora-40-minimal",
+            FEDORA_MINIMAL,
             "repository",
             "unpublish",
             "templates-itl",
             env=env,
         )
 
-        publish_file = artifacts_dir / "templates/fedora-40-minimal.publish.yml"
+        publish_file = artifacts_dir / f"templates/{FEDORA_MINIMAL}.publish.yml"
         with open(publish_file) as f:
             info = yaml.safe_load(f.read())
 
@@ -2433,7 +2344,7 @@ def test_template_fedora_40_minimal_unpublish(artifacts_dir):
 
     # Check that packages are in the published repository
     for repository in ["templates-itl-testing", "templates-itl"]:
-        rpm = f"qubes-template-fedora-40-minimal-4.2.0-{template_timestamp}.noarch.rpm"
+        rpm = f"qubes-template-{FEDORA_MINIMAL}-4.2.0-{template_timestamp}.noarch.rpm"
         repository_dir = (
             f"file://{artifacts_dir}/repository-publish/rpm/r4.2/{repository}"
         )
@@ -2463,10 +2374,8 @@ def test_template_fedora_40_minimal_unpublish(artifacts_dir):
 def test_template_fedora_for_iso(artifacts_dir):
     env = os.environ.copy()
     with tempfile.TemporaryDirectory() as tmpdir:
-        template_timestamp = _get_template_timestamp(
-            artifacts_dir, "fedora-40-minimal", "build"
-        )
-        rpm = f"qubes-template-fedora-40-minimal-4.2.0-{template_timestamp}.noarch.rpm"
+        template_timestamp = _get_template_timestamp(artifacts_dir, FEDORA_MINIMAL, "build")
+        rpm = f"qubes-template-{FEDORA_MINIMAL}-4.2.0-{template_timestamp}.noarch.rpm"
 
         qb_call(
             DEFAULT_BUILDER_CONF,
@@ -2486,9 +2395,9 @@ def test_template_fedora_for_iso(artifacts_dir):
         with open(kickstart, "w") as kickstart_f:
             kickstart_f.write(default_kickstart.read_text())
             kickstart_f.write(
-                """
+                f"""
 %packages
-qubes-template-fedora-40-minimal
+qubes-template-{FEDORA_MINIMAL}
 %end
 """
             )
@@ -2498,7 +2407,7 @@ qubes-template-fedora-40-minimal
             DEFAULT_BUILDER_CONF,
             artifacts_dir,
             "-t",
-            "fedora-40-minimal",
+            FEDORA_MINIMAL,
             "-o",
             f"iso:kickstart={kickstart!s}",
             "installer",

@@ -1,0 +1,17 @@
+---
+# Defaults for the builder-dom0 role.
+# All values can be overridden in group_vars/all.yml or host_vars/.
+
+# Set to true to skip resizing private volumes after creating the qubes.
+skip_resize_dvm_volume: false
+skip_resize_qube_volume: false
+
+# Whether to install the Qubes executor RPC policy (50-qubesbuilder.policy).
+install_policy: true
+
+# Whether to install the Windows RPC policy (51-qubesbuilder-windows.policy).
+# Only meaningful when enable_windows is true.
+install_windows_policy: "{{ enable_windows | default(false) }}"
+
+# Path where Qubes policy files are stored.
+qubes_policy_dir: /etc/qubes/policy.d

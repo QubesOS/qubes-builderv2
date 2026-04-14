@@ -1,0 +1,86 @@
+---
+- name: Clone qubes-builderv2 repository
+  ansible.builtin.git:
+    repo: "{{ builder_git_url }}"
+    dest: "{{ builder_dir }}"
+    version: "{{ builder_git_version }}"
+    update: false        # do not overwrite local modifications on re-runs
+  become: false
+
+- name: Create temporary GPG keyring for signature verification
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: .gnupg
+  register: git_verify_gnupghome
+  when:
+    - builder_git_verify | default(true) | bool
+    - builder_git_verify_keys | default([]) | length > 0
+  become: false
+
+- name: Fetch trusted keys from keyserver into temporary keyring
+  ansible.builtin.command:
+    argv: >-
+      {{
+        ['gpg', '--homedir', git_verify_gnupghome.path,
+         '--keyserver', builder_git_verify_keyserver,
+         '--recv-keys'] + builder_git_verify_keys
+      }}
+  when:
+    - builder_git_verify | default(true) | bool
+    - builder_git_verify_keys | default([]) | length > 0
+  become: false
+  changed_when: false
+
+- name: Verify git tag or commit signature
+  ansible.builtin.shell:
+    cmd: >
+      git verify-tag "{{ builder_git_version }}" 2>/dev/null ||
+      git verify-commit HEAD
+    chdir: "{{ builder_dir }}"
+  environment: >-
+    {{
+      {'GNUPGHOME': git_verify_gnupghome.path}
+      if (builder_git_verify | default(true) | bool and
+          builder_git_verify_keys | default([]) | length > 0)
+      else {}
+    }}
+  when: builder_git_verify | default(true) | bool
+  become: false
+  changed_when: false
+
+- name: Remove temporary GPG keyring
+  ansible.builtin.file:
+    path: "{{ git_verify_gnupghome.path }}"
+    state: absent
+  when:
+    - builder_git_verify | default(true) | bool
+    - builder_git_verify_keys | default([]) | length > 0
+    - git_verify_gnupghome is defined
+  become: false
+
+- name: Fetch git submodules
+  ansible.builtin.command:
+    cmd: git submodule update --init
+    chdir: "{{ builder_dir }}"
+  become: false
+  changed_when: false
+
+- name: Configure Split GPG macros in ~/.rpmmacros
+  ansible.builtin.blockinfile:
+    path: "/home/{{ builder_user }}/.rpmmacros"
+    create: true
+    owner: "{{ builder_user }}"
+    group: "{{ builder_user }}"
+    mode: "0644"
+    marker: "# {mark} ANSIBLE MANAGED - qubes-builder Split GPG"
+    block: |
+      %__gpg /usr/bin/qubes-gpg-client-wrapper
+
+      %__gpg_check_password_cmd   %{__gpg} \
+              gpg --batch --no-verbose -u "%{_gpg_name}" -s
+
+      %__gpg_sign_cmd /bin/sh sh -c '/usr/bin/qubes-gpg-client-wrapper \
+              --batch --no-verbose \
+              %{?_gpg_digest_algo:--digest-algo %{_gpg_digest_algo}} \
+              -u "%{_gpg_name}" -sb %{__plaintext_filename} >%{__signature_filename}'
+  when: configure_split_gpg | bool

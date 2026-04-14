@@ -8,18 +8,21 @@ usage() {
 This script modifies a Windows installation ISO image.
 
 Options:
-    --input   Input (unmodified) .iso file path
-    --output  Output file path
-    --files   Directory containing files to add (should contain autounattend.xml)
-              Installed partition's root directory corresponds to 'sources/\$OEM\$/\$1' on the image
+    --input    Input (unmodified) .iso file path
+    --output   Output file path
+    --files    Directory containing files to add (should contain autounattend.xml)
+               Installed partition's root directory corresponds to 'sources/\$OEM\$/\$1' on the image
+    --verbose  Enable shell trace output (set -x)
 "
 }
 
-if ! OPTS=$(getopt -o hi:o:f: --long help,input:,output:,files: -n "$0" -- "$@"); then
+if ! OPTS=$(getopt -o hi:o:f:v --long help,input:,output:,files:,verbose -n "$0" -- "$@"); then
     exit 1
 fi
 
 eval set -- "$OPTS"
+
+VERBOSE=
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -27,9 +30,12 @@ while [[ $# -gt 0 ]]; do
         -i | --input) INPUT="$2"; shift ;;
         -o | --output) OUTPUT="$2"; shift ;;
         -f | --files) FILES="$2"; shift ;;
+        -v | --verbose) VERBOSE=1 ;;
     esac
     shift
 done
+
+[ -n "$VERBOSE" ] && set -x
 
 if [ -z "${INPUT}" ] || [ -z "${OUTPUT}" ] || [ -z "${FILES}" ]; then
     usage
@@ -71,8 +77,8 @@ qvm-copy-to-vm --without-progress "${DISPVM}" "${FILES}"
 shell_call "${DISPVM}" "mv ~/QubesIncoming/${SELF}/edit-iso-dispvm.sh ~"
 shell_call "${DISPVM}" "mv ~/QubesIncoming/${SELF}/$(basename "$(realpath "${FILES}")") ~/iso"
 shell_call "${DISPVM}" "chmod +x ~/edit-iso-dispvm.sh"
-# shellcheck disable=SC2088  # (~ expansion)
-shell_call "${DISPVM}" "~/edit-iso-dispvm.sh"
+# shellcheck disable=SC2088
+shell_call "${DISPVM}" "~/edit-iso-dispvm.sh${VERBOSE:+ --verbose}"
 
 sudo losetup -d "${LODEV}"
 

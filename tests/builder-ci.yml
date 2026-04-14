@@ -28,6 +28,7 @@ sign-key:
   deb: 632F8C69E01B25C9E0C3ADF2F360C0D259FB650C
   archlinux: 632F8C69E01B25C9E0C3ADF2F360C0D259FB650C
   iso: 632F8C69E01B25C9E0C3ADF2F360C0D259FB650C
+  windows: 632F8C69E01B25C9E0C3ADF2F360C0D259FB650C
 
 iso:
   kickstart: conf/iso-online-testing.ks
@@ -42,12 +43,27 @@ cache:
 
 distributions:
   - host-fc37
+  - vm-win10:
+      stages:
+        - build:
+            configuration: release
+            sign-qube: win-sign-test
+            sign-key-name: "Qubes Windows Tools"
+            test-sign: true
+            executor:
+              type: windows
+              options:
+                dispvm: win-builder-dvm
+                user: user
+                ewdk: /home/user/ewdk.iso
+                threads: 2
   - vm-bullseye
   - vm-bookworm
   - vm-trixie
   - vm-fc40
   - vm-fc41
   - vm-fc42
+  - vm-fc43
   - vm-archlinux
   - vm-focal
   - vm-jammy
@@ -83,8 +99,9 @@ components:
   - python-qasync:
       branch: v0.23.0-2
   - core-vchan-xen
+  - vmm-xen-windows-pvdrivers
   - core-qrexec:
-      branch: v4.2.18
+      branch: v4.2.25
   - desktop-linux-xfce4-xfwm4:
       branch: v4.16.1-4
   - app-linux-split-gpg:
@@ -119,11 +136,11 @@ components:
 
 
 templates:
-  - fedora-40-xfce:
-      dist: fc40
+  - fedora-43-xfce:
+      dist: fc43
       flavor: xfce
-  - fedora-40-minimal:
-      dist: fc40
+  - fedora-43-minimal:
+      dist: fc43
       flavor: minimal
   - centos-stream-8:
       dist: centos-stream8
@@ -170,6 +187,7 @@ less-secure-signed-commits-sufficient:
   - vmm-xen
   - vmm-xen-guest
   - qubes-release
+  - vmm-xen-windows-pvdrivers
 
 repository-publish:
   components: current-testing

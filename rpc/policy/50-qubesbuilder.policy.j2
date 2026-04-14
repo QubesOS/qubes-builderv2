@@ -1,0 +1,24 @@
+{% set policy_sources = builder_qube_names_resolved %}
+{% for source in policy_sources %}
+admin.vm.CreateDisposable * {{ source }} dom0                allow target=dom0
+admin.vm.CreateDisposable * {{ source }} {{ builder_dvm_name }} allow target=dom0
+{% if enable_windows | default(false) | bool %}
+admin.vm.CreateDisposable * {{ source }} {{ windows_builder_name }} allow target=dom0
+{% endif %}
+
+admin.vm.CurrentState * {{ source }} @tag:disp-created-by-{{ source }} allow target=dom0
+admin.vm.List          * {{ source }} @tag:disp-created-by-{{ source }} allow target=dom0
+admin.vm.Start         * {{ source }} @tag:disp-created-by-{{ source }} allow target=dom0
+admin.vm.Kill          * {{ source }} @tag:disp-created-by-{{ source }} allow target=dom0
+admin.vm.Remove        * {{ source }} @tag:disp-created-by-{{ source }} allow target=dom0
+
+qubesbuilder.FileCopyIn  * {{ source }} @tag:disp-created-by-{{ source }} allow
+qubesbuilder.FileCopyOut * {{ source }} @tag:disp-created-by-{{ source }} allow
+
+qubes.Filecopy      * {{ source }} @tag:disp-created-by-{{ source }} allow
+qubes.WaitForSession * {{ source }} @tag:disp-created-by-{{ source }} allow
+qubes.VMShell       * {{ source }} @tag:disp-created-by-{{ source }} allow
+{% if not loop.last %}
+
+{% endif %}
+{% endfor %}

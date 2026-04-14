@@ -1,0 +1,184 @@
+---
+#
+# Populate inventory groups from variables (enables -e overrides to work).
+#
+- name: Populate dynamic inventory from variables
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Fail on typo builder_qubes_names variable
+      ansible.builtin.fail:
+        msg: >-
+          'builder_qubes_names' is not a valid variable name.
+          Use 'builder_qube_names' (without the extra "s"), for example:
+          -e builder_qube_names=work-qubesos
+      when: builder_qubes_names is defined
+      tags: [inventory, builder_qube]
+
+    - name: Ensure builder_qube_names resolves to a non-empty list
+      ansible.builtin.assert:
+        that:
+          - builder_qube_names_resolved is sequence
+          - builder_qube_names_resolved is not string
+          - (builder_qube_names_resolved | length) > 0
+        fail_msg: >-
+          'builder_qube_names' must be a non-empty list or CSV string.
+          Example: -e builder_qube_names=build-qubesos,work-qubesos
+      tags: [inventory, builder_qube]
+
+    - name: Add builder qubes to inventory
+      ansible.builtin.add_host:
+        name: "{{ item }}"
+        groups: builder_qubes
+        ansible_connection: qubes
+      loop: "{{ builder_qube_names_resolved }}"
+      loop_control:
+        label: "{{ item }}"
+      tags: [inventory, builder_qube]
+
+    - name: Add builder DVM to inventory
+      ansible.builtin.add_host:
+        name: "{{ builder_dvm_name }}"
+        groups: builder_dvms
+        ansible_connection: qubes
+      tags: [inventory, builder_dvm]
+
+    - name: Add executor template to inventory
+      ansible.builtin.add_host:
+        name: "{{ builder_executor_template }}"
+        groups: builder_executor_templates
+        ansible_connection: qubes
+      tags: [inventory, executor_template]
+
+    - name: Add builder qube template to inventory
+      ansible.builtin.add_host:
+        name: "{{ builder_qube_template }}"
+        groups: builder_qube_templates
+        ansible_connection: qubes
+      when: builder_qube_template | length > 0
+      tags: [inventory, builder_qube_template]
+
+    - name: Add Windows vault qube to inventory
+      ansible.builtin.add_host:
+        name: "{{ vault_windows_name }}"
+        groups: vault_windows
+        ansible_connection: qubes
+      when: enable_windows | default(false) | bool
+      tags: [inventory, vault_windows]
+
+#
+# Create qubes and install RPC policies
+#
+- name: Create builder qubes and install RPC policies (dom0)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: true
+  tags: [dom0]
+  roles:
+    - builder-dom0
+
+#
+# Setup executor template
+#
+- name: Shut down executor template (pre-setup)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: true
+  tags: [executor_template]
+  roles:
+    - role: shutdown
+      vars:
+        shutdown_guest: "{{ builder_executor_template }}"
+
+- name: Install executor dependencies
+  hosts: builder_executor_templates
+  connection: qubes
+  gather_facts: false
+  remote_user: root
+  tags: [executor_template]
+  roles:
+    - builder-executor-template
+
+- name: Shut down executor template (post-setup)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: true
+  tags: [executor_template]
+  roles:
+    - role: shutdown
+      vars:
+        shutdown_guest: "{{ builder_executor_template }}"
+
+#
+# Setup builder DVM
+#
+- name: Configure qubes-builder-dvm
+  hosts: builder_dvms
+  connection: qubes
+  gather_facts: false
+  remote_user: root
+  tags: [builder_dvm]
+  roles:
+    - builder-dvm
+
+- name: Shut down qubes-builder-dvm (post-setup)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: true
+  tags: [builder_dvm]
+  roles:
+    - role: shutdown
+      vars:
+        shutdown_guest: "{{ builder_dvm_name }}"
+
+#
+# Install host dependencies in builder qube template
+#
+- name: Install host dependencies in builder qube template
+  hosts: builder_qube_templates
+  connection: qubes
+  gather_facts: false
+  remote_user: root
+  tags: [builder_qube_template]
+  roles:
+    - builder-qube-template
+
+- name: Shut down builder qube template (post host deps)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: true
+  tags: [builder_qube_template]
+  roles:
+    - role: shutdown
+      vars:
+        shutdown_guest: "{{ builder_qube_template }}"
+
+#
+# Configure builder qubes
+#
+- name: Configure builder qubes
+  hosts: builder_qubes
+  connection: qubes
+  gather_facts: false
+  remote_user: user
+  tags: [builder_qube]
+  roles:
+    - builder-qube
+
+#
+# Setup Windows signing vault
+#
+- name: Setup Windows signing vault
+  hosts: vault_windows
+  connection: qubes
+  gather_facts: false
+  remote_user: root
+  tags: [vault_windows]
+  roles:
+    - vault-windows

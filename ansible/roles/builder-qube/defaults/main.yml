@@ -1,0 +1,7 @@
+---
+# Whether to configure Split GPG macros in ~/.rpmmacros.
+# Set to true when gpg_client == "qubes-gpg-client-wrapper".
+configure_split_gpg: "{{ gpg_client == 'qubes-gpg-client-wrapper' }}"
+
+# User account inside the builder qube.
+builder_user: user

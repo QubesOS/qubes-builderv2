@@ -1,7 +1,7 @@
-import os.path
+import os
 import subprocess
 import tempfile
-from pathlib import Path, PurePath
+from pathlib import Path
 
 import pytest
 
@@ -9,7 +9,14 @@ from qubesbuilder.exc import QubesBuilderError
 from qubesbuilder.executors import Executor, ExecutorError
 from qubesbuilder.executors.container import ContainerExecutor
 from qubesbuilder.executors.local import LocalExecutor
-from qubesbuilder.executors.qubes import LinuxQubesExecutor
+from qubesbuilder.executors.qubes import (
+    LinuxQubesExecutor,
+    build_run_cmd,
+    build_run_cmd_and_list,
+    encode_for_vmexec,
+    quote_and_list,
+    quote_list,
+)
 
 
 class MockExecutor(Executor):
@@ -154,7 +161,9 @@ def test_simple(executor):
         copy_in = [(hello, executor.get_builder_dir() / "tmp")]
 
         # Copy-out the modified file
-        copy_out = [(executor.get_builder_dir() / "tmp/hello.md", Path(temp_dir))]
+        copy_out = [
+            (executor.get_builder_dir() / "tmp/hello.md", Path(temp_dir))
+        ]
         # Command that appends a line to the file
         cmd = [f"echo It works! >> {executor.get_builder_dir()}/tmp/hello.md"]
 
@@ -180,7 +189,9 @@ def test_environment(executor):
         copy_in = [(hello, executor.get_builder_dir() / "tmp")]
 
         # Copy-out the modified file
-        copy_out = [(executor.get_builder_dir() / "tmp/hello.md", Path(temp_dir))]
+        copy_out = [
+            (executor.get_builder_dir() / "tmp/hello.md", Path(temp_dir))
+        ]
         # Command that appends a line to the file
         cmd = [
             f"echo ${{MY_ANSWER}} >> {executor.get_builder_dir()}/tmp/hello.md",
@@ -255,17 +266,21 @@ def test_copy_out_error_ignored(executor):
 
 
 def test_container_not_running():
+    executor = ContainerExecutor(
+        "docker", "fedora:latest", base_url="tcp://127.0.0.1:1234"
+    )
+    cmd = ["true"]
     with pytest.raises(ExecutorError) as e:
-        ContainerExecutor(
-            "docker", "fedora:latest", base_url="tcp://127.0.0.1:1234"
-        )
+        executor.run(cmd, [], [])
     msg = "Cannot connect to container client."
     assert str(e.value) == msg
 
 
 def test_container_unknown_image():
+    executor = ContainerExecutor("docker", "fedora-unknown:latest")
+    cmd = ["true"]
     with pytest.raises(ExecutorError) as e:
-        ContainerExecutor("docker", "fedora-unknown:latest")
+        executor.run(cmd, [], [])
     msg = "Cannot find fedora-unknown:latest."
     assert str(e.value) == msg
 
@@ -380,3 +395,19 @@ def test_qubes_on_error_noclean():
     )
 
     executor.cleanup()
+
+
+def test_qubes_command_helpers():
+    assert encode_for_vmexec("A b") == "A-20b"
+    assert encode_for_vmexec("a-b") == "a--b"
+    assert quote_list(["echo", "hello world"]) == "echo 'hello world'"
+    assert quote_and_list([["echo", "a"], ["echo", "b"]]) == "echo a && echo b"
+    assert build_run_cmd("builder-dvm", ["echo", "ok"]) == [
+        "/usr/bin/qvm-run-vm",
+        "--",
+        "builder-dvm",
+        "echo ok",
+    ]
+    assert build_run_cmd_and_list(
+        "builder-dvm", [["echo", "a"], ["echo", "b"]]
+    ) == ["/usr/bin/qvm-run-vm", "--", "builder-dvm", "echo a && echo b"]

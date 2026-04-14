@@ -1,0 +1,32 @@
+---
+- name: Install executor dependencies (from dependencies-fedora-qubes-executor.txt)
+  ansible.builtin.dnf:
+    name: "{{ builder_executor_packages }}"
+    state: present
+
+- name: Install Windows ISO generation tool
+  ansible.builtin.dnf:
+    name: "{{ builder_executor_windows_packages }}"
+    state: present
+  when: enable_windows | default(false) | bool
+
+- name: Install osslsigncode for WinSign.Timestamp RPC service
+  ansible.builtin.dnf:
+    name: "{{ builder_executor_winsign_packages }}"
+    state: present
+  when: enable_windows | default(false) | bool
+
+- name: Install qubesbuilder.WinSign.Timestamp RPC service
+  ansible.builtin.copy:
+    src: qubesbuilder.WinSign.Timestamp
+    dest: /etc/qubes-rpc/qubesbuilder.WinSign.Timestamp
+    owner: root
+    group: root
+    mode: "0755"
+  when: enable_windows | default(false) | bool
+
+- name: Add user to mock group
+  ansible.builtin.user:
+    name: user
+    groups: mock
+    append: true
