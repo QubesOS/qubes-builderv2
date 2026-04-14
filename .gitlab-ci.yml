@@ -17,6 +17,7 @@ stages:
   - test
   - prep
   - build
+  - deploy
 
 variables:
   DEBUG: "1"
@@ -49,6 +50,7 @@ variables:
     description: "Run all jobs, default: 0"
 
 builderv2-github:
+  stage: deploy
   rules:
     - if: $CI_RUN_INFRA_JOBS == "1" || $CI_RUN_ALL_JOBS == "1"
       when: always
@@ -57,7 +59,6 @@ builderv2-github:
     CI_QUBES_BUILDER_BRANCH: $CI_COMMIT_BRANCH
   trigger:
     project: QubesOS/qubes-builderv2-github
-    strategy: depend
 
 #
 # job skeletons
