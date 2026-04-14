@@ -19,8 +19,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import re
-import subprocess
 from typing import List, Optional
+
 from qubesbuilder.common import sanitize_line
 from qubesbuilder.executors import Executor, ExecutorError
 

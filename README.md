@@ -377,47 +377,73 @@ TODO: it enables itself after restart which is a pain for dispvms.
 
 The build process consists of the following stages:
 
-- fetch
-- prep
-- build
-- post
-- verify
-- sign
-- publish
-- upload
+- `fetch` --- download and verify sources
+- `prep` --- create source packages
+- `build` --- build source packages
+- `post` --- post-build processing
+- `verify` --- verify built packages
+- `sign` --- sign built packages
+- `publish` --- publish signed packages to a local repository
+- `upload` --- upload the published repository to a remote server
 
-Currently, only these are used:
+There is also a special stage not part of the default sequence:
 
-- fetch (download and verify sources)
-- prep (create source packages)
-- build (build source packages)
-- sign (sign built packages)
-- publish (publish signed packages)
-- upload (upload published repository to a remote server)
+- `init-cache` --- initialize the chroot cache (Mock, pbuilder, etc.)
+
+### Stage dependencies
+
+When calling a source-building stage, prerequisite stages are resolved and
+run automatically in the right order:
+
+- `prep` runs `fetch` first (if not already done), then `init-cache`, then `prep`
+- `build` runs `fetch`, `init-cache`, `prep`, then `build`
+- `post` and `verify` follow the same pattern
+- `sign` runs `fetch`, `init-cache`, `prep`, `build`, then `sign`
+- `publish` runs `fetch`, `init-cache`, `prep`, `build`, `sign`, then `publish`
+
+`upload` and `init-cache` work from artifacts already on disk and do not
+trigger `fetch` or earlier stages.
+
+### Fetch behavior
+
+`fetch` runs automatically when any of `prep`, `build`, `post`, `verify`,
+`sign`, or `publish` are requested, unless `skip-git-fetch: true` is set in
+the configuration. It runs at most once per session even when stages are
+chained.
+
+Only `upload` and `init-cache` never trigger `fetch`.
+
+The devel version counter (`increment-devel-versions`) is bumped whenever
+fetch detects that the source has changed.
 
 
 ## Plugins
 
-- `fetch` --- Manages the general fetching of sources
-- `source` --- Manages general distribution sources
-- `source_rpm` --- Manages RPM distribution sources
-- `source_deb` --- Manages Debian distribution sources
-- `source_windows` --- Manages Windows sources
-- `build` --- Manages general distribution building
-- `build_rpm` --- Manages RPM distribution building
-- `build_deb` --- Manages Debian distribution building
-- `build_windows` --- Manages Windows building (Visual Studio solutions)
-- `sign` --- Manages general distribution signing
-- `sign_rpm` --- Manages RPM distribution signing
-- `sign_deb` --- Manages Debian distribution signing
-- `publish` --- Manages general distribution publishing
-- `publish_rpm` --- Manages RPM distribution publishing
-- `publish_deb` --- Manages Debian distribution publishing
-- `upload` --- Manages general distribution uploading
-- `template` --- Manages general distribution releases
-- `template_rpm` --- Manages RPM distribution releases
-- `template_deb` --- Manages Debian distribution releases
-- `template_whonix` --- Manages Whonix distribution releases
+- `fetch` --- fetch and verify sources
+- `source` --- common source package logic
+- `source_rpm` --- RPM source packages
+- `source_deb` --- Debian source packages
+- `source_windows` --- Windows sources
+- `chroot_rpm` --- Mock chroot cache (`init-cache`)
+- `chroot_deb` --- pbuilder chroot cache (`init-cache`)
+- `chroot_archlinux` --- Arch Linux chroot cache (`init-cache`)
+- `build` --- common build logic
+- `build_rpm` --- RPM builds
+- `build_deb` --- Debian builds
+- `build_windows` --- Windows builds (Visual Studio)
+- `build_archlinux` --- Arch Linux builds
+- `sign` --- common signing logic
+- `sign_rpm` --- RPM signing
+- `sign_deb` --- Debian signing
+- `publish` --- common publish logic
+- `publish_rpm` --- RPM repository publishing
+- `publish_deb` --- Debian repository publishing
+- `publish_archlinux` --- Arch Linux repository publishing
+- `upload` --- upload published repository to a remote server
+- `template` --- common template build logic
+- `template_rpm` --- RPM-based template builds
+- `template_deb` --- Debian-based template builds
+- `template_whonix` --- Whonix template builds
 
 
 ## CLI
@@ -494,31 +520,47 @@ artifacts/
 
 ### Package
 
-You can start building the components defined in this development configuration
-with:
+Build components:
+
+```bash
+$ ./qb package build
+```
+
+This automatically runs `fetch`, `init-cache`, and `prep` first as needed.
+You can also call stages explicitly:
 
 ```bash
 $ ./qb package fetch prep build
 ```
 
-If GPG is set up on your host, specify the key and client to be used inside
-`builder.yml`. Then, you can test the sign and publish stages:
+Sign and publish:
 
 ```bash
 $ ./qb package sign publish
 ```
 
-You can trigger the whole build process as follows:
+Run all stages in one go:
 
 ```bash
 $ ./qb package all
 ```
 
-It is possible to initialize a chroot cache, e.g. for Mock and pbuilder, by calling
-Package CLI with stage `init-cache`. This particular stage is not included in
-the `all` alias. Indeed, if a cache is detected at `prep` ou `build` stages, it
-will be used. As cache could be provided either by using `init-cache` or any
-other method that a user would use, we keep it as dedicated call.
+Initialize the chroot cache (Mock, pbuilder) explicitly:
+
+```bash
+$ ./qb package init-cache
+```
+
+`init-cache` is not part of `all` --- it runs automatically as a dependency
+of `prep` and `build` when needed.
+
+To inspect what would run without executing anything:
+
+```bash
+$ ./qb package pipeline build
+$ ./qb package pipeline --format yaml upload
+$ ./qb package pipeline --no-deps sign   # show only the requested stage
+```
 
 
 ### Template

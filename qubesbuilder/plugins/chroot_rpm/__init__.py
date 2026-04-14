@@ -22,11 +22,11 @@ from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
 from qubesbuilder.executors.container import ContainerExecutor
-from qubesbuilder.plugins import RPMDistributionPlugin
 from qubesbuilder.plugins.chroot import ChrootError, ChrootPlugin
 
 
-class RPMChrootPlugin(RPMDistributionPlugin, ChrootPlugin):
+class RPMChrootPlugin(ChrootPlugin):
+    dist_filter = staticmethod(lambda d: d.is_rpm())
     """
     ChrootPlugin manages RPM chroot creation
 

@@ -30,6 +30,7 @@ from qubesbuilder.config import (
     Config,
     ConfigError,
 )
+from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
 from qubesbuilder.executors.local import LocalExecutor
 from qubesbuilder.log import QubesBuilderLogger
@@ -55,6 +56,7 @@ class TemplateError(PluginError):
 
 
 class TemplateBuilderPlugin(TemplatePlugin):
+    dist: QubesDistribution
     """
     TemplatePlugin manages generic distribution release.
 
@@ -81,6 +83,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
         )
 
     name = "template"
+    stages = ["prep", "build", "sign", "publish", "upload"]
 
     def __init__(
         self,
@@ -143,8 +146,23 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 )
             )
 
+        if stage == "upload":
+            self.dependencies.append(
+                JobDependency(
+                    JobReference(
+                        component=None,
+                        dist=None,
+                        stage="publish",
+                        build=None,
+                        template=template,
+                    )
+                )
+            )
+
     @classmethod
-    def from_args(cls, **kwargs):
+    def matches(cls, **kwargs) -> bool:
+        if not super().matches(**kwargs):
+            return False
         config = kwargs.get("config")
         stage = kwargs.get("stage")
         template = kwargs.get("template")
@@ -157,9 +175,18 @@ class TemplateBuilderPlugin(TemplatePlugin):
                         f"'repository-publish:templates' not set."
                     )
                     cls._publish_not_configured_warned = True
-                return None
+                return False
+        return True
 
-        return super().from_args(**kwargs)
+    @classmethod
+    def from_args(cls, **kwargs):
+        if cls.matches(**kwargs):
+            return cls(
+                template=kwargs["template"],
+                config=kwargs["config"],
+                stage=kwargs["stage"],
+            )
+        return None
 
     def get_template_version(self):
         if not self.template_version:
@@ -731,7 +758,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 # Try to detect existing prep artifacts.
                 try:
                     existing_timestamp = self.get_template_timestamp("prep")
-                except TemplateError:
+                except PluginError:
                     existing_timestamp = None
 
                 root_img = qubeized_image / "root.img"
@@ -1008,8 +1035,8 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 repository_publish=repository_publish,
             )
 
-            publish_info.setdefault("repository-publish", [])
-            publish_info["repository-publish"].append(
+            repo_publish: list = publish_info.setdefault("repository-publish", [])  # type: ignore[assignment]
+            repo_publish.append(
                 {
                     "name": repository_publish,
                     "timestamp": datetime.datetime.now(datetime.UTC).strftime(
@@ -1017,6 +1044,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
                     ),
                 }
             )
+            publish_info["repository-publish"] = repo_publish
             # Save package information we published for committing into current
             self.save_artifacts_info(
                 self.stage,
@@ -1056,7 +1084,11 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 self.log.info(
                     f"{self.template}: Not published anywhere else, deleting publish info."
                 )
-                self.delete_artifacts_info(stage="publish")
+                self.delete_artifacts_info(
+                    stage="publish",
+                    basename=self.template.name,
+                    artifacts_dir=self.config.templates_dir,
+                )
 
         if self.stage == "upload":
             remote_path = self.config.repository_upload_remote_host.get(

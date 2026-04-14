@@ -45,7 +45,6 @@ from qubesbuilder.executors import Executor, ExecutorError
 from qubesbuilder.executors.qrexec import (
     create_dispvm,
     kill_vm as qkill_vm,
-    qrexec_call,
     start_vm,
     vm_state,
 )

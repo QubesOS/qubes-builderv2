@@ -26,11 +26,12 @@ from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
-from qubesbuilder.plugins import ArchlinuxDistributionPlugin, PluginDependency
+from qubesbuilder.plugins import PluginDependency
 from qubesbuilder.plugins.source import SourcePlugin, SourceError
 
 
-class ArchLinuxSourcePlugin(ArchlinuxDistributionPlugin, SourcePlugin):
+class ArchLinuxSourcePlugin(SourcePlugin):
+    dist_filter = staticmethod(lambda d: d.is_archlinux())
     """
     Manage Archlinux distribution source.
     """

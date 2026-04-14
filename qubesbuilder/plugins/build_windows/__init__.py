@@ -19,13 +19,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
 import os.path
-import re
 import shutil
-import subprocess
-import yaml
 from enum import StrEnum
 from pathlib import Path
 from typing import Dict, ItemsView, List, Optional
+
+import yaml
 
 from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
@@ -33,7 +32,7 @@ from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
 from qubesbuilder.executors.qrexec import qrexec_call
 from qubesbuilder.executors.windows import BaseWindowsExecutor
-from qubesbuilder.plugins import WindowsDistributionPlugin, PluginDependency
+from qubesbuilder.plugins import PluginDependency
 from qubesbuilder.plugins.build import BuildPlugin, BuildError
 
 
@@ -140,7 +139,8 @@ def mangle_key_name(key_name: str) -> str:
     return key_name.replace(" ", "__")
 
 
-class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
+class WindowsBuildPlugin(BuildPlugin):
+    dist_filter = staticmethod(lambda d: d.is_windows())
     """
     WindowsBuildPlugin manages Windows distribution build.
 
@@ -173,10 +173,10 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
         # Set and update parameters based on top-level "source",
         # per package set and per distribution
         parameters = self.component.get_parameters(self.get_placeholders(stage))
-        self._parameters.update(
+        self._parameters[stage].update(
             parameters.get(self.dist.package_set, {}).get("source", {})
         )
-        self._parameters.update(
+        self._parameters[stage].update(
             parameters.get(self.dist.distribution, {}).get("source", {})
         )
 
@@ -422,7 +422,7 @@ class WindowsBuildPlugin(WindowsDistributionPlugin, BuildPlugin):
 
                     cmd += [
                         "-configuration",
-                        self._placeholders[self.stage]["@CONFIGURATION@"],
+                        self.get_placeholders(self.stage)["@CONFIGURATION@"],
                     ]
 
                     if test_sign:

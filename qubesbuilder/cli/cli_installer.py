@@ -2,7 +2,7 @@ from typing import List
 
 import click
 
-from qubesbuilder.cli.cli_base import aliased_group, ContextObj
+from qubesbuilder.cli.cli_base import aliased_group, AliasedGroup, ContextObj
 from qubesbuilder.cli.cli_exc import CliError
 from qubesbuilder.common import STAGES, STAGES_ALIAS
 from qubesbuilder.config import Config
@@ -29,12 +29,14 @@ def _installer_stage(
     """
     click.echo(f"Running installer stage: {stage_name}")
 
+    root_group: AliasedGroup | None = None
     try:
         ctx = click.get_current_context()
+        cmd = ctx.find_root().command
+        if isinstance(cmd, AliasedGroup):
+            root_group = cmd
     except RuntimeError:
-        root_group = None
-    else:
-        root_group = ctx.find_root().command
+        pass
 
     host_distributions = [
         d for d in config.get_distributions() if d.package_set == "host"

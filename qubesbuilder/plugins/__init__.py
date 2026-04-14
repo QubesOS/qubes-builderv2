@@ -16,9 +16,10 @@
 # with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-from collections import namedtuple
+import enum
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 
 import dateutil.parser
 import yaml
@@ -37,23 +38,18 @@ class PackagePath(PurePosixPath):
 
 
 class PluginError(QubesBuilderError):
-    """
-    Base plugin exception
-    """
-
     def __init__(self, *args, additional_info=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.additional_info = additional_info or {}
 
 
-JobReferenceBase = namedtuple(
-    "JobReferenceBase", ["component", "dist", "template", "stage", "build"]
-)
-JobReferenceBase.__new__.__defaults__ = (None, None, None, None, None)
-
-
-class JobReference(JobReferenceBase):
-    __slots__ = ()
+@dataclass(frozen=True)
+class JobReference:
+    component: Optional[Any] = None
+    dist: Optional[Any] = None
+    template: Optional[Any] = None
+    stage: Optional[str] = None
+    build: Optional[str] = None
 
     def __repr__(self):
         parts = []
@@ -74,32 +70,30 @@ class JobReference(JobReferenceBase):
         )
 
 
-class Dependency:
-    def __init__(self, reference, builder_object):
+class PluginDependency:
+    def __init__(self, reference: str):
         self.reference = reference
-        if builder_object not in ["plugin", "component", "job"]:
-            raise QubesBuilderError(
-                f"Unsupported dependency type '{builder_object}'."
-            )
-        self.builder_object = builder_object
 
 
-class PluginDependency(Dependency):
-    def __init__(self, reference):
-        super().__init__(reference=reference, builder_object="plugin")
+class ComponentDependency:
+    def __init__(self, reference: str):
+        self.reference = reference
 
 
-class ComponentDependency(Dependency):
-    def __init__(self, reference):
-        super().__init__(reference=reference, builder_object="component")
+class JobDependency:
+    def __init__(self, reference: "JobReference"):
+        self.reference = reference
 
 
-class JobDependency(Dependency):
-    def __init__(self, reference: JobReference):
-        super().__init__(reference=reference, builder_object="job")
+class PluginContext(enum.Flag):
+    COMPONENT = enum.auto()
+    DIST = enum.auto()
+    TEMPLATE = enum.auto()
 
 
 def get_relative_artifacts_path(job_ref: JobReference) -> Path:
+    if job_ref.stage is None:
+        raise PluginError(f"JobReference has no stage: {job_ref!r}")
     if job_ref.template:
         relative_path = Path(f"{job_ref.template.name}.{job_ref.stage}.yml")
     elif job_ref.dist and job_ref.component:
@@ -170,79 +164,191 @@ def get_artifacts_path(config, job_ref: JobReference) -> Path:
     return base_dir / get_relative_artifacts_path(job_ref)
 
 
-class Plugin:
-    """
-    Generic plugin
-    """
+def get_stage_options(stage: str, options: dict):
+    stages = options.get("stages", [])
+    s: dict = next((s for s in stages if stage in s), {})
+    return s.get(stage, {})
 
+
+class Plugin:
     name = "_undefined_"
     stages: List[str] = []
     priority: int = 10
-    dependencies: List[Dependency] = []
+    context: PluginContext = PluginContext(0)
+    dist_filter: Optional[Callable] = None
+    dependencies: List = []
+    _signing_not_configured_warned = False
 
     @classmethod
-    def from_args(cls, **kwargs) -> "Plugin":
-        raise NotImplementedError
+    def matches(cls, **kwargs) -> bool:
+        stage = kwargs.get("stage")
+        if stage not in cls.stages:
+            return False
+
+        component = kwargs.get("component")
+        dist = kwargs.get("dist")
+        template = kwargs.get("template")
+
+        if PluginContext.COMPONENT in cls.context and not component:
+            return False
+        if PluginContext.DIST in cls.context and not dist:
+            return False
+        if PluginContext.TEMPLATE in cls.context and not template:
+            return False
+
+        if component and PluginContext.COMPONENT not in cls.context:
+            return False
+        if dist and PluginContext.DIST not in cls.context:
+            return False
+        if template and PluginContext.TEMPLATE not in cls.context:
+            return False
+
+        if cls.dist_filter is not None and dist and not cls.dist_filter(dist):
+            return False
+
+        return True
+
+    @classmethod
+    def from_args(cls, **kwargs) -> Optional["Plugin"]:
+        if cls.matches(**kwargs):
+            init_kwargs = {"config": kwargs["config"], "stage": kwargs["stage"]}
+            if kwargs.get("component") is not None:
+                init_kwargs["component"] = kwargs["component"]
+            if kwargs.get("dist") is not None:
+                init_kwargs["dist"] = kwargs["dist"]
+            if kwargs.get("template") is not None:
+                init_kwargs["template"] = kwargs["template"]
+            return cls(**init_kwargs)
+        return None
 
     @classmethod
     def get_artifacts_info_filename(cls, stage: str, basename: str):
         return f"{basename}.{stage}.yml"
 
-    def __init__(self, config, stage, **kwargs):
-        # Qubes builder config
+    @classmethod
+    def is_signing_configured(cls, config, dist, component):
+        sign_key = config.sign_key.get(
+            dist.distribution, None
+        ) or config.sign_key.get(dist.type, None)
+
+        if not sign_key:
+            if not cls._signing_not_configured_warned:
+                QubesBuilderLogger.info(
+                    f"{cls.name}:{dist}: No signing key found."
+                )
+                cls._signing_not_configured_warned = True
+            return False
+        if not config.gpg_client:
+            if not cls._signing_not_configured_warned:
+                QubesBuilderLogger.info(
+                    f"{cls.name}:{dist}: Please specify GPG client to use!"
+                )
+                cls._signing_not_configured_warned = True
+            return False
+        return True
+
+    def get_artifact_context(self) -> dict:
+        return {"config": self.config}
+
+    def __init__(
+        self,
+        config,
+        stage: str,
+        component: Optional[QubesComponent] = None,
+        dist: Optional[QubesDistribution] = None,
+        template: Optional[QubesTemplate] = None,
+        **kwargs,
+    ):
         self.config = config
-
-        # Plugin manager
         self.manager = self.config.get_plugin_manager()
-
-        # Default placeholders
         self._placeholders: Dict[str, Any] = {}
-
-        # Plugin parameters
         self._parameters: Dict[str, Any] = {}
-
-        # Environment
         self.environment: Dict[str, Any] = {}
         if self.config.verbose:
             self.environment["VERBOSE"] = "1"
         if self.config.debug:
             self.environment["DEBUG"] = "1"
         self.environment["BACKEND_VMM"] = self.config.backend_vmm
-
-        # Logger
-        self.log = QubesBuilderLogger.getChild(self.name, self)
-
-        # Stage
         self.stage = stage
-
-        # Executor
+        self.component = component
+        self.dist = dist
+        self.template = template
+        if template is not None and dist is None:
+            self.dist = template.distribution
+        if component is not None:
+            self._source_hash = ""
+        self.log = QubesBuilderLogger.getChild(self.name, self)
         self.executor = self.config.get_executor_from_config(stage, self)
+        self.dependencies = []
 
-        # Dependencies
-        self.dependencies = []  # type: List[Dependency]
+    def update_placeholders(self, stage: str):
+        self._placeholders.setdefault(stage, self.executor.get_placeholders())
+        if self.component:
+            self._placeholders[stage].update(
+                {
+                    "@SOURCE_DIR@": self.executor.get_builder_dir()
+                    / self.component.name,
+                    "@BACKEND_VMM@": self.config.backend_vmm,
+                }
+            )
 
-    def get_artifact_context(self) -> dict:
-        """
-        Returns a dictionary of objects needed by ArtifactLocator.
-        Base implementation returns only the config.
-        Subclasses should extend this as needed.
-        """
-        return {"config": self.config}
+    def update_parameters(self, stage: str):
+        self._parameters.setdefault(stage, {})
+        if not self.component or not self.dist:
+            return
+
+        parameters = self.component.get_parameters(self.get_placeholders(stage))
+
+        self._parameters[stage].update(
+            parameters.get(self.dist.package_set, {}).get(self.dist.type, {})
+        )
+        self._parameters[stage].update(
+            parameters.get(self.dist.package_set, {}).get(
+                self.dist.fullname, {}
+            )
+        )
+        self._parameters[stage].update(
+            parameters.get(self.dist.distribution, {}).get(self.dist.type, {})
+        )
+
+        self._parameters[stage]["build"] = [
+            PackagePath(build)
+            for build in self._parameters[stage].get("build", [])
+        ]
+        mangle_builds = [
+            build.mangle() for build in self._parameters[stage].get("build", [])
+        ]
+        if len(set(mangle_builds)) != len(self._parameters[stage]["build"]):
+            raise PluginError(
+                f"{self.component}:{self.dist}: Conflicting build paths"
+            )
+
+    def get_placeholders(self, stage: str):
+        self.update_placeholders(stage)
+        return self._placeholders[stage]
+
+    def get_parameters(self, stage: str):
+        self.update_parameters(stage)
+        return self._parameters[stage]
+
+    def get_config_stage_options(self, stage: str):
+        stage_options = {}
+        if self.dist:
+            stage_options.update(get_stage_options(stage, self.dist.kwargs))
+        if self.component:
+            stage_options.update(
+                get_stage_options(stage, self.component.kwargs)
+            )
+        return stage_options
+
+    def has_component_packages(self, stage: str):
+        return (
+            self.component is not None
+            and self.component.has_packages
+            and bool(self.get_parameters(stage).get("build", []))
+        )
 
     def check_dependencies(self):
-        """
-        Check that all declared dependencies are satisfied.
-
-        - For plugin dependencies, ensure the plugin exists.
-
-        - For component dependencies, ensure the component exists in the config
-          and that its sources have been fetched into sources_dir.
-
-        - For job dependencies, ensure the job's artifacts are present. If the
-          job is tied to a component (ref.component is not None), also perform
-          checks that sources are available to executors.
-        """
-
         def _check_component_sources(component_name, component_obj):
             if not (self.config.sources_dir / component_name).exists():
                 raise PluginError(
@@ -256,14 +362,13 @@ class Plugin:
             )
 
         for dependency in self.dependencies:
-            if dependency.builder_object == "plugin":
+            if isinstance(dependency, PluginDependency):
                 if not self.manager.entities.get(dependency.reference, None):
                     raise PluginError(
                         f"Cannot find plugin '{dependency.reference}'."
                     )
 
-            elif dependency.builder_object == "component":
-                # dependency.reference is the component name
+            elif isinstance(dependency, ComponentDependency):
                 component_name = dependency.reference
                 components = self.config.get_components(
                     filtered_components=[component_name]
@@ -275,17 +380,13 @@ class Plugin:
                 component_obj = components[0]
                 _check_component_sources(component_name, component_obj)
 
-            elif dependency.builder_object == "job":
+            elif isinstance(dependency, JobDependency):
                 ref = dependency.reference
 
-                # If the job dependency is tied to a component, also enforce
-                # component sources availability (same as ComponentDependency).
-                if getattr(ref, "component", None) is not None:
+                if ref.component is not None:
                     component_name = ref.component.name
                     _check_component_sources(component_name, ref.component)
 
-                # Non-build-specific deps are only for ordering, nothing
-                # to check on disk for artifacts.
                 if not ref.build:
                     continue
 
@@ -300,20 +401,6 @@ class Plugin:
         if log_file:
             self.log.info(f"Log file: {log_file}")
         self.check_dependencies()
-
-    def update_parameters(self, stage: str):
-        self._parameters.setdefault(stage, {})
-
-    def update_placeholders(self, stage: str):
-        self._placeholders.setdefault(stage, self.executor.get_placeholders())
-
-    def get_placeholders(self, stage: str):
-        self.update_placeholders(stage)
-        return self._placeholders[stage]
-
-    def get_parameters(self, stage: str):
-        self.update_parameters(stage)
-        return self._parameters[stage]
 
     def get_cache_dir(self) -> Path:
         return (self.config.artifacts_dir / "cache").resolve()
@@ -339,6 +426,51 @@ class Plugin:
     def get_iso_dir(self) -> Path:
         return (self.config.artifacts_dir / "iso").resolve()
 
+    def get_component_distfiles_dir(self) -> Path:
+        if self.component is None:
+            raise PluginError(f"{self.name}: component is not set")
+        return (self.config.distfiles_dir / self.component.name).resolve()
+
+    def get_component_artifacts_dir(self, stage: str) -> Path:
+        if self.component is None:
+            raise PluginError(f"{self.name}: component is not set")
+        path = (
+            self.config.artifacts_dir
+            / "components"
+            / self.component.name
+            / self.component.get_version_release()
+            / "nodist"
+            / stage
+        )
+        return path.resolve()
+
+    def get_dist_component_artifacts_dir(self, stage: str) -> Path:
+        if self.component is None:
+            raise PluginError(f"{self.name}: component is not set")
+        if self.dist is None:
+            raise PluginError(f"{self.name}: dist is not set")
+        path = (
+            self.config.artifacts_dir
+            / "components"
+            / self.component.name
+            / self.component.get_version_release()
+            / self.dist.distribution
+            / stage
+        )
+        return path.resolve()
+
+    def get_dist_component_artifacts_dir_history(
+        self, stage: str
+    ) -> List[Path]:
+        if self.component is None:
+            raise PluginError(f"{self.name}: component is not set")
+        if self.dist is None:
+            raise PluginError(f"{self.name}: dist is not set")
+        path = (
+            self.config.artifacts_dir / "components" / self.component.name
+        ).resolve()
+        return list(path.glob(f"*/{self.dist.distribution}/{stage}"))
+
     @staticmethod
     def _get_artifacts_info(artifacts_path: Path):
         if not artifacts_path.exists():
@@ -348,7 +480,7 @@ class Plugin:
                 artifacts_info = yaml.safe_load(f.read())
             return artifacts_info or {}
         except (PermissionError, yaml.YAMLError) as e:
-            msg = f"Failed to read info from '{artifacts_info}'."
+            msg = f"Failed to read info from '{artifacts_path}'."
             raise PluginError(msg) from e
 
     def save_artifacts_info(
@@ -371,277 +503,13 @@ class Plugin:
             raise PluginError(msg) from e
 
     def get_artifacts_info(
-        self, stage: str, basename: str, artifacts_dir: Path
+        self, stage: str, basename: str, artifacts_dir: Optional[Path] = None
     ) -> Dict:
+        if artifacts_dir is None and self.component and not self.dist:
+            artifacts_dir = self.get_component_artifacts_dir(stage)
         return self._get_artifacts_info(
             artifacts_dir / self.get_artifacts_info_filename(stage, basename)
         )
-
-    def default_copy_in(self, plugins_dir: Path, sources_dir: Path):
-        copy_in = [(self.manager.entities[self.name].directory, plugins_dir)]
-        for dependency in self.dependencies:
-            if dependency.builder_object == "plugin":
-                copy_in.append(
-                    (
-                        self.manager.entities[dependency.reference].directory,
-                        plugins_dir,
-                    )
-                )
-            if dependency.builder_object == "component":
-                copy_in.append(
-                    (
-                        self.config.sources_dir / dependency.reference,
-                        sources_dir,
-                    )
-                )
-
-            if dependency.builder_object == "job":
-                job_ref = dependency.reference
-
-                # If this job dependency is associated with a component,
-                # also copy that component's sources into sources_dir, so we
-                # don't need a separate ComponentDependency just to get the
-                # sources into the executor.
-                if getattr(job_ref, "component", None) is not None:
-                    copy_in.append(
-                        (
-                            self.config.sources_dir / job_ref.component.name,
-                            sources_dir,
-                        )
-                    )
-
-                if job_ref.build is None:
-                    # ordering-only dependency
-                    continue
-
-                artifact_path = get_artifacts_path(self.config, job_ref)
-                info = self._get_artifacts_info(artifact_path)
-
-                for file in info.get("files", []):
-                    dependencies_dir = (
-                        self.executor.get_dependencies_dir()
-                        / get_relative_artifacts_path(job_ref).parent
-                    )
-                    copy_in.append(
-                        (artifact_path.parent / file, dependencies_dir)
-                    )
-
-        return copy_in
-
-
-class ComponentPlugin(Plugin):
-    """
-    Component plugin
-    """
-
-    @classmethod
-    def from_args(cls, **kwargs):
-        if kwargs.get("stage") in cls.stages and kwargs.get("component"):
-            return cls(**kwargs)
-
-    def __init__(
-        self,
-        component: QubesComponent,
-        config,
-        stage: str,
-        **kwargs,
-    ):
-        self.component = component
-        super().__init__(config=config, stage=stage, **kwargs)
-        self._source_hash = ""
-
-    def update_placeholders(self, stage: str):
-        super().update_placeholders(stage)
-        self._placeholders[stage].update(
-            {
-                "@SOURCE_DIR@": self.executor.get_builder_dir()
-                / self.component.name,
-                "@BACKEND_VMM@": self.config.backend_vmm,
-            }
-        )
-
-    def get_component_distfiles_dir(self) -> Path:
-        return (self.config.distfiles_dir / self.component.name).resolve()
-
-    def get_component_artifacts_dir(self, stage: str) -> Path:
-        path = (
-            self.config.artifacts_dir
-            / "components"
-            / self.component.name
-            / self.component.get_version_release()
-            / "nodist"
-            / stage
-        )
-        return path.resolve()
-
-    def get_artifacts_info(
-        self, stage: str, basename: str, artifacts_dir: Optional[Path] = None
-    ) -> Dict:
-        a_dir: Path = artifacts_dir or self.get_component_artifacts_dir(stage)
-        return super().get_artifacts_info(stage, basename, a_dir)
-
-    def delete_artifacts_info(
-        self, stage: str, basename: str, artifacts_dir: Optional[Path] = None
-    ):
-        artifacts_dir = artifacts_dir or self.get_component_artifacts_dir(stage)
-        info_path = artifacts_dir / self.get_artifacts_info_filename(
-            stage, basename
-        )
-        if info_path.exists():
-            info_path.unlink()
-
-    def check_stage_artifacts(
-        self, stage: str, artifacts_dir: Optional[Path] = None
-    ):
-        for build in self.get_parameters(stage).get("build", []):
-            build_bn = build.mangle()
-            if not self.get_artifacts_info(
-                stage=stage, basename=build_bn, artifacts_dir=artifacts_dir
-            ):
-                msg = f"Missing '{stage}' stage artifacts for {build_bn}!"
-                raise PluginError(msg)
-
-
-class DistributionPlugin(Plugin):
-    _signing_not_configured_warned = False
-
-    def __init__(self, dist, config, stage, **kwargs):
-        self.dist = dist
-        super().__init__(config=config, stage=stage, **kwargs)
-
-    @classmethod
-    def supported_distribution(cls, distribution):
-        raise NotImplementedError
-
-    @classmethod
-    def is_signing_configured(cls, config, dist, component):
-        sign_key = config.sign_key.get(
-            dist.distribution, None
-        ) or config.sign_key.get(dist.type, None)
-
-        if not sign_key:
-            if not cls._signing_not_configured_warned:
-                QubesBuilderLogger.info(
-                    f"{cls.name}:{dist}: No signing key found."
-                )
-                cls._signing_not_configured_warned = True
-            return False
-        if not config.gpg_client:
-            if not cls._signing_not_configured_warned:
-                QubesBuilderLogger.info(
-                    f"{cls.name}:{dist}: Please specify GPG client to use!"
-                )
-                cls._signing_not_configured_warned = True
-            return False
-        return True
-
-    @classmethod
-    def from_args(cls, **kwargs):
-        if kwargs.get("stage") in cls.stages and cls.supported_distribution(
-            kwargs.get("dist")
-        ):
-            return cls(**kwargs)
-        return None
-
-
-def get_stage_options(stage: str, options: dict):
-    stages = options.get("stages", [])
-    s: dict = next((s for s in stages if stage in s), {})
-    return s.get(stage, {})
-
-
-class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
-    @classmethod
-    def from_args(cls, **kwargs):
-        if (
-            kwargs.get("stage") in cls.stages
-            and kwargs.get("component")
-            and cls.supported_distribution(kwargs.get("dist"))
-        ):
-            return cls(**kwargs)
-        return None
-
-    def __init__(
-        self,
-        component: QubesComponent,
-        dist: QubesDistribution,
-        config,
-        stage: str,
-        **kwargs,
-    ):
-        self.dist = dist
-        ComponentPlugin.__init__(
-            self,
-            component=component,
-            config=config,
-            stage=stage,
-            **kwargs,
-        )
-
-    def run(self, **kwargs):
-        super().run()
-
-        if not self.get_parameters(self.stage).get("build", []):
-            self.log.info(f"{self.component}:{self.dist}: Nothing to be done.")
-            return
-
-    def update_parameters(self, stage: str):
-        super().update_parameters(stage)
-
-        parameters = self.component.get_parameters(self.get_placeholders(stage))
-
-        # host/vm -> rpm/deb/archlinux
-        self._parameters[stage].update(
-            parameters.get(self.dist.package_set, {}).get(self.dist.type, {})
-        )
-        # host/vm -> fedora/debian/ubuntu/archlinux
-        self._parameters[stage].update(
-            parameters.get(self.dist.package_set, {}).get(
-                self.dist.fullname, {}
-            )
-        )
-        # Per distribution (e.g. host-fc42) overrides per package set (e.g. host)
-        self._parameters[stage].update(
-            parameters.get(self.dist.distribution, {}).get(self.dist.type, {})
-        )
-
-        self._parameters[stage]["build"] = [
-            PackagePath(build)
-            for build in self._parameters[stage].get("build", [])
-        ]
-        # Check conflicts when mangle paths
-        mangle_builds = [
-            build.mangle() for build in self._parameters[stage].get("build", [])
-        ]
-        if len(set(mangle_builds)) != len(self._parameters[stage]["build"]):
-            raise PluginError(
-                f"{self.component}:{self.dist}: Conflicting build paths"
-            )
-
-    def get_config_stage_options(self, stage: str):
-        stage_options = {}
-        stage_options.update(get_stage_options(stage, self.dist.kwargs))
-        stage_options.update(get_stage_options(stage, self.component.kwargs))
-        return stage_options
-
-    def get_dist_component_artifacts_dir_history(
-        self, stage: str
-    ) -> List[Path]:
-        path = (
-            self.config.artifacts_dir / "components" / self.component.name
-        ).resolve()
-        return list(path.glob(f"*/{self.dist.distribution}/{stage}"))
-
-    def get_dist_component_artifacts_dir(self, stage: str) -> Path:
-        path = (
-            self.config.artifacts_dir
-            / "components"
-            / self.component.name
-            / self.component.get_version_release()
-            / self.dist.distribution
-            / stage
-        )
-        return path.resolve()
 
     def get_dist_artifacts_info(
         self, stage: str, basename: str, artifacts_dir: Optional[Path] = None
@@ -666,6 +534,17 @@ class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
             artifacts_dir or self.get_dist_component_artifacts_dir(stage),
         )
 
+    def delete_artifacts_info(
+        self, stage: str, basename: str, artifacts_dir: Optional[Path] = None
+    ):
+        if artifacts_dir is None and self.component and not self.dist:
+            artifacts_dir = self.get_component_artifacts_dir(stage)
+        info_path = artifacts_dir / self.get_artifacts_info_filename(
+            stage, basename
+        )
+        if info_path.exists():
+            info_path.unlink()
+
     def delete_dist_artifacts_info(
         self, stage: str, basename: str, artifacts_dir: Optional[Path] = None
     ):
@@ -675,6 +554,17 @@ class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
             artifacts_dir or self.get_dist_component_artifacts_dir(stage),
         )
 
+    def check_stage_artifacts(
+        self, stage: str, artifacts_dir: Optional[Path] = None
+    ):
+        for build in self.get_parameters(stage).get("build", []):
+            build_bn = build.mangle()
+            if not self.get_artifacts_info(
+                stage=stage, basename=build_bn, artifacts_dir=artifacts_dir
+            ):
+                msg = f"Missing '{stage}' stage artifacts for {build_bn}!"
+                raise PluginError(msg)
+
     def check_dist_stage_artifacts(
         self, stage: str, artifacts_dir: Optional[Path] = None
     ):
@@ -682,41 +572,9 @@ class DistributionComponentPlugin(DistributionPlugin, ComponentPlugin):
             stage, artifacts_dir or self.get_dist_component_artifacts_dir(stage)
         )
 
-    def has_component_packages(self, stage: str):
-        return self.component.has_packages and self.get_parameters(stage).get(
-            "build", []
-        )
-
-
-class TemplatePlugin(DistributionPlugin):
-    def __init__(
-        self,
-        template: QubesTemplate,
-        config,
-        stage: str,
-        **kwargs,
-    ):
-        self.template = template
-        super().__init__(
-            config=config,
-            dist=template.distribution,
-            stage=stage,
-            **kwargs,
-        )
-
-    @classmethod
-    def supported_template(cls, template: QubesTemplate):
-        raise NotImplementedError
-
-    @classmethod
-    def from_args(cls, **kwargs):
-        if isinstance(
-            kwargs.get("template"), QubesTemplate
-        ) and cls.supported_template(kwargs["template"]):
-            return cls(**kwargs)
-        return None
-
     def get_template_artifacts_info(self, stage: str) -> Dict:
+        if self.template is None:
+            raise PluginError(f"{self.name}: template is not set")
         fileinfo = (
             self.config.templates_dir / f"{self.template.name}.{stage}.yml"
         )
@@ -732,7 +590,7 @@ class TemplatePlugin(DistributionPlugin):
                 raise PluginError(msg) from e
         return {}
 
-    def delete_artifacts_info(self, stage: str):
+    def delete_template_artifacts_info(self, stage: str):
         artifacts_dir = self.config.templates_dir
         info_path = artifacts_dir / f"{self.template}.{stage}.yml"
         if info_path.exists():
@@ -742,11 +600,9 @@ class TemplatePlugin(DistributionPlugin):
         info = self.get_template_artifacts_info(stage)
         if not info:
             return None
-
         raw_ts = info.get("timestamp")
         if not raw_ts:
             return None
-
         try:
             return parsedate(raw_ts).strftime("%Y%m%d%H%M")
         except (dateutil.parser.ParserError, IndexError) as e:
@@ -754,6 +610,8 @@ class TemplatePlugin(DistributionPlugin):
             raise PluginError(msg) from e
 
     def get_template_timestamp(self, stage: str = "build") -> str:
+        if self.template is None:
+            raise PluginError(f"{self.name}: template is not set")
         if not self.template.timestamp:
             ts = self.get_template_timestamp_for_stage(stage)
             if ts is None:
@@ -761,35 +619,210 @@ class TemplatePlugin(DistributionPlugin):
                     f"{self.template}: Cannot determine template timestamp. Missing '{stage}' stage?"
                 )
             self.template.timestamp = ts
-
         return self.template.timestamp
+
+    def default_copy_in(self, plugins_dir: Path, sources_dir: Path):
+        copy_in = [(self.manager.entities[self.name].directory, plugins_dir)]
+        for dependency in self.dependencies:
+            if isinstance(dependency, PluginDependency):
+                copy_in.append(
+                    (
+                        self.manager.entities[dependency.reference].directory,
+                        plugins_dir,
+                    )
+                )
+            elif isinstance(dependency, ComponentDependency):
+                copy_in.append(
+                    (
+                        self.config.sources_dir / dependency.reference,
+                        sources_dir,
+                    )
+                )
+            elif isinstance(dependency, JobDependency):
+                job_ref = dependency.reference
+
+                if job_ref.component is not None:
+                    copy_in.append(
+                        (
+                            self.config.sources_dir / job_ref.component.name,
+                            sources_dir,
+                        )
+                    )
+
+                if job_ref.build is None:
+                    continue
+
+                artifact_path = get_artifacts_path(self.config, job_ref)
+                info = self._get_artifacts_info(artifact_path)
+
+                for file in info.get("files", []):
+                    dependencies_dir = (
+                        self.executor.get_dependencies_dir()
+                        / get_relative_artifacts_path(job_ref).parent
+                    )
+                    copy_in.append(
+                        (artifact_path.parent / file, dependencies_dir)
+                    )
+
+        return copy_in
+
+
+# Compatibility classes for external plugins.
+# External plugins that inherit from these classes continue to work without changes.
+
+
+class ComponentPlugin(Plugin):
+    context = PluginContext.COMPONENT
+
+    @classmethod
+    def from_args(cls, **kwargs) -> Optional["Plugin"]:
+        if kwargs.get("stage") in cls.stages and kwargs.get("component"):
+            return cls(
+                component=kwargs["component"],
+                config=kwargs["config"],
+                stage=kwargs["stage"],
+            )
+        return None
+
+
+class DistributionPlugin(Plugin):
+    context = PluginContext.DIST
+
+    @classmethod
+    def supported_distribution(cls, distribution):
+        raise NotImplementedError
+
+    @classmethod
+    def matches(cls, **kwargs) -> bool:
+        if not super().matches(**kwargs):
+            return False
+        dist = kwargs.get("dist")
+        try:
+            return cls.supported_distribution(dist)
+        except NotImplementedError:
+            return True
+
+    @classmethod
+    def from_args(cls, **kwargs) -> Optional["Plugin"]:
+        if kwargs.get("stage") in cls.stages and cls.supported_distribution(
+            kwargs.get("dist")
+        ):
+            return cls(
+                dist=kwargs["dist"],
+                config=kwargs["config"],
+                stage=kwargs["stage"],
+            )
+        return None
+
+
+class DistributionComponentPlugin(Plugin):
+    context = PluginContext.COMPONENT | PluginContext.DIST
+
+    @classmethod
+    def supported_distribution(cls, distribution):
+        raise NotImplementedError
+
+    @classmethod
+    def matches(cls, **kwargs) -> bool:
+        if not super().matches(**kwargs):
+            return False
+        dist = kwargs.get("dist")
+        try:
+            return cls.supported_distribution(dist)
+        except NotImplementedError:
+            return True
+
+    @classmethod
+    def from_args(cls, **kwargs) -> Optional["Plugin"]:
+        if (
+            kwargs.get("stage") in cls.stages
+            and kwargs.get("component")
+            and cls.supported_distribution(kwargs.get("dist"))
+        ):
+            return cls(
+                component=kwargs["component"],
+                dist=kwargs["dist"],
+                config=kwargs["config"],
+                stage=kwargs["stage"],
+            )
+        return None
+
+    def run(self, **kwargs):
+        super().run()
+        if not self.get_parameters(self.stage).get("build", []):
+            self.log.info(f"{self.component}:{self.dist}: Nothing to be done.")
+            return
+
+
+class TemplatePlugin(Plugin):
+    context = PluginContext.TEMPLATE
+    template: QubesTemplate
+
+    @classmethod
+    def supported_template(cls, template: QubesTemplate):
+        raise NotImplementedError
+
+    @classmethod
+    def from_args(cls, **kwargs) -> Optional["Plugin"]:
+        template = kwargs.get("template")
+        if isinstance(template, QubesTemplate) and cls.supported_template(
+            template
+        ):
+            return cls(
+                template=template,
+                config=kwargs["config"],
+                stage=kwargs["stage"],
+            )
+        return None
+
+    @classmethod
+    def matches(cls, **kwargs) -> bool:
+        if not super().matches(**kwargs):
+            return False
+        template = kwargs.get("template")
+        if not isinstance(template, QubesTemplate):
+            return False
+        try:
+            return cls.supported_template(template)
+        except NotImplementedError:
+            return True
 
 
 class RPMDistributionPlugin(DistributionPlugin):
+    dist_filter = staticmethod(lambda d: d.is_rpm())
+
     @classmethod
     def supported_distribution(cls, distribution: QubesDistribution):
         return distribution.is_rpm()
 
 
 class DEBDistributionPlugin(DistributionPlugin):
+    dist_filter = staticmethod(lambda d: d.is_deb() or d.is_ubuntu())
+
     @classmethod
     def supported_distribution(cls, distribution: QubesDistribution):
         return distribution.is_deb() or distribution.is_ubuntu()
 
 
 class ArchlinuxDistributionPlugin(DistributionPlugin):
+    dist_filter = staticmethod(lambda d: d.is_archlinux())
+
     @classmethod
     def supported_distribution(cls, distribution: QubesDistribution):
         return distribution.is_archlinux()
 
 
 class GentooDistributionPlugin(DistributionPlugin):
+    dist_filter = staticmethod(lambda d: d.is_gentoo())
+
     @classmethod
     def supported_distribution(cls, distribution: QubesDistribution):
         return distribution.is_gentoo()
 
 
 class WindowsDistributionPlugin(DistributionPlugin):
+    dist_filter = staticmethod(lambda d: d.is_windows())
+
     @classmethod
     def supported_distribution(cls, distribution: QubesDistribution):
         return distribution.is_windows()

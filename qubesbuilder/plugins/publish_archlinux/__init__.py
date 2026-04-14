@@ -20,15 +20,14 @@ import datetime
 import os
 from typing import Optional
 
-from qubesbuilder.component import QubesComponent
-from qubesbuilder.config import Config
-from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
-from qubesbuilder.plugins import ArchlinuxDistributionPlugin, PluginDependency
+from qubesbuilder.plugins import Plugin, PluginContext, PluginDependency
 from qubesbuilder.plugins.publish import PublishPlugin, PublishError
 
 
-class ArchlinuxRepoPlugin(ArchlinuxDistributionPlugin):
+class ArchlinuxRepoPlugin(Plugin):
+    context = PluginContext.DIST
+    dist_filter = staticmethod(lambda d: d.is_archlinux())
     """
     ArchlinuxPublishPlugin manages Archlinux distribution publication.
 
@@ -64,6 +63,7 @@ class ArchlinuxRepoPlugin(ArchlinuxDistributionPlugin):
 
 
 class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
+    context = PluginContext.COMPONENT | PluginContext.DIST
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

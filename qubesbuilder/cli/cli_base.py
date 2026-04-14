@@ -104,7 +104,7 @@ class AliasedGroup(click.Group):
 
         rc = 1
         try:
-            rv = self.main(*args, standalone_mode=False, **kwargs)
+            rv = self.main(*args, standalone_mode=False, **kwargs)  # type: ignore[call-overload]
             if isinstance(rv, list) and set(rv) == {None}:
                 rc = 0
         except Exception as exc:
@@ -169,6 +169,68 @@ class AliasedGroup(click.Group):
 
     def list_commands_for_help(self, ctx):
         return list(self.commands.keys())
+
+
+def job_label(job) -> str:
+    parts = [job.name]
+    if getattr(job, "component", None) is not None:
+        parts.append(job.component.name)
+    if (
+        getattr(job, "dist", None) is not None
+        and getattr(job, "template", None) is None
+    ):
+        parts.append(job.dist.distribution)
+    if getattr(job, "template", None) is not None:
+        parts.append(job.template.name)
+    return " ".join(parts)
+
+
+def job_to_dict(job) -> dict:
+    d: dict = {"stage": job.stage, "plugin": job.name}
+    if getattr(job, "component", None) is not None:
+        d["component"] = job.component.name
+    if (
+        getattr(job, "dist", None) is not None
+        and getattr(job, "template", None) is None
+    ):
+        d["dist"] = job.dist.distribution
+    if getattr(job, "template", None) is not None:
+        d["template"] = job.template.name
+    return d
+
+
+def render_pipeline_text(jobs) -> str:
+    """
+    Render pipeline as a TEXT.
+    """
+    if not jobs:
+        return "Pipeline is empty."
+    lines = []
+    current_stage = None
+    for job in jobs:
+        if job.stage != current_stage:
+            current_stage = job.stage
+            lines.append(f"{current_stage}")
+        lines.append(f"  - {job_label(job)}")
+    return "\n".join(lines)
+
+
+def render_pipeline_yaml(jobs) -> str:
+    """
+    Render pipeline as YAML.
+    """
+    import yaml
+
+    return yaml.safe_dump(
+        [job_to_dict(j) for j in jobs], default_flow_style=False
+    )
+
+
+def print_pipeline(jobs, fmt="text"):
+    if fmt == "yaml":
+        click.echo(render_pipeline_yaml(jobs), nl=False)
+    else:
+        click.echo(render_pipeline_text(jobs))
 
 
 def aliased_group(name=None, **kwargs) -> Callable[[Callable], AliasedGroup]:
