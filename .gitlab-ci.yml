@@ -6,6 +6,13 @@ include:
   - file: /common.yml
     project: QubesOS/qubes-continuous-integration
 
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH =~ /^test(-.*)?$/
+      variables:
+        CI_RUN_ALL_JOBS: "1"
+    - when: always
+
 stages:
   - test
   - prep
@@ -15,22 +22,30 @@ variables:
   DEBUG: "1"
   GIT_SUBMODULE_STRATEGY: recursive
   CI_RUN_PYTEST_JOBS:
+    value: "1"
     description: "Run all pytest jobs, default: 1"
   CI_RUN_COMPONENT_JOBS:
+    value: "0"
     description: "Run components jobs, default: 0"
   CI_RUN_TEMPLATE_JOBS:
+    value: "0"
     description: "Run template jobs, default: 0"
   CI_RUN_CACHE_JOBS:
+    value: "0"
     description: "Run cache jobs, subset of CI_RUN_COMPONENT_JOBS, default: 0"
   CI_RUN_ISO_JOBS:
+    value: "0"
     description: "Run ISO jobs, default: 0"
   CI_RUN_INFRA_JOBS:
+    value: "0"
     description: "Run all builderv2-github jobs, default: 0"
   CI_RUN_WINDOWS_JOBS:
+    value: "0"
     description: "Run Windows build jobs, default: 0"
   CI_RUN_ANSIBLE_JOBS:
     description: "Run Ansible deployment tests, default: 0"
   CI_RUN_ALL_JOBS:
+    value: "0"
     description: "Run all jobs, default: 0"
 
 builderv2-github:
@@ -448,9 +463,6 @@ cache-host-fc41:
     - !reference [.init_cache_job, script ]
     - tests/scripts/check-chroot-content.sh artifacts "${CI_JOB_NAME#cache-}" /usr/bin/gcc
 
-cache-vm-fc40:
-  extends: .init_cache_job
-
 cache-vm-fc41:
   extends: .init_cache_job
 
@@ -488,10 +500,10 @@ podman-host-fc37:
   needs:
     - cache-host-fc37
 
-podman-vm-fc40:
+podman-vm-fc43:
   extends: .component_podman_job
   needs:
-    - cache-vm-fc40
+    - cache-vm-fc43
 
 #podman-vm-bookworm:
 #  extends: .component_podman_job
@@ -503,10 +515,10 @@ docker-host-fc37:
   needs:
     - cache-host-fc37
 
-docker-vm-fc40:
+docker-vm-fc43:
   extends: .component_docker_job
   needs:
-    - cache-vm-fc40
+    - cache-vm-fc43
 
 docker-vm-bookworm:
   extends: .component_docker_job
@@ -530,7 +542,7 @@ docker-vm-jammy:
     # install an update manually built until https://bugzilla.redhat.com/show_bug.cgi?id=2108872 is handled
     - sudo dnf update -y https://salmon.qubes-os.org/~marmarek/reprepro-5.4.2-1.fc37.x86_64.rpm
   variables:
-    QB_EXTRA_ARGS: "-o executor:options:image=qubes-builder-debian:latest -o +components+vmm-xen-guest -c vmm-xen-guest -c core-vchan-xen"
+    QB_EXTRA_ARGS: "-o executor:options:image=qubes-builder-debian:latest"
   needs:
     - cache-vm-jammy
 
@@ -546,7 +558,7 @@ docker-vm-noble:
     # install an update manually built until https://bugzilla.redhat.com/show_bug.cgi?id=2108872 is handled
     - sudo dnf update -y https://salmon.qubes-os.org/~marmarek/reprepro-5.4.2-1.fc37.x86_64.rpm
   variables:
-    QB_EXTRA_ARGS: "-o executor:options:image=qubes-builder-ubuntu:latest -o +components+vmm-xen-guest -c vmm-xen-guest -c core-vchan-xen"
+    QB_EXTRA_ARGS: "-o executor:options:image=qubes-builder-ubuntu:latest"
   needs:
     - cache-vm-noble
 
@@ -557,10 +569,10 @@ qubes-host-fc37:
   needs:
     - cache-host-fc37
 
-qubes-vm-fc40:
+qubes-vm-fc43:
   extends: .component_qubes_job
   needs:
-    - cache-vm-fc40
+    - cache-vm-fc43
 
 qubes-vm-bookworm:
   extends: .component_qubes_job
@@ -570,7 +582,7 @@ qubes-vm-bookworm:
 qubes-vm-win10:
   extends: .windows_build_job
   variables:
-    QB_EXTRA_ARGS: "-c vmm-xen-windows-pvdrivers"
+    QB_EXTRA_ARGS: "-c example-advanced"
 
 # Local executor
 
@@ -579,10 +591,10 @@ local-host-fc37:
   needs:
     - cache-host-fc37
 
-local-vm-fc40:
+local-vm-fc43:
   extends: .component_local_job
   needs:
-    - cache-vm-fc40
+    - cache-vm-fc43
 
 local-vm-bookworm:
   extends: .component_local_job
