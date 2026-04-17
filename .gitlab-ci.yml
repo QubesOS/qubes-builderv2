@@ -235,7 +235,7 @@ builderv2-github:
     - tar xf artifacts.tar.xz
     - sudo dnf install -y python3-debian dpkg-dev openssl tree pacman
   script:
-    - ./qb --builder-conf tests/builder-ci.yml -d "${CI_JOB_NAME#local-}" --option executor:type=local --option executor:options:directory=/home/gitlab-runner/tmp ${QB_EXTRA_ARGS} package all
+    - LOCAL_TMP=$(mktemp -d ${CI_PROJECT_DIR}/tmpXXXXXX) && ./qb --builder-conf tests/builder-ci.yml -d "${CI_JOB_NAME#local-}" --option executor:type=local --option executor:options:directory=${LOCAL_TMP} ${QB_EXTRA_ARGS} package all
   after_script:
     - rm -rf artifacts/cache
     - tree artifacts
