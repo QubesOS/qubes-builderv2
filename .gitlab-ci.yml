@@ -269,6 +269,11 @@ builderv2-github:
     - if: $CI_RUN_TEMPLATE_JOBS == "1" || $CI_RUN_ALL_JOBS == "1"
       when: always
     - when: never
+  needs:
+    - job: pytest-cli-template-fedora
+      optional: true
+    - job: pytest-cli-template-debian
+      optional: true
   stage: build
   tags:
     - qubes
