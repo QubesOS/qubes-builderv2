@@ -115,6 +115,17 @@ builderv2-github:
     - if: $CI_RUN_CACHE_JOBS == "1" || $CI_RUN_COMPONENT_JOBS == "1" || $CI_RUN_ALL_JOBS == "1" || $CI_COMMIT_BRANCH == "main"
       when: always
     - when: never
+  needs:
+    - job: pytest-cli-component
+      optional: true
+    - job: pytest-cli-component-host-fc37
+      optional: true
+    - job: pytest-cli-component-vm-bookworm
+      optional: true
+    - job: pytest-cli-component-vm-archlinux
+      optional: true
+    - job: pytest-cli-component-init-cache
+      optional: true
   stage: prep
   tags:
     - vm
