@@ -82,22 +82,28 @@ def create_console_handler(verbose, **kwargs):
 
 def get_logger_name(name, plugin):
     fname = []
-    if hasattr(plugin, "component"):
+    if getattr(plugin, "component", None) is not None:
         fname.append(plugin.component.name)
-    if hasattr(plugin, "dist") and not hasattr(plugin, "template"):
+    if (
+        getattr(plugin, "dist", None) is not None
+        and getattr(plugin, "template", None) is None
+    ):
         fname.append(plugin.dist.distribution)
-    if hasattr(plugin, "template"):
+    if getattr(plugin, "template", None) is not None:
         fname.append(plugin.template.name)
     return ".".join([name] + fname)
 
 
 def get_log_filename(plugin, logs_dir):
     fname = [QubesBuilderTimeStamp]
-    if hasattr(plugin, "component"):
+    if getattr(plugin, "component", None) is not None:
         fname.append(plugin.component.name)
-    if hasattr(plugin, "dist") and not hasattr(plugin, "template"):
+    if (
+        getattr(plugin, "dist", None) is not None
+        and getattr(plugin, "template", None) is None
+    ):
         fname.append(plugin.dist.distribution)
-    if hasattr(plugin, "template"):
+    if getattr(plugin, "template", None) is not None:
         fname.append(plugin.template.name)
     log_fname = "-".join(fname)
     return (logs_dir / log_fname).with_suffix(".log")

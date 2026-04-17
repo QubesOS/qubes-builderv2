@@ -19,15 +19,16 @@
 import datetime
 from typing import Optional
 
-from qubesbuilder.component import QubesComponent
-from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
-from qubesbuilder.plugins import DEBDistributionPlugin, PluginDependency
+from qubesbuilder.plugins import Plugin, PluginContext, PluginDependency
 from qubesbuilder.plugins.publish import PublishPlugin, PublishError
 
 
-class DEBRepoPlugin(DEBDistributionPlugin):
+class DEBRepoPlugin(Plugin):
+    context = PluginContext.DIST
+    dist: QubesDistribution
+    dist_filter = staticmethod(lambda d: d.is_deb() or d.is_ubuntu())
     """
     DEBPublishPlugin manages Debian distribution publication.
 
@@ -134,7 +135,7 @@ class DEBRepoPlugin(DEBDistributionPlugin):
                 release_dir = self.get_target_dir() / "dists" / debian_suite
                 cmd = [
                     f"{self.config.gpg_client} {opt} --armor --local-user {sign_key} "
-                    f"--batch --no-tty --output {release_dir / out_name} {release_dir / 'Release'}"
+                    f"--batch --no-tty --yes --output {release_dir / out_name} {release_dir / 'Release'}"
                 ]
                 self.log.info(
                     f"{self.log_prefix}: Signing metadata ({out_name})."
@@ -177,6 +178,8 @@ class DEBRepoPlugin(DEBDistributionPlugin):
 
 
 class DEBPublishPlugin(DEBRepoPlugin, PublishPlugin):
+    context = PluginContext.COMPONENT | PluginContext.DIST
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -220,7 +223,6 @@ class DEBPublishPlugin(DEBRepoPlugin, PublishPlugin):
 
         # Publishing packages
         try:
-            changes_file = build_artifacts_dir / build_info["changes"]
             target_dir = self.get_target_dir()
 
             # reprepro options to ignore surprising binary and arch
@@ -230,7 +232,7 @@ class DEBPublishPlugin(DEBRepoPlugin, PublishPlugin):
                 self.dist, repository_publish
             )
 
-            # reprepro command
+            changes_file = build_artifacts_dir / build_info["changes"]
             cmd = [
                 f"reprepro {reprepro_options} include {debian_suite} {changes_file}"
             ]
@@ -241,14 +243,17 @@ class DEBPublishPlugin(DEBRepoPlugin, PublishPlugin):
 
         self.sign_metadata(repository_publish=repository_publish)
 
-    def unpublish(self, executor, directory, repository_publish):
+    def unpublish(
+        self, executor, directory, repository_publish, build_info=None
+    ):
         # directory basename will be used as prefix for some artifacts
         directory_bn = directory.mangle()
 
         # Read information from build stage
-        build_info = self.get_dist_artifacts_info(
-            stage="build", basename=directory_bn
-        )
+        if build_info is None:
+            build_info = self.get_dist_artifacts_info(
+                stage="build", basename=directory_bn
+            )
 
         if not build_info.get("changes", None):
             self.log.info(f"{self.log_prefix}:{directory}: Nothing to publish.")
@@ -257,16 +262,12 @@ class DEBPublishPlugin(DEBRepoPlugin, PublishPlugin):
         self.log.info(f"{self.log_prefix}:{directory}: Unpublishing packages.")
 
         # Unpublishing packages
+        target_dir = self.get_target_dir()
+        debian_suite = self.get_debian_suite_from_repository_publish(
+            self.dist, repository_publish
+        )
         try:
-            target_dir = self.get_target_dir()
-
-            # reprepro options to ignore surprising binary and arch
-            reprepro_options = f"--ignore=surprisingbinary --ignore=surprisingarch -b {target_dir}"
-
-            # set debian suite according to publish repository
-            debian_suite = self.get_debian_suite_from_repository_publish(
-                self.dist, repository_publish
-            )
+            reprepro_options = f"--ignore=surprisingbinary --ignore=surprisingarch --delete -b {target_dir}"
 
             # reprepro command
             source_name, source_version = build_info[
@@ -280,7 +281,9 @@ class DEBPublishPlugin(DEBRepoPlugin, PublishPlugin):
             msg = f"{self.component}:{self.dist}:{directory}: Failed to unpublish packages."
             raise PublishError(msg) from e
 
-        self.sign_metadata(repository_publish=repository_publish)
+        release_file = target_dir / "dists" / debian_suite / "Release"
+        if release_file.exists():
+            self.sign_metadata(repository_publish=repository_publish)
 
     def run(
         self,
@@ -400,10 +403,49 @@ class DEBPublishPlugin(DEBRepoPlugin, PublishPlugin):
                             self.unpublish(
                                 executor=self.executor,
                                 directory=directory,
-                                repository_publish=repository,
+                                repository_publish=repository["name"],
                             )
                     else:
                         info = publish_info
+                elif self.config.increment_devel_versions:
+                    # No publish info for this version. Check history for old
+                    # devel publications that may still be in the reprepro pool
+                    # with a different checksum.
+                    for (
+                        hist_publish_dir
+                    ) in self.get_dist_component_artifacts_dir_history(
+                        stage=self.stage
+                    ):
+                        hist_publish_info = self.get_dist_artifacts_info(
+                            stage=self.stage,
+                            basename=directory_bn,
+                            artifacts_dir=hist_publish_dir,
+                        )
+                        if not hist_publish_info:
+                            continue
+                        if hist_publish_info.get(
+                            "source-hash"
+                        ) == build_info.get("source-hash"):
+                            continue
+                        # Old publication with a different source hash.
+                        self.log.info(
+                            f"{self.component}:{self.dist}:{directory}: "
+                            f"Found stale publication with different source hash, cleaning up."
+                        )
+                        for repo_entry in hist_publish_info.get(
+                            "repository-publish", []
+                        ):
+                            self.unpublish(
+                                executor=self.executor,
+                                directory=directory,
+                                repository_publish=repo_entry["name"],
+                                build_info=hist_publish_info,
+                            )
+                        self.delete_dist_artifacts_info(
+                            stage=self.stage,
+                            basename=directory_bn,
+                            artifacts_dir=hist_publish_dir,
+                        )
 
                 self.publish(
                     executor=self.executor,

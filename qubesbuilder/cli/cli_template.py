@@ -2,7 +2,12 @@ from typing import List, Optional
 
 import click
 
-from qubesbuilder.cli.cli_base import aliased_group, ContextObj
+from qubesbuilder.cli.cli_base import (
+    aliased_group,
+    AliasedGroup,
+    ContextObj,
+    print_pipeline,
+)
 from qubesbuilder.common import STAGES, STAGES_ALIAS
 from qubesbuilder.config import Config
 from qubesbuilder.template import QubesTemplate
@@ -31,12 +36,14 @@ def _template_stage(
     # from "prep only because of a dependency (e.g. build)".
     config.set("force-template-prep", "prep" in stages)
 
+    root_group: AliasedGroup | None = None
     try:
         ctx = click.get_current_context()
+        cmd = ctx.find_root().command
+        if isinstance(cmd, AliasedGroup):
+            root_group = cmd
     except RuntimeError:
-        root_group = None
-    else:
-        root_group = ctx.find_root().command
+        pass
 
     # Qubes templates
     jobs = config.get_jobs(
@@ -157,6 +164,31 @@ def upload(obj: ContextObj):
     )
 
 
+@template.command()
+@click.argument("stages", nargs=-1)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["text", "yaml"], case_sensitive=False),
+    default="text",
+    show_default=True,
+    help="Output format: human-readable text or YAML.",
+)
+@click.pass_obj
+def pipeline(obj: ContextObj, stages, fmt):
+    """Show the ordered pipeline of jobs for the given STAGES (default: all)."""
+    if not stages:
+        stages = list(STAGES)
+    pl = obj.config.get_pipeline(
+        components=[],
+        distributions=[],
+        templates=obj.templates,
+        stages=list(stages),
+    )
+    jobs = pl.sorted_jobs(obj.config)
+    print_pipeline(jobs, fmt=fmt)
+
+
 template.add_command(fetch)
 template.add_command(prep)
 template.add_command(build)
@@ -166,5 +198,6 @@ template.add_command(sign)
 template.add_command(publish)
 template.add_command(upload)
 template.add_command(_all_template_stage)
+template.add_command(pipeline)
 
 template.add_alias(**STAGES_ALIAS)

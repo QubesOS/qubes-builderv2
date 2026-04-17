@@ -457,7 +457,7 @@ def test_common_component_fetch_skip_files(artifacts_dir_single):
 def test_common_component_fetch_commit_fresh(artifacts_dir_single):
     artifacts_dir = artifacts_dir_single
     # Fetch a known tag and verify the exact commit hash is recorded.
-    commit_sha = "fc06221c83b3374d9a51c39c786fd80ce3b13f41"
+    commit_sha = "03e6ccfa71cf824fc063c97dbf22b52244011958"
     qb_call_output(
         DEFAULT_BUILDER_CONF,
         artifacts_dir,

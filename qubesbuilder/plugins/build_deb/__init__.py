@@ -28,7 +28,7 @@ from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
-from qubesbuilder.plugins import DEBDistributionPlugin, PluginDependency
+from qubesbuilder.plugins import PluginDependency, JobDependency, JobReference
 from qubesbuilder.plugins.build import BuildPlugin, BuildError
 
 
@@ -82,7 +82,8 @@ def provision_local_repository(
         raise BuildError(msg) from e
 
 
-class DEBBuildPlugin(DEBDistributionPlugin, BuildPlugin):
+class DEBBuildPlugin(BuildPlugin):
+    dist_filter = staticmethod(lambda d: d.is_deb() or d.is_ubuntu())
     """
     DEBBuildPlugin manages Debian distribution build.
 
@@ -114,6 +115,15 @@ class DEBBuildPlugin(DEBDistributionPlugin, BuildPlugin):
         self.dependencies += [
             PluginDependency("chroot_deb"),
             PluginDependency("build"),
+            JobDependency(
+                JobReference(
+                    component=None,
+                    dist=self.dist,
+                    template=None,
+                    stage="init-cache",
+                    build=None,
+                )
+            ),
         ]
 
     def run(self, **kwargs):

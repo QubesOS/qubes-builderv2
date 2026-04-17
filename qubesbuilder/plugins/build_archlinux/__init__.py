@@ -28,7 +28,7 @@ from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
 from qubesbuilder.executors.local import LocalExecutor
-from qubesbuilder.plugins import ArchlinuxDistributionPlugin, PluginDependency
+from qubesbuilder.plugins import PluginDependency
 from qubesbuilder.plugins.build import BuildPlugin, BuildError
 from qubesbuilder.plugins.chroot_archlinux import (
     get_pacman_cmd,
@@ -97,7 +97,8 @@ def provision_local_repository(
         raise BuildError(msg) from e
 
 
-class ArchlinuxBuildPlugin(ArchlinuxDistributionPlugin, BuildPlugin):
+class ArchlinuxBuildPlugin(BuildPlugin):
+    dist_filter = staticmethod(lambda d: d.is_archlinux())
     """
     ArchlinuxBuildPlugin manages Archlinux distribution build.
 

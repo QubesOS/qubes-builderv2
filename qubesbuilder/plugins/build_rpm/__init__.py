@@ -29,10 +29,7 @@ from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
 from qubesbuilder.executors.container import ContainerExecutor
-from qubesbuilder.plugins import (
-    RPMDistributionPlugin,
-    PluginDependency,
-)
+from qubesbuilder.plugins import PluginDependency, JobDependency, JobReference
 from qubesbuilder.plugins.build import BuildPlugin, BuildError
 
 
@@ -111,7 +108,8 @@ def provision_local_repository(
         raise BuildError(msg) from e
 
 
-class RPMBuildPlugin(RPMDistributionPlugin, BuildPlugin):
+class RPMBuildPlugin(BuildPlugin):
+    dist_filter = staticmethod(lambda d: d.is_rpm())
     """
     RPMBuildPlugin manages RPM distribution build.
 
@@ -143,6 +141,15 @@ class RPMBuildPlugin(RPMDistributionPlugin, BuildPlugin):
         self.dependencies += [
             PluginDependency("chroot_rpm"),
             PluginDependency("build"),
+            JobDependency(
+                JobReference(
+                    component=None,
+                    dist=self.dist,
+                    template=None,
+                    stage="init-cache",
+                    build=None,
+                )
+            ),
         ]
 
         # Add some environment variables needed to render mock root configuration

@@ -11,12 +11,6 @@ from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.plugins import PluginError
 from qubesbuilder.plugins.publish import PublishPlugin, COMPONENT_REPOSITORIES
-from qubesbuilder.plugins.publish_archlinux import (
-    ArchlinuxPublishPlugin,
-    ArchlinuxRepoPlugin,
-)
-from qubesbuilder.plugins.publish_deb import DEBPublishPlugin, DEBRepoPlugin
-from qubesbuilder.plugins.publish_rpm import RPMPublishPlugin, RPMRepoPlugin
 from qubesbuilder.plugins.template import (
     TemplateBuilderPlugin,
     TEMPLATE_REPOSITORIES,

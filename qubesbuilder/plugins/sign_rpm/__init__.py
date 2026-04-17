@@ -24,7 +24,7 @@ from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
-from qubesbuilder.plugins import RPMDistributionPlugin, PluginDependency
+from qubesbuilder.plugins import PluginDependency
 from qubesbuilder.plugins.build import BuildError
 from qubesbuilder.plugins.build_rpm import (
     provision_local_repository,
@@ -33,7 +33,8 @@ from qubesbuilder.plugins.build_rpm import (
 from qubesbuilder.plugins.sign import SignPlugin, SignError
 
 
-class RPMSignPlugin(RPMDistributionPlugin, SignPlugin):
+class RPMSignPlugin(SignPlugin):
+    dist_filter = staticmethod(lambda d: d.is_rpm())
     """
     RPMSignPlugin manages RPM distribution sign.
 

@@ -22,7 +22,8 @@ from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors.local import LocalExecutor
 from qubesbuilder.plugins import (
-    DistributionComponentPlugin,
+    Plugin,
+    PluginContext,
     PluginError,
     JobDependency,
     JobReference,
@@ -33,7 +34,10 @@ class SignError(PluginError):
     pass
 
 
-class SignPlugin(DistributionComponentPlugin):
+class SignPlugin(Plugin):
+    context = PluginContext.COMPONENT | PluginContext.DIST
+    component: QubesComponent
+    dist: QubesDistribution
     """
     SignPlugin manages generic distribution sign.
 
@@ -62,35 +66,31 @@ class SignPlugin(DistributionComponentPlugin):
             stage=stage,
         )
 
-        if self.has_component_packages(stage="build"):
-            for build in self.get_parameters(stage="build").get("build", []):
-                self.dependencies.append(
-                    JobDependency(
-                        JobReference(
-                            component=self.component,
-                            dist=self.dist,
-                            stage="build",
-                            build=build.mangle(),
-                            template=None,
-                        )
-                    )
+        # Always depend on the build job for this component/dist.
+        self.dependencies.append(
+            JobDependency(
+                JobReference(
+                    component=self.component,
+                    dist=self.dist,
+                    template=None,
+                    stage="build",
+                    build=None,
                 )
+            )
+        )
 
     @classmethod
-    def from_args(cls, **kwargs):
+    def matches(cls, **kwargs) -> bool:
+        if not super().matches(**kwargs):
+            return False
         component = kwargs.get("component")
+        if component and not component.has_packages:
+            return False
         config = kwargs.get("config")
         dist = kwargs.get("dist")
-        stage = kwargs.get("stage")
-        if stage != "sign":
-            return None
-        if component and not component.has_packages:
-            return None
-        if not cls.supported_distribution(dist):
-            return None
         if not cls.is_signing_configured(config, dist, component):
-            return None
-        return super().from_args(**kwargs)
+            return False
+        return True
 
     def run(self, **kwargs):
         # Run stage defined by parent class

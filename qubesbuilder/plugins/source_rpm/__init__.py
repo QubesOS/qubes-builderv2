@@ -32,11 +32,12 @@ from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
 from qubesbuilder.executors.container import ContainerExecutor
-from qubesbuilder.plugins import RPMDistributionPlugin, PluginDependency
+from qubesbuilder.plugins import PluginDependency, JobDependency, JobReference
 from qubesbuilder.plugins.source import SourcePlugin, SourceError
 
 
-class RPMSourcePlugin(RPMDistributionPlugin, SourcePlugin):
+class RPMSourcePlugin(SourcePlugin):
+    dist_filter = staticmethod(lambda d: d.is_rpm())
     """
     RPMSourcePlugin manages RPM distribution source.
 
@@ -68,6 +69,15 @@ class RPMSourcePlugin(RPMDistributionPlugin, SourcePlugin):
         self.dependencies += [
             PluginDependency("source"),
             PluginDependency("chroot_rpm"),
+            JobDependency(
+                JobReference(
+                    component=None,
+                    dist=self.dist,
+                    template=None,
+                    stage="init-cache",
+                    build=None,
+                )
+            ),
         ]
 
         # Add some environment variables needed to render mock root configuration

@@ -150,7 +150,17 @@ def test_qb_logger_set_log_file(root_logger, log_file, plugins):
 
 
 def test_qb_logger_getChild(root_logger, plugins):
-    logger = root_logger.getChild("test_logger", plugin=plugins[2])
+    plugin = None
+    for p in plugins:
+        if (
+            getattr(p, "component", None) is not None
+            and getattr(p, "dist", None) is not None
+            and getattr(p.dist, "distribution", "") == "host-fc37"
+        ):
+            plugin = p
+            break
+    assert plugin is not None, "Could not find host-fc37 component plugin"
+    logger = root_logger.getChild("test_logger", plugin=plugin)
     child_logger = logger.getChild("child")
     assert child_logger.name == "qb.test_logger.linux-utils.host-fc37.child"
     assert child_logger.level == logger.level

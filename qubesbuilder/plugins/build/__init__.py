@@ -20,9 +20,9 @@
 from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
-from qubesbuilder.exc import ComponentError
 from qubesbuilder.plugins import (
-    DistributionComponentPlugin,
+    Plugin,
+    PluginContext,
     PluginError,
     JobDependency,
     JobReference,
@@ -33,7 +33,10 @@ class BuildError(PluginError):
     pass
 
 
-class BuildPlugin(DistributionComponentPlugin):
+class BuildPlugin(Plugin):
+    context = PluginContext.COMPONENT | PluginContext.DIST
+    component: QubesComponent
+    dist: QubesDistribution
     """
     BuildPlugin manages generic distribution build.
 
@@ -60,30 +63,28 @@ class BuildPlugin(DistributionComponentPlugin):
             stage=stage,
         )
 
-        try:
-            if self.has_component_packages(stage="build"):
-                for build in self.get_parameters(stage="build").get(
-                    "build", []
-                ):
-                    self.dependencies.append(
-                        JobDependency(
-                            JobReference(
-                                component=self.component,
-                                dist=self.dist,
-                                stage="prep",
-                                build=build.mangle(),
-                                template=None,
-                            )
-                        )
-                    )
-        except ComponentError as e:
-            raise PluginError(
-                f"Cannot determine dependencies for {self.component}. Missing fetch?"
-            ) from e
+        # Always depend on the prep job for this component/dist.
+        self.dependencies.append(
+            JobDependency(
+                JobReference(
+                    component=self.component,
+                    dist=self.dist,
+                    template=None,
+                    stage="prep",
+                    build=None,
+                )
+            )
+        )
 
     @classmethod
-    def from_args(cls, **kwargs):
+    def matches(cls, **kwargs) -> bool:
         component = kwargs.get("component")
         if component and not component.has_packages:
-            return None
-        return super().from_args(**kwargs)
+            return False
+        return super().matches(**kwargs)
+
+    def run(self, **kwargs):
+        super().run()
+        if not self.get_parameters(self.stage).get("build", []):
+            self.log.info(f"{self.component}:{self.dist}: Nothing to be done.")
+            return

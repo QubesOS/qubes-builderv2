@@ -27,15 +27,13 @@ from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
-from qubesbuilder.plugins import (
-    WindowsDistributionPlugin,
-    PluginDependency,
-)
+from qubesbuilder.plugins import PluginDependency
 from qubesbuilder.plugins.build_windows import WinArtifactKind
 from qubesbuilder.plugins.publish import PublishPlugin, PublishError
 
 
-class WindowsPublishPlugin(WindowsDistributionPlugin, PublishPlugin):
+class WindowsPublishPlugin(PublishPlugin):
+    dist_filter = staticmethod(lambda d: d.is_windows())
     """
     WindowsPublishPlugin manages Windows distribution publication.
 
