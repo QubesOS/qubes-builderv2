@@ -16,8 +16,8 @@
 # with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
+import heapq
 from dataclasses import dataclass
-from graphlib import TopologicalSorter
 from typing import Optional, List
 
 from qubesbuilder.common import STAGES
@@ -84,10 +84,11 @@ class Pipeline:
         return len(self.jobs)
 
     def build_graph(self, config) -> dict:
-        graph = {}
+        graph: dict = {}
+        seen_per_job: dict = {}
         for job in self.jobs:
-            seen = set()
-            deps = []
+            seen: set = set()
+            deps: list = []
 
             for dep in getattr(job, "dependencies", []):
                 if isinstance(dep, JobDependency):
@@ -116,6 +117,35 @@ class Pipeline:
                         deps.append(dep_job)
 
             graph[job] = deps
+            seen_per_job[id(job)] = seen
+
+        # Implicit "previous stage" edges: when an explicit dep chain is
+        # broken (e.g. publish -> sign(missing) -> build), we still want
+        # later stages to run after earlier ones for the same target.
+        # Chain by (dist, template) so dist-only jobs (createrepo etc.)
+        # also run after per-component jobs at the same dist.
+        stage_order = {s: i for i, s in enumerate(STAGES)}
+        by_target: dict = {}
+        for job in self.jobs:
+            if job.stage not in stage_order:
+                continue
+            target = (
+                job.dist.distribution if job.dist else None,
+                str(job.template) if job.template else None,
+            )
+            by_target.setdefault(target, []).append(job)
+
+        for target_jobs in by_target.values():
+            target_jobs.sort(key=lambda j: stage_order[j.stage])
+            for i, curr in enumerate(target_jobs):
+                for prev in target_jobs[:i]:
+                    if prev.stage == curr.stage:
+                        continue
+                    if id(prev) in seen_per_job[id(curr)]:
+                        continue
+                    seen_per_job[id(curr)].add(id(prev))
+                    graph[curr].append(prev)
+
         return graph
 
     def validate(self, config):
@@ -140,24 +170,58 @@ class Pipeline:
             dfs(job)
 
     def sorted_jobs(self, config) -> List[Plugin]:
-
         stage_order = {s: i for i, s in enumerate(STAGES)}
-
         graph = self.build_graph(config)
-        ts = TopologicalSorter(graph)
-        topo = list(ts.static_order())
-        topo_index = {id(j): i for i, j in enumerate(topo)}
 
-        # Sort by stage position (known stages) or topological index (unknown
-        # stages like init-cache). Unknown stages are placed just before the
-        # first known stage that depends on them.
-        def sort_key(j):
-            known = j.stage in stage_order
-            if known:
-                return (stage_order[j.stage], topo_index[id(j)])
-            return (topo_index[id(j)] / (len(topo) + 1), topo_index[id(j)])
+        # Precompute declaration-order rank so that within the same stage,
+        # components run in the order they are listed in the config. This
+        # ensures that a component listed last (e.g. installer-qubes-os-windows-tools)
+        # runs after components it implicitly depends on (e.g. all other Windows
+        # components whose artifacts must be in the local repo).
+        all_components = config.get_components()
+        comp_rank = {c.name: i for i, c in enumerate(all_components)}
 
-        return sorted(topo, key=sort_key)
+        # Kahn's algorithm with stage-based priority: among jobs whose
+        # dependencies are satisfied, pick the one with the lowest stage
+        # index first. Within the same stage, honour component declaration order.
+        # https://www.geeksforgeeks.org/dsa/lexicographically-smallest-topological-ordering/
+        dependents: dict = {job: [] for job in graph}
+        in_degree: dict = {job: 0 for job in graph}
+        for job, deps in graph.items():
+            for dep in deps:
+                dependents[dep].append(job)
+                in_degree[job] += 1
+
+        def priority(j):
+            # Unknown stages (e.g. init-cache) sit just after fetch so
+            # chroot setup happens before prep but after source fetch.
+            stage_pri = stage_order.get(j.stage, 0) + (
+                0.5 if j.stage not in stage_order else 0
+            )
+            comp_pri = comp_rank.get(j.component.name, 0) if j.component else 0
+            return (stage_pri, comp_pri)
+
+        counter = 0
+        heap: list = []
+        for job, deg in in_degree.items():
+            if deg == 0:
+                heapq.heappush(heap, (priority(job), counter, job))
+                counter += 1
+
+        result: List[Plugin] = []
+        while heap:
+            _, _, job = heapq.heappop(heap)
+            result.append(job)
+            for d in dependents[job]:
+                in_degree[d] -= 1
+                if in_degree[d] == 0:
+                    heapq.heappush(heap, (priority(d), counter, d))
+                    counter += 1
+
+        if len(result) != len(graph):
+            raise PipelineError("cycle detected in job dependencies")
+
+        return result
 
 
 class JobFactory:

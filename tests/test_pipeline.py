@@ -58,15 +58,12 @@ def test_fetch_runs_independently_per_component(tmp_path):
 
     fetch_done = cfg.get("session-fetch-done", set())
 
-    key_a = frozenset(["example-advanced"])
-    key_b = frozenset(["example-advanced-clone"])
-
     assert isinstance(
         fetch_done, set
     ), f"session-fetch-done should be a set, got {type(fetch_done).__name__}"
     assert (
-        key_a in fetch_done
+        "example-advanced" in fetch_done
     ), "example-advanced not recorded in session-fetch-done"
     assert (
-        key_b in fetch_done
+        "example-advanced-clone" in fetch_done
     ), "example-advanced-clone not recorded - fetch was blocked by first component"
