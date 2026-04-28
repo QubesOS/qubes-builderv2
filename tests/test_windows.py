@@ -1234,7 +1234,7 @@ def test_publish_rejects_unknown_repository(config, component, win_dist):
         plugin.run(repository_publish="not-a-repository")
 
 
-def test_publish_run_requires_repository(config, component, win_dist):
+def test_publish_run_skips_when_no_repository(config, component, win_dist):
     _write_build_artifact(config, component, win_dist, BUILD_MANGLE)
     config.set("repository-publish", {})
     plugin = WindowsPublishPlugin(
@@ -1243,9 +1243,8 @@ def test_publish_run_requires_repository(config, component, win_dist):
         config=config,
         stage="publish",
     )
-
-    with pytest.raises(PublishError, match="Cannot determine repository"):
-        plugin.run()
+    # No repository configured: publish should be silently skipped, not raise.
+    plugin.run()
 
 
 def test_publish_run_refuses_current_when_not_old_enough(

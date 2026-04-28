@@ -193,7 +193,10 @@ class WindowsPublishPlugin(PublishPlugin):
             or self.config.repository_publish.get("components")
         )
         if not repository_publish:
-            raise PublishError("Cannot determine repository for publish")
+            self.log.info(
+                f"{self.log_prefix}: No repository configured for publish, skipping."
+            )
+            return
 
         if not unpublish:
             self.validate_repository_publish(repository_publish)
