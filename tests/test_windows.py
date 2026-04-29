@@ -179,6 +179,7 @@ def _write_fetch_artifact(config, component, info=None):
 def _prepare_source_dependencies(config, component, dist, fetch_info=None):
     WindowsChrootPlugin(dist=dist, config=config, stage="init-cache").run()
     _write_fetch_artifact(config, component, info=fetch_info)
+    (config.sources_dir / component.name).mkdir(parents=True, exist_ok=True)
 
 
 def _source_artifact_path(config, component, dist):
@@ -383,6 +384,7 @@ def test_source_prep_skips_when_source_hash_is_unchanged(
 
 def test_source_prep_requires_init_cache_artifact(config, component, win_dist):
     _write_fetch_artifact(config, component)
+    (config.sources_dir / component.name).mkdir(parents=True, exist_ok=True)
 
     plugin = WindowsSourcePlugin(
         component=component,
@@ -664,6 +666,7 @@ def test_build_run_skips_when_source_hash_is_unchanged(
 
 def test_build_run_returns_early_when_no_packages(config, component, win_dist):
     component.has_packages = False
+    (config.sources_dir / component.name).mkdir(parents=True, exist_ok=True)
     plugin = WindowsBuildPlugin(
         component=component, dist=win_dist, config=config, stage="build"
     )
@@ -1231,7 +1234,7 @@ def test_publish_rejects_unknown_repository(config, component, win_dist):
         plugin.run(repository_publish="not-a-repository")
 
 
-def test_publish_run_requires_repository(config, component, win_dist):
+def test_publish_run_skips_when_no_repository(config, component, win_dist):
     _write_build_artifact(config, component, win_dist, BUILD_MANGLE)
     config.set("repository-publish", {})
     plugin = WindowsPublishPlugin(
@@ -1240,9 +1243,8 @@ def test_publish_run_requires_repository(config, component, win_dist):
         config=config,
         stage="publish",
     )
-
-    with pytest.raises(PublishError, match="Cannot determine repository"):
-        plugin.run()
+    # No repository configured: publish should be silently skipped, not raise.
+    plugin.run()
 
 
 def test_publish_run_refuses_current_when_not_old_enough(
@@ -1356,6 +1358,7 @@ def test_publish_run_returns_when_component_has_no_packages(
     config, component, win_dist
 ):
     component.has_packages = False
+    (config.sources_dir / component.name).mkdir(parents=True, exist_ok=True)
     plugin = WindowsPublishPlugin(
         component=component,
         dist=win_dist,
@@ -1508,6 +1511,7 @@ def test_pipeline_all_stages_produce_artifacts(config, component, win_dist):
 
     # prep
     _write_fetch_artifact(config, component)
+    (config.sources_dir / component.name).mkdir(parents=True, exist_ok=True)
     WindowsSourcePlugin(
         component=component, dist=win_dist, config=config, stage="prep"
     ).run()

@@ -16,17 +16,16 @@
 # with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-import os
 import shutil
 
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
-from qubesbuilder.plugins import DEBDistributionPlugin
 from qubesbuilder.plugins.chroot import ChrootPlugin, ChrootError
 
 
-class DEBChrootPlugin(DEBDistributionPlugin, ChrootPlugin):
+class DEBChrootPlugin(ChrootPlugin):
+    dist_filter = staticmethod(lambda d: d.is_deb() or d.is_ubuntu())
     """
     ChrootPlugin manages Debian chroot creation
 

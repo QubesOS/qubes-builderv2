@@ -25,11 +25,12 @@ from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
-from qubesbuilder.plugins import ArchlinuxDistributionPlugin, PluginDependency
+from qubesbuilder.plugins import PluginDependency
 from qubesbuilder.plugins.sign import SignPlugin, SignError
 
 
-class ArchlinuxSignPlugin(ArchlinuxDistributionPlugin, SignPlugin):
+class ArchlinuxSignPlugin(SignPlugin):
+    dist_filter = staticmethod(lambda d: d.is_archlinux())
     """
     ArchlinuxBuildPlugin manages Archlinux distribution sign.
 

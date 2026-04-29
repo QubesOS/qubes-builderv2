@@ -21,12 +21,16 @@ import os
 import shutil
 from typing import Optional
 
+from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
-from qubesbuilder.plugins import RPMDistributionPlugin, PluginDependency
+from qubesbuilder.plugins import Plugin, PluginContext, PluginDependency
 from qubesbuilder.plugins.publish import PublishPlugin, PublishError
 
 
-class RPMRepoPlugin(RPMDistributionPlugin):
+class RPMRepoPlugin(Plugin):
+    context = PluginContext.DIST
+    dist: QubesDistribution
+    dist_filter = staticmethod(lambda d: d.is_rpm())
     """
     RPMPublishPlugin manages RPM distribution publication.
 
@@ -202,6 +206,7 @@ class RPMRepoPlugin(RPMDistributionPlugin):
 
 
 class RPMPublishPlugin(RPMRepoPlugin, PublishPlugin):
+    context = PluginContext.COMPONENT | PluginContext.DIST
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

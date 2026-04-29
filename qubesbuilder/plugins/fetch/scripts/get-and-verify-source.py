@@ -82,7 +82,7 @@ def main(args):
     # Sanity check on branch and repo
     if not re.match(r"^[A-Za-z0-9][A-Za-z0-9/._-]+$", args.git_branch):
         raise ValueError(f"Invalid branch {args.git_branch}")
-    elif not re.match(r"^/[A-Za-z][A-Za-z0-9-/_]*$", args.component_directory):
+    elif not re.match(r"^/[A-Za-z][A-Za-z0-9/_-]*$", args.component_directory):
         raise ValueError(
             f"Invalid repository directory {args.component_directory}"
         )

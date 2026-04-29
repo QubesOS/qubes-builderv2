@@ -20,21 +20,19 @@
 from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
-from qubesbuilder.plugins import (
-    DistributionComponentPlugin,
-    WindowsDistributionPlugin,
-    PluginDependency,
-)
+from qubesbuilder.plugins import PluginDependency
 from qubesbuilder.plugins.sign import SignPlugin
 
 
-class WindowsSignPlugin(WindowsDistributionPlugin, SignPlugin):
+class WindowsSignPlugin(SignPlugin):
     """
     WindowsSignPlugin - dummy sign stage for Windows distributions.
 
     Stages:
         - sign
     """
+
+    dist_filter = staticmethod(lambda d: d.is_windows())
 
     name = "sign_windows"
     stages = ["sign"]
@@ -57,17 +55,24 @@ class WindowsSignPlugin(WindowsDistributionPlugin, SignPlugin):
         self.dependencies.append(PluginDependency("sign"))
 
     @classmethod
-    def from_args(cls, **kwargs):
+    def matches(cls, **kwargs) -> bool:
+        # Windows signing uses Authenticode in the build stage, not GPG.
+        # Skip the GPG key check from SignPlugin.matches().
         component = kwargs.get("component")
-        dist = kwargs.get("dist")
-        stage = kwargs.get("stage")
-        if stage != "sign":
-            return None
         if component and not component.has_packages:
-            return None
-        if dist is None or not cls.supported_distribution(dist):
-            return None
-        return cls(**kwargs)
+            return False
+        return super(SignPlugin, cls).matches(**kwargs)
+
+    @classmethod
+    def from_args(cls, **kwargs):
+        if cls.matches(**kwargs):
+            return cls(
+                component=kwargs["component"],
+                dist=kwargs["dist"],
+                config=kwargs["config"],
+                stage=kwargs["stage"],
+            )
+        return None
 
     def run(self, **kwargs):
         # Signing for Windows is done in the build stage.

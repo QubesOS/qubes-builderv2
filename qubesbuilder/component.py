@@ -56,14 +56,22 @@ class QubesVersion(Version):
         super().__init__(version)
         if "-rc" in version:
             # pylint: disable=protected-access
+            if self._version.pre is None:
+                raise ComponentError(
+                    f"Cannot parse pre-release from version: {version}"
+                )
             self._version: _Version = self._version._replace(
                 pre=("-rc", self._version.pre[1])
             )
         match = self._regex.search(version)
         assert match  # already verified in parent
         if match.group("post_frac"):
+            if self._version.post is None:
+                raise ComponentError(
+                    f"Cannot parse post-release from version: {version}"
+                )
             self._version = self._version._replace(
-                post=(
+                post=(  # type: ignore[arg-type]
                     self._version.post[0],
                     str(self._version.post[1]) + match.group("post_frac"),
                 )

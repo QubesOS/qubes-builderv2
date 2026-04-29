@@ -17,6 +17,7 @@ stages:
   - test
   - prep
   - build
+  - deploy
 
 variables:
   DEBUG: "1"
@@ -49,6 +50,7 @@ variables:
     description: "Run all jobs, default: 0"
 
 builderv2-github:
+  stage: deploy
   rules:
     - if: $CI_RUN_INFRA_JOBS == "1" || $CI_RUN_ALL_JOBS == "1"
       when: always
@@ -57,7 +59,6 @@ builderv2-github:
     CI_QUBES_BUILDER_BRANCH: $CI_COMMIT_BRANCH
   trigger:
     project: QubesOS/qubes-builderv2-github
-    strategy: depend
 
 #
 # job skeletons
@@ -114,6 +115,17 @@ builderv2-github:
     - if: $CI_RUN_CACHE_JOBS == "1" || $CI_RUN_COMPONENT_JOBS == "1" || $CI_RUN_ALL_JOBS == "1" || $CI_COMMIT_BRANCH == "main"
       when: always
     - when: never
+  needs:
+    - job: pytest-cli-component
+      optional: true
+    - job: pytest-cli-component-host-fc37
+      optional: true
+    - job: pytest-cli-component-vm-bookworm
+      optional: true
+    - job: pytest-cli-component-vm-archlinux
+      optional: true
+    - job: pytest-cli-component-init-cache
+      optional: true
   stage: prep
   tags:
     - vm
@@ -223,7 +235,7 @@ builderv2-github:
     - tar xf artifacts.tar.xz
     - sudo dnf install -y python3-debian dpkg-dev openssl tree pacman
   script:
-    - ./qb --builder-conf tests/builder-ci.yml -d "${CI_JOB_NAME#local-}" --option executor:type=local --option executor:options:directory=/home/gitlab-runner/tmp ${QB_EXTRA_ARGS} package all
+    - LOCAL_TMP=$(mktemp -d ${CI_PROJECT_DIR}/tmpXXXXXX) && ./qb --builder-conf tests/builder-ci.yml -d "${CI_JOB_NAME#local-}" --option executor:type=local --option executor:options:directory=${LOCAL_TMP} ${QB_EXTRA_ARGS} package all
   after_script:
     - rm -rf artifacts/cache
     - tree artifacts
@@ -257,6 +269,11 @@ builderv2-github:
     - if: $CI_RUN_TEMPLATE_JOBS == "1" || $CI_RUN_ALL_JOBS == "1"
       when: always
     - when: never
+  needs:
+    - job: pytest-cli-template-fedora
+      optional: true
+    - job: pytest-cli-template-debian
+      optional: true
   stage: build
   tags:
     - qubes

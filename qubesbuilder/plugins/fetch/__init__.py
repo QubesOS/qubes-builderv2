@@ -28,10 +28,11 @@ from shlex import quote
 from typing import Any, List, Union
 
 from qubesbuilder.common import VerificationMode, get_archive_name
+from qubesbuilder.component import QubesComponent
 from qubesbuilder.exc import NoQubesBuilderFileError
 from qubesbuilder.executors import ExecutorError
 from qubesbuilder.executors.local import LocalExecutor
-from qubesbuilder.plugins import ComponentPlugin, PluginError
+from qubesbuilder.plugins import Plugin, PluginContext, PluginError
 
 
 class FetchError(PluginError):
@@ -42,7 +43,9 @@ def quote_list(args: List[Union[str, Path]]) -> str:
     return " ".join(map(lambda x: quote(str(x)), args))
 
 
-class FetchPlugin(ComponentPlugin):
+class FetchPlugin(Plugin):
+    context = PluginContext.COMPONENT
+    component: QubesComponent
     """
     FetchPlugin manages generic fetch source
 
@@ -161,6 +164,12 @@ class FetchPlugin(ComponentPlugin):
                     copy_out = []
                 else:
                     copy_in += [(local_source_dir, executor.get_builder_dir())]
+        elif self.config.skip_git_fetch:
+            # Source is absent and skip-git-fetch is set; nothing to do.
+            self.log.info(
+                f"{self.component}: Source not available and skip-git-fetch is set. Skipping fetch."
+            )
+            return
 
         if do_fetch:
             cmd += [

@@ -30,7 +30,11 @@ from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
 from qubesbuilder.executors import ExecutorError
-from qubesbuilder.plugins import DEBDistributionPlugin, PluginDependency
+from qubesbuilder.plugins import (
+    DEBDistributionPlugin,
+    PluginContext,
+    PluginDependency,
+)
 from qubesbuilder.plugins.source import SourcePlugin, SourceError
 
 
@@ -45,6 +49,7 @@ class DEBSourcePlugin(DEBDistributionPlugin, SourcePlugin):
         - source
     """
 
+    context = PluginContext.COMPONENT | PluginContext.DIST
     name = "source_deb"
     stages = ["prep"]
 

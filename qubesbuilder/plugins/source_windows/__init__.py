@@ -19,18 +19,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import shutil
-import tempfile
-from pathlib import Path
 
-from qubesbuilder.common import is_filename_valid
 from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
-from qubesbuilder.plugins import WindowsDistributionPlugin, PluginDependency
-from qubesbuilder.plugins.source import SourcePlugin, SourceError
+from qubesbuilder.plugins import PluginDependency
+from qubesbuilder.plugins.source import SourcePlugin
 
 
-class WindowsSourcePlugin(WindowsDistributionPlugin, SourcePlugin):
+class WindowsSourcePlugin(SourcePlugin):
+    dist_filter = staticmethod(lambda d: d.is_windows())
     """
     Manage Windows distribution source.
     """

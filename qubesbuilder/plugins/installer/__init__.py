@@ -35,7 +35,8 @@ from qubesbuilder.executors.container import ContainerExecutor
 from qubesbuilder.executors.local import LocalExecutor
 from qubesbuilder.plugins import (
     PluginError,
-    DistributionPlugin,
+    Plugin,
+    PluginContext,
     PluginDependency,
     JobDependency,
     JobReference,
@@ -47,7 +48,10 @@ class InstallerError(PluginError):
     pass
 
 
-class InstallerPlugin(DistributionPlugin):
+class InstallerPlugin(Plugin):
+    context = PluginContext.DIST
+    dist: QubesDistribution
+    dist_filter = staticmethod(lambda d: d.is_rpm())
     """
     InstallerPlugin creates Qubes OS ISO
     """
@@ -227,7 +231,9 @@ class InstallerPlugin(DistributionPlugin):
                 raise PluginError(msg) from e
         return {}
 
-    def delete_artifacts_info(self, stage: str):
+    def delete_artifacts_info(
+        self, stage: str, basename: str = None, artifacts_dir=None
+    ):
         artifacts_dir = self.config.installer_dir
         info_path = (
             artifacts_dir / f"{self.dist.name}_{self.iso_name}.{stage}.yml"

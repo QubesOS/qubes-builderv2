@@ -37,8 +37,8 @@ try:
     from podman import PodmanClient
     from podman.errors import PodmanError
 except ImportError:
-    PodmanClient = None
-    PodmanError = ExecutorError
+    PodmanClient = None  # type: ignore[assignment,misc]
+    PodmanError = ExecutorError  # type: ignore[assignment,misc]
 
 
 class ContainerExecutor(Executor):
