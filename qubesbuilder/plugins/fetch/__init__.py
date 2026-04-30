@@ -164,12 +164,6 @@ class FetchPlugin(Plugin):
                     copy_out = []
                 else:
                     copy_in += [(local_source_dir, executor.get_builder_dir())]
-        elif self.config.skip_git_fetch:
-            # Source is absent and skip-git-fetch is set; nothing to do.
-            self.log.info(
-                f"{self.component}: Source not available and skip-git-fetch is set. Skipping fetch."
-            )
-            return
 
         if do_fetch:
             cmd += [
