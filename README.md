@@ -440,6 +440,10 @@ fetch detects that the source has changed.
 - `publish_deb` --- Debian repository publishing
 - `publish_archlinux` --- Arch Linux repository publishing
 - `upload` --- upload published repository to a remote server
+- `list_deps` --- base plugin for the `list-deps` stage
+- `list_deps_rpm` --- RPM build dependency extraction
+- `list_deps_deb` --- Debian build dependency extraction
+- `list_deps_archlinux` --- Arch Linux build dependency extraction
 - `template` --- common template build logic
 - `template_rpm` --- RPM-based template builds
 - `template_deb` --- Debian-based template builds
@@ -471,6 +475,7 @@ Commands:
   installer   Installer CLI
   config      Config CLI
   cleanup     Cleanup CLI
+  list-deps   List build dependencies
 
 Stages:
     fetch prep build post verify sign publish upload
@@ -562,6 +567,65 @@ $ ./qb package pipeline --format yaml upload
 $ ./qb package pipeline --no-deps sign   # show only the requested stage
 ```
 
+
+### List-deps
+
+The `list-deps` command reads the build dependencies declared in each
+component's packaging files (spec, control, PKGBUILD) and produces a
+`cache` YAML block ready to paste into `builder.yml`. No chroot is needed:
+the extraction runs against the rendered source files inside a container.
+
+**Run the stage and print the result:**
+
+```bash
+$ ./qb -c core-vchan-xen -d host-fc41 -d vm-bookworm list-deps run
+```
+
+This runs the `list-deps` stage for the given components and distributions,
+then prints the aggregated `cache` block to stdout:
+
+```yaml
+cache:
+  host-fc41:
+    packages:
+    - gcc
+    - xen-devel >= 4.2
+  vm-bookworm:
+    packages:
+    - debhelper
+    - libxen-dev
+```
+
+**Print from existing artifacts (no stage run):**
+
+```bash
+$ ./qb list-deps show
+```
+
+This reads already-produced `list-deps` artifacts and prints the same YAML
+without running the stage again.
+
+**Merge into `builder.yml` in-place:**
+
+```bash
+$ ./qb list-deps update builder.yml
+```
+
+This merges the collected packages into the `cache` section of the given
+file. Existing entries are preserved and new ones are added. A `.bak` backup
+is written before the file is rewritten. Note that PyYAML rewrites the file,
+so comments and original formatting are lost.
+
+**Skip the git fetch when sources are already present:**
+
+By default, `list-deps run` fetches sources first. To skip that step:
+
+```bash
+$ ./qb -o skip-git-fetch=true list-deps run
+```
+
+If the source hash has not changed since the last run, the stage is skipped
+automatically and the cached result is used.
 
 ### Template
 
@@ -1135,7 +1199,11 @@ Options available in `builder.yml`:
 
 - `cache: Dict` --- List of distributions cache options.
   - `<distribution_name>: Dict` --- Distribution name provided as in `distributions`.
-    - `packages: List[str]` --- List of packages to download and to put in cache. These packages won't be installed into the base chroot.
+    - `packages: List[str]` --- List of packages to pre-populate in the chroot cache. By default they are downloaded but not installed into the base chroot. Use `install-packages: true` to install them directly.
+    - `install-packages: bool` --- When `true`, the packages listed in `packages` are installed into the base chroot at `init-cache` time, so every subsequent build starts with them already present. When `false` (default), they are only downloaded into the package manager cache. Toggling this flag forces the chroot to be rebuilt. The behaviour differs slightly per distribution:
+      - RPM (Mock): the post-install chroot root is re-archived into `root_cache/cache.tar.gz` so future `--no-clean` builds restore the installed state.
+      - Debian (pbuilder): `pbuilder update --extrapackages` installs the packages into `base.tgz`.
+      - Arch Linux: `mkarchroot` always installs packages into the chroot; the flag is accepted for consistency and to invalidate the cache on toggle.
   - `templates: List[str]` --- List of template names to download and put in installer cache. They are available based on what is defined in selected kickstart.
 
 - `automatic-upload-on-publish: bool` --- Automatic upload on publish/unpublish.
