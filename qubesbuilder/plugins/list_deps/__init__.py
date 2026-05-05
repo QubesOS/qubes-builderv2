@@ -42,6 +42,8 @@ class ListDepsPlugin(DistributionComponentPlugin):
 
     name = "list_deps"
     stages = ["list-deps"]
+    component: QubesComponent
+    dist: QubesDistribution
 
     def __init__(
         self,
