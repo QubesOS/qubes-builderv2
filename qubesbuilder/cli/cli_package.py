@@ -55,6 +55,7 @@ def _component_stage(
         "verify",
         "sign",
         "publish",
+        "list-deps",
     }
 
     fetch_done_set: set = config.get("session-fetch-done", set())
