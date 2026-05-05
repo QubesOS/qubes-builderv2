@@ -87,10 +87,18 @@ class ContainerExecutor(Executor):
                 "max_pool_size",
             )
         }
+        client = None
         try:
-            yield self._client(**kwargs)
+            client = self._client(**kwargs)
+            yield client
         except (PodmanError, DockerException, ValueError) as e:
             raise ExecutorError("Cannot connect to container client.") from e
+        finally:
+            if client is not None:
+                try:
+                    client.close()
+                except Exception:
+                    pass
 
     def get_user(self):
         return self._user
