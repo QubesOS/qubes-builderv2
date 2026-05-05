@@ -105,7 +105,9 @@ class AliasedGroup(click.Group):
         rc = 1
         try:
             rv = self.main(*args, standalone_mode=False, **kwargs)  # type: ignore[call-overload]
-            if isinstance(rv, list) and set(rv) == {None}:
+            # Chained groups return a list of subcommand results; single
+            # subcommands return whatever they returned (typically None).
+            if rv is None or (isinstance(rv, list) and set(rv) == {None}):
                 rc = 0
         except Exception as exc:
             # Handle user interrupts and cleanup
