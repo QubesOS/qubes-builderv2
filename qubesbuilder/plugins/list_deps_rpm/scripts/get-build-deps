@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+# The Qubes OS Project, http://www.qubes-os.org
+#
+# Copyright (C) 2026 Frédéric Pierret (fepitre) <frederic@invisiblethingslab.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+set -e
+set -o pipefail
+
+if [ "${VERBOSE:-0}" -ge 2 ] || [ "${DEBUG:-0}" -eq 1 ]; then
+    set -x
+fi
+
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 spec_file dist_tag" >&2
+    exit 1
+fi
+
+SPEC_FILE="$1"
+DIST_TAG="$2"
+
+rpm_defines=(--define "dist .${DIST_TAG}")
+
+raw_dist="${DIST_TAG#*.}"
+if [[ "$raw_dist" = "fc"* ]]; then
+    rpm_defines+=(--define "fedora ${raw_dist#fc}")
+elif [[ "$raw_dist" = "el"* ]]; then
+    rpm_defines+=(--define "centos ${raw_dist#el}")
+    rpm_defines+=(--define "rhel ${raw_dist#el}")
+fi
+
+rpmspec -q --buildrequires "${rpm_defines[@]}" "${SPEC_FILE}" | sort -u
