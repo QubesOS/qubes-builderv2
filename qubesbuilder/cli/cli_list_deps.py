@@ -41,12 +41,32 @@ def _emit_single_quoted(dumper, value):
 yaml.SafeDumper.add_representer(SingleQuoted, _emit_single_quoted)
 
 
-# Covers package names, version constraints, file provides and virtual provides.
-VALID_DEP_RE = re.compile(r"^[A-Za-z0-9._+\/():<>= ~-]+$")
+_NAME_RE = re.compile(r"^[A-Za-z0-9._+\/\-:~]+$")
+_VERSION_RE = re.compile(r"^[A-Za-z0-9._+\-~:]+$")
+_OPS = frozenset({">=", "<=", ">", "<", "="})
+_MAX_DEP_LEN = 100  # e.g. "python3-some-long-package-name >= 1.2.3" is 39
 
 
 def is_safe_dep(line: str) -> bool:
-    return bool(VALID_DEP_RE.match(line))
+    """Accept 'NAME' or 'NAME OP VERSION'; reject everything else."""
+    if not line or len(line) > _MAX_DEP_LEN:
+        return False
+    parts = line.split()
+    if len(parts) == 1:
+        name = parts[0]
+        if ".." in name.split("/"):
+            return False
+        return bool(_NAME_RE.match(name))
+    if len(parts) == 3:
+        name, op, version = parts
+        if ".." in name.split("/"):
+            return False
+        return (
+            bool(_NAME_RE.match(name))
+            and op in _OPS
+            and bool(_VERSION_RE.match(version))
+        )
+    return False
 
 
 def _normalize_for_cache(deps: List[str]) -> List[str]:

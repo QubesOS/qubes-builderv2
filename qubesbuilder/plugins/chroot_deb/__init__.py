@@ -16,6 +16,7 @@
 # with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
+import shlex
 import shutil
 
 from qubesbuilder.config import Config
@@ -188,7 +189,7 @@ class DEBChrootPlugin(ChrootPlugin):
                     f"sudo -E pbuilder execute --distribution {self.dist.name}",
                     f"--configfile {self.executor.get_plugins_dir()}/chroot_deb/pbuilder/pbuilderrc",
                     f"--bindmounts {self.executor.get_cache_dir()}/aptcache:/tmp/aptcache",
-                    f"-- {self.executor.get_plugins_dir()}/chroot_deb/scripts/apt-download-packages {' '.join(additional_packages)}",
+                    f"-- {self.executor.get_plugins_dir()}/chroot_deb/scripts/apt-download-packages {' '.join(shlex.quote(p) for p in additional_packages)}",
                 ]
             cmd.append(" ".join(pbuilder_cmd))
             try:
