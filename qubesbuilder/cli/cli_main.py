@@ -126,6 +126,8 @@ def parse_dict_from_cli(s, value=None, append=False):
 
             if value.lower() in ("true", "false", "1", "0"):
                 value = str_to_bool(value)
+            elif value in ("", "{}"):
+                value = {}
 
             if append:
                 value = [value]
