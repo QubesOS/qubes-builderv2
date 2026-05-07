@@ -293,6 +293,17 @@ class RPMBuildPlugin(BuildPlugin):
                 cmd += [
                     f"sudo chown -R root:mock {self.executor.get_cache_dir() / 'mock'}"
                 ]
+                # If pre-installed root_cache_install exists, promote it over the
+                # minimal root_cache so mock restores the post-install chroot state.
+                # source_rpm keeps using root_cache/ (minimal) since it only needs
+                # a bare environment to produce SRPMs.
+                mock_cache_dir = self.executor.get_cache_dir() / "mock" / mock_conf.replace(".cfg", "")
+                root_cache_install = chroot_cache / "root_cache_install"
+                if root_cache_install.exists():
+                    cmd += [
+                        f"sudo cp {mock_cache_dir}/root_cache_install/cache.tar.gz "
+                        f"{mock_cache_dir}/root_cache/cache.tar.gz"
+                    ]
 
             if self.config.increment_devel_versions:
                 dist_tag = f"{self.component.devel}.{self.dist.tag}"

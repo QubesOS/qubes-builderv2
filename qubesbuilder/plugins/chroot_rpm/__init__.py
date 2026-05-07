@@ -186,26 +186,28 @@ class RPMChrootPlugin(ChrootPlugin):
             cmd.append(" ".join(mock_cmd))
             if install_into_chroot:
                 # mock's root_cache snapshot is taken at --init time and not
-                # updated by --install. Re-tar the live root into cache.tar.gz
-                # so future builds restore the post-install state.
-                # Entries must be rooted at "./" to match mock's extract path.
+                # updated by --install. Re-tar the live root into
+                # root_cache_install/cache.tar.gz so build_rpm can restore the
+                # post-install state, while root_cache/ remains the minimal init
+                # cache used by source_rpm (which does not need pre-installed deps).
                 build_root = f"/builder/build/{self.dist.nva}/root"
-                cache_root_cache = (
+                cache_root_cache_install = (
                     self.executor.get_cache_dir()
-                    / f"mock/{self.dist.nva}/root_cache"
+                    / f"mock/{self.dist.nva}/root_cache_install"
                 )
+                cmd.append(f"sudo mkdir -p {cache_root_cache_install}")
                 cmd.append(
-                    f"sudo rm -f {cache_root_cache}/cache.tar.gz "
-                    f"{cache_root_cache}/cache.tar"
+                    f"sudo rm -f {cache_root_cache_install}/cache.tar.gz "
+                    f"{cache_root_cache_install}/cache.tar"
                 )
                 cmd.append(
                     f"sudo tar -C {build_root} -czf "
-                    f"{cache_root_cache}/cache.tar.gz ."
+                    f"{cache_root_cache_install}/cache.tar.gz ."
                 )
                 # chown so docker cp back to host does not fail on root-owned files.
                 cmd.append(
                     f"sudo chown {self.executor.get_user()}:{self.executor.get_group()} "
-                    f"{cache_root_cache}/cache.tar.gz"
+                    f"{cache_root_cache_install}/cache.tar.gz"
                 )
             try:
                 self.executor.run(
