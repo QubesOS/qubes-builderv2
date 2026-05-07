@@ -1,3 +1,8 @@
+{% if use_qubes_repo_version == "devel" %}
+{% set version_str = "devel" %}
+{% else %}
+{% set version_str = "r" + use_qubes_repo_version %}
+{% endif %}
 #
 # /etc/pacman.conf
 #
@@ -59,10 +64,10 @@ SigLevel = Optional TrustAll
 Server = file:///builder/repository/pkgs
 {%- endif %}
 {% if use_qubes_repo_testing %}
-[qubes-r{{use_qubes_repo_version}}-current-testing]
-Server = https://archlinux.qubes-os.org/r{{use_qubes_repo_version}}/current-testing/vm/archlinux/pkgs
+[qubes-{{version_str}}-current-testing]
+Server = https://archlinux.qubes-os.org/{{version_str}}/current-testing/vm/archlinux/pkgs
 {%- endif %}
 {% if use_qubes_repo_version %}
-[qubes-r{{use_qubes_repo_version}}-current]
-Server = https://archlinux.qubes-os.org/r{{use_qubes_repo_version}}/current/vm/archlinux/pkgs
+[qubes-{{version_str}}-current]
+Server = https://archlinux.qubes-os.org/{{version_str}}/current/vm/archlinux/pkgs
 {%- endif %}
