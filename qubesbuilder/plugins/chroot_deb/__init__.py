@@ -173,8 +173,18 @@ class DEBChrootPlugin(ChrootPlugin):
                         pbuilder_dir,
                     )
                 ]
+                if self.config.use_qubes_repo.get("version"):
+                    qubes_version = self.config.use_qubes_repo["version"]
+                    keyring_src = (
+                        f"{self.executor.get_plugins_dir()}/chroot_deb/keys/"
+                        f"qubes-{self.dist.fullname}-r{qubes_version}.asc"
+                    )
+                    keyring_dst = (
+                        f"{self.executor.get_builder_dir()}/pbuilder/qubes-keyring.gpg"
+                    )
+                    cmd += [f"gpg --dearmor < {keyring_src} > {keyring_dst}"]
                 pbuilder_cmd = [
-                    "sudo -E pbuilder update --override-config",
+                    f"sudo -E pbuilder update --distribution {self.dist.name} --override-config",
                     f"--configfile {self.executor.get_plugins_dir()}/chroot_deb/pbuilder/pbuilderrc",
                     f"--extrapackages '{' '.join(additional_packages)}'",
                 ]
