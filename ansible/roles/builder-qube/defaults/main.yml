@@ -5,3 +5,8 @@ configure_split_gpg: "{{ gpg_client == 'qubes-gpg-client-wrapper' }}"
 
 # User account inside the builder qube.
 builder_user: user
+
+# Bind-dirs paths (they are not meant to change but just in case).
+bind_dirs_conf_dir: /rw/config/qubes-bind-dirs.d
+bind_dirs_root: /rw/bind-dirs
+rc_local_path: /rw/config/rc.local

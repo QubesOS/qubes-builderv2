@@ -3,3 +3,45 @@
   ansible.builtin.dnf:
     name: "{{ builder_host_packages_fedora + builder_host_packages_qubes }}"
     state: present
+
+- name: Install docker packages
+  ansible.builtin.dnf:
+    name: "{{ builder_qube_docker_packages }}"
+    state: present
+  when: builder_qube_enable_docker | bool
+
+- name: Add user to docker group on template
+  ansible.builtin.user:
+    name: "{{ builder_user | default('user') }}"
+    groups: docker
+    append: true
+  when:
+    - builder_qube_enable_docker | bool
+    - builder_qube_docker_group_in_template | bool
+
+- name: Create docker.service systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: builder_qube_enable_docker | bool
+
+- name: Drop-in to gate docker.service on qubes-service "docker"
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/docker.service.d/10-qubes-service.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      ConditionPathExists=/var/run/qubes-service/docker
+  when: builder_qube_enable_docker | bool
+
+- name: Ensure docker.service is enabled
+  ansible.builtin.systemd:
+    name: docker.service
+    enabled: true
+    daemon_reload: true
+  when: builder_qube_enable_docker | bool

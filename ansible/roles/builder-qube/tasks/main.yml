@@ -84,3 +84,68 @@
               %{?_gpg_digest_algo:--digest-algo %{_gpg_digest_algo}} \
               -u "%{_gpg_name}" -sb %{__plaintext_filename} >%{__signature_filename}'
   when: configure_split_gpg | bool
+
+- name: Create bind-dirs configuration directory
+  ansible.builtin.file:
+    path: "{{ bind_dirs_conf_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when: builder_qube_enable_docker | bool
+
+- name: Configure bind-dirs to persist docker + containerd state
+  ansible.builtin.copy:
+    dest: "{{ bind_dirs_conf_dir }}/50-qubes-builder-docker.conf"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      binds+=( '/var/lib/docker' )
+      binds+=( '/var/lib/containerd' )
+  become: true
+  when: builder_qube_enable_docker | bool
+
+- name: Pre-create bind-dirs backing dirs for docker + containerd
+  ansible.builtin.file:
+    path: "{{ bind_dirs_root }}{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /var/lib/docker
+    - /var/lib/containerd
+  become: true
+  when: builder_qube_enable_docker | bool
+
+- name: Ensure rc.local exists and is executable
+  ansible.builtin.file:
+    path: "{{ rc_local_path }}"
+    state: touch
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when: builder_qube_enable_docker | bool
+
+# /var/lib/docker needs dev,suid for loop devices
+- name: Remount /var/lib/docker with dev,suid in rc.local
+  ansible.builtin.lineinfile:
+    path: "{{ rc_local_path }}"
+    line: "mount /var/lib/docker -o dev,suid,remount 2>/dev/null || true"
+    state: present
+  become: true
+  when: builder_qube_enable_docker | bool
+
+# when 'user' group membership wasn't set on the template we have to apply it in rc.local
+- name: Add user to docker group via rc.local
+  ansible.builtin.lineinfile:
+    path: "{{ rc_local_path }}"
+    line: "groups {{ builder_user }} | grep -qw docker || usermod -aG docker {{ builder_user }}"
+    state: present
+  become: true
+  when:
+    - builder_qube_enable_docker | bool
+    - not (builder_qube_docker_group_in_template | bool)
