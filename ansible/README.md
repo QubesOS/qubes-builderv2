@@ -89,6 +89,7 @@ Variables are in [group_vars/all.yml](group_vars/all.yml). Common overrides:
 | `configure_split_gpg` | derived from `gpg_client` | Configure `~/.rpmmacros` for Split GPG; set automatically when `gpg_client` is `qubes-gpg-client-wrapper` |
 | `skip_resize_dvm_volume` | `false` | Skip resizing `builder-dvm` private volume |
 | `skip_resize_qube_volume` | `false` | Skip resizing builder AppVM private volume |
+| `builder_dvm_enable_archlinux` | `true` | Install Archlinux `devtools` from `archlinux_devtools_repo` (pinned to `archlinux_devtools_version`) on the builder DVM (under `/usr/local`, so it inherits into disposables), and symlink `archbuild` as `qubes-x86_64-build` |
 | `builder_qube_enable_docker` | `false` | Install docker on the builder qube template, enable docker.service gated on `qvm-service ... docker on`, and persist `/var/lib/docker` + `/var/lib/containerd` via bind-dirs on the builder qube |
 | `builder_qube_docker_packages` | `[moby-engine]` | Packages providing docker on the template |
 | `builder_qube_docker_group_in_template` | `true` | If `true`, add `user` to the `docker` group on the template (persistent via `/etc/group`); if `false`, re-apply via `/rw/config/rc.local` on each builder qube boot |

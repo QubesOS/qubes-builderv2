@@ -42,8 +42,6 @@
   changed_when: true
   tags: [builder_qube]
 
-# docker.service has a ConditionPathExists drop-in installed by the
-# builder-qube-template role, so it only starts when this feature is on.
 - name: Enable qubes-service "docker" on builder qubes
   ansible.builtin.command: qvm-service {{ item }} docker on
   loop: "{{ builder_qube_names_resolved }}"

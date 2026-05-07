@@ -64,3 +64,36 @@
     owner: root
     group: root
     mode: "0755"
+
+# Archlinux devtools: provides 'archbuild' used by the qube executor to build
+# Archlinux packages. Symlinked as qubes-x86_64-build per qubes-builder convention.
+# Installed under /usr/local so it inherits into disposables via /rw/usrlocal.
+- name: Clone archlinux devtools at pinned commit
+  ansible.builtin.git:
+    repo: "{{ archlinux_devtools_repo }}"
+    dest: "{{ archlinux_devtools_src }}"
+    version: "{{ archlinux_devtools_version }}"
+  register: archlinux_devtools_clone
+  when: builder_dvm_enable_archlinux | bool
+
+- name: Check whether archbuild is already installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/archbuild
+  register: archlinux_devtools_archbuild
+  when: builder_dvm_enable_archlinux | bool
+
+- name: Install archlinux devtools
+  ansible.builtin.command:
+    cmd: make install DESTDIR=/ PREFIX=/usr/local
+    chdir: "{{ archlinux_devtools_src }}"
+  when:
+    - builder_dvm_enable_archlinux | bool
+    - archlinux_devtools_clone is changed or not archlinux_devtools_archbuild.stat.exists
+  changed_when: true
+
+- name: Symlink archbuild as qubes-x86_64-build
+  ansible.builtin.file:
+    src: /usr/local/bin/archbuild
+    dest: /usr/local/bin/qubes-x86_64-build
+    state: link
+  when: builder_dvm_enable_archlinux | bool
