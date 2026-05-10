@@ -297,7 +297,11 @@ class RPMBuildPlugin(BuildPlugin):
                 # minimal root_cache so mock restores the post-install chroot state.
                 # source_rpm keeps using root_cache/ (minimal) since it only needs
                 # a bare environment to produce SRPMs.
-                mock_cache_dir = self.executor.get_cache_dir() / "mock" / mock_conf.replace(".cfg", "")
+                mock_cache_dir = (
+                    self.executor.get_cache_dir()
+                    / "mock"
+                    / mock_conf.replace(".cfg", "")
+                )
                 root_cache_install = chroot_cache / "root_cache_install"
                 if root_cache_install.exists():
                     cmd += [

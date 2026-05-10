@@ -200,9 +200,11 @@ class Config:
                     "stages",
                     "plugins",
                 ):
-                    if isinstance(combined_conf[key], dict) and isinstance(
-                        options[key], dict
-                    ) and options[key]:
+                    if (
+                        isinstance(combined_conf[key], dict)
+                        and isinstance(options[key], dict)
+                        and options[key]
+                    ):
                         combined_conf[key] = deep_merge(
                             combined_conf[key], options[key]
                         )
