@@ -1,0 +1,107 @@
+git:
+  baseurl: https://github.com
+  prefix: QubesOS/qubes-
+  branch: release4.3
+  maintainers:
+  - 0064428F455451B3EBE78A7F063938BA42CFA724
+  - 274E12AB03F2FE293765FC06DA0434BC706E1FCF
+
+backend-vmm: xen
+qubes-release: r4.3
+skip-git-fetch: true
+key-dirs:
+  - ../keys
+
+use-qubes-repo:
+  version: "4.3"
+  testing: true
+
+distributions:
+- vm-fc43
+- vm-trixie
+- vm-archlinux
+
+components:
+- gui-agent-linux
+
+executor:
+  type: docker
+  options:
+    image: qubes-builder-fedora:latest
+
+stages:
+- fetch
+- prep
+- build
+
+cache:
+  vm-fc43:
+    install-packages: true
+    packages:
+    - 'dbus-devel'
+    - 'gcc'
+    - 'libX11-devel'
+    - 'libXcomposite-devel'
+    - 'libXdamage-devel'
+    - 'libXfixes-devel'
+    - 'libXt-devel'
+    - 'libtool'
+    - 'libtool-ltdl-devel'
+    - 'libunistring-devel'
+    - 'mesa-libgbm-devel'
+    - 'pam-devel'
+    - 'pipewire-devel'
+    - 'pulseaudio-libs-devel <= 17.0'
+    - 'pulseaudio-libs-devel >= 0.9.21'
+    - 'selinux-policy'
+    - 'selinux-policy-devel'
+    - 'systemd-rpm-macros'
+    - 'xen-devel >= 4.2'
+    - 'xorg-x11-server-devel'
+    - 'pkgconfig'
+    - 'pkgconfig(systemd)'
+  vm-trixie:
+    install-packages: true
+    packages:
+    - 'automake'
+    - 'debhelper'
+    - 'libdbus-1-dev'
+    - 'libgbm-dev'
+    - 'libltdl-dev'
+    - 'libpam0g-dev'
+    - 'libpipewire-0.3-dev'
+    - 'libpulse-dev'
+    - 'libtool'
+    - 'libunistring-dev'
+    - 'libx11-dev'
+    - 'libxcomposite-dev'
+    - 'libxdamage-dev'
+    - 'libxen-dev'
+    - 'libxfixes-dev'
+    - 'libxt-dev'
+    - 'lsb-release'
+    - 'quilt'
+    - 'x11proto-dev'
+    - 'xserver-xorg-dev'
+    - 'xutils-dev'
+  vm-archlinux:
+    install-packages: true
+    packages:
+    - autoconf
+    - automake
+    - gcc
+    - git
+    - libtool
+    - libunistring
+    - libpulse
+    - libxcomposite
+    - libxdamage
+    - libxt
+    - lsb-release
+    - make
+    - patch
+    - pipewire
+    - pixman
+    - pkg-config
+    - xorg-server-devel
+    - xorg-util-macros
