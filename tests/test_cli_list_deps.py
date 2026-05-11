@@ -23,6 +23,7 @@ import pytest
 import yaml
 
 from qubesbuilder.cli.cli_list_deps import (
+    DEFAULT_EXCLUDES,
     SingleQuoted,
     _normalize_for_cache,
     is_safe_dep,
@@ -143,6 +144,31 @@ def test_normalize_preserves_file_provides():
 def test_normalize_skips_blank_and_comment_lines():
     out = _normalize_for_cache(["", "  ", "# comment", "gcc"])
     assert out == ["gcc"]
+
+
+def test_normalize_excludes_by_regex():
+    out = _normalize_for_cache(
+        ["gcc", "qubes-vmm-xen-devel", "qubes-gpg-split >= 2.0"],
+        excludes=["^qubes-"],
+    )
+    assert out == ["gcc"]
+
+
+def test_normalize_multiple_exclude_patterns():
+    out = _normalize_for_cache(
+        ["gcc", "qubes-foo", "xen-libs", "python3-bar"],
+        excludes=["^qubes-", "^xen-"],
+    )
+    assert out == ["gcc", "python3-bar"]
+
+
+def test_normalize_empty_excludes_is_noop():
+    out = _normalize_for_cache(["gcc", "qubes-foo"], excludes=[])
+    assert out == ["gcc", "qubes-foo"]
+
+
+def test_default_excludes_drops_qubes_prefix():
+    assert DEFAULT_EXCLUDES == ("^qubes-",)
 
 
 def test_single_quoted_emits_with_single_quotes():
@@ -338,6 +364,88 @@ def test_cli_update_is_idempotent(tmp_path):
     after_second = target.read_text()
 
     assert after_first == after_second
+
+
+def test_cli_show_default_excludes_qubes_prefix(tmp_path):
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir()
+    verrel = _provide_component(artifacts_dir, "core-vchan-xen")
+    _make_artifact(
+        artifacts_dir,
+        "core-vchan-xen",
+        verrel,
+        "host-fc41",
+        "rpm_spec_libvchan.spec",
+        ["gcc", "qubes-vmm-xen-devel", "qubes-gpg-split >= 2.0"],
+    )
+    conf = tmp_path / "builder.yml"
+    conf.write_text(
+        BUILDER_CONF.format(
+            artifacts_dir=artifacts_dir,
+            component="core-vchan-xen",
+            dist="host-fc41",
+        )
+    )
+
+    rc, out = _qb(conf, "list-deps", "show")
+    assert rc == 0, out
+    pkgs = yaml.safe_load(out)["cache"]["host-fc41"]["packages"]
+    assert pkgs == ["gcc"]
+
+
+def test_cli_show_exclude_flag_extends_default(tmp_path):
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir()
+    verrel = _provide_component(artifacts_dir, "core-vchan-xen")
+    _make_artifact(
+        artifacts_dir,
+        "core-vchan-xen",
+        verrel,
+        "host-fc41",
+        "rpm_spec_libvchan.spec",
+        ["gcc", "qubes-foo", "xen-libs"],
+    )
+    conf = tmp_path / "builder.yml"
+    conf.write_text(
+        BUILDER_CONF.format(
+            artifacts_dir=artifacts_dir,
+            component="core-vchan-xen",
+            dist="host-fc41",
+        )
+    )
+
+    rc, out = _qb(conf, "list-deps", "show", "--exclude", "^xen-")
+    assert rc == 0, out
+    pkgs = yaml.safe_load(out)["cache"]["host-fc41"]["packages"]
+    assert pkgs == ["gcc"]
+
+
+def test_cli_show_builder_conf_exclude_overrides_default(tmp_path):
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir()
+    verrel = _provide_component(artifacts_dir, "core-vchan-xen")
+    _make_artifact(
+        artifacts_dir,
+        "core-vchan-xen",
+        verrel,
+        "host-fc41",
+        "rpm_spec_libvchan.spec",
+        ["gcc", "qubes-foo"],
+    )
+    conf = tmp_path / "builder.yml"
+    conf.write_text(
+        BUILDER_CONF.format(
+            artifacts_dir=artifacts_dir,
+            component="core-vchan-xen",
+            dist="host-fc41",
+        )
+        + "list-deps:\n  exclude: []\n"
+    )
+
+    rc, out = _qb(conf, "list-deps", "show")
+    assert rc == 0, out
+    pkgs = yaml.safe_load(out)["cache"]["host-fc41"]["packages"]
+    assert pkgs == ["gcc", "qubes-foo"]
 
 
 def test_cli_update_errors_on_missing_target(tmp_path):

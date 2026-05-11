@@ -20,7 +20,7 @@
 import re
 import shutil
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, Iterable, List, Optional, Pattern, Sequence, Set, Tuple
 
 import click
 import yaml
@@ -28,6 +28,9 @@ import yaml
 from qubesbuilder.cli.cli_base import aliased_group, ContextObj
 from qubesbuilder.cli.cli_package import _component_stage
 from qubesbuilder.log import QubesBuilderLogger
+
+
+DEFAULT_EXCLUDES: Tuple[str, ...] = ("^qubes-",)
 
 
 class SingleQuoted(str):
@@ -69,8 +72,18 @@ def is_safe_dep(line: str) -> bool:
     return False
 
 
-def _normalize_for_cache(deps: List[str]) -> List[str]:
+def _compile_excludes(
+    patterns: Optional[Iterable[str]],
+) -> List[Pattern[str]]:
+    return [re.compile(p) for p in (patterns or ())]
+
+
+def _normalize_for_cache(
+    deps: List[str],
+    excludes: Optional[Sequence[str]] = None,
+) -> List[str]:
     op_re = re.compile(r"\s*(<=|>=|<|>|=)\s*")
+    compiled = _compile_excludes(excludes)
     by_head: Dict[str, Set[str]] = {}
     for raw in deps:
         line = raw.strip()
@@ -86,6 +99,8 @@ def _normalize_for_cache(deps: List[str]) -> List[str]:
         head = op_re.split(line, maxsplit=1)[0].strip()
         if not head:
             continue
+        if any(p.search(head) for p in compiled):
+            continue
         by_head.setdefault(head, set()).add(line)
 
     out: Set[str] = set()
@@ -96,6 +111,18 @@ def _normalize_for_cache(deps: List[str]) -> List[str]:
         else:
             out.add(head)
     return sorted(out)
+
+
+def _resolve_excludes(
+    obj: ContextObj, cli_excludes: Sequence[str]
+) -> List[str]:
+    conf = obj.config.get("list-deps", {}) or {}
+    if "exclude" in conf:
+        base = list(conf.get("exclude") or [])
+    else:
+        base = list(DEFAULT_EXCLUDES)
+    base.extend(cli_excludes)
+    return base
 
 
 def _run_stage(obj: ContextObj):
@@ -109,7 +136,9 @@ def _run_stage(obj: ContextObj):
     )
 
 
-def _collect_cache_section(obj: ContextObj) -> dict:
+def _collect_cache_section(
+    obj: ContextObj, excludes: Optional[Sequence[str]] = None
+) -> dict:
     by_dist: Dict[str, Set[str]] = {}
     for component in obj.components:
         for dist in obj.distributions:
@@ -130,7 +159,7 @@ def _collect_cache_section(obj: ContextObj) -> dict:
                 by_dist.setdefault(dist.distribution, set()).update(deps)
     return {
         "cache": {
-            dist: {"packages": _normalize_for_cache(list(pkgs))}
+            dist: {"packages": _normalize_for_cache(list(pkgs), excludes)}
             for dist, pkgs in sorted(by_dist.items())
         }
     }
@@ -141,27 +170,48 @@ def list_deps():
     """List build dependencies."""
 
 
+_exclude_option = click.option(
+    "--exclude",
+    "exclude",
+    multiple=True,
+    metavar="REGEX",
+    help=(
+        "Regex matched against package names; matching packages are dropped. "
+        "Repeatable. Appends to list-deps.exclude from builder.yml "
+        f"(default {list(DEFAULT_EXCLUDES)})."
+    ),
+)
+
+
 @list_deps.command()
+@_exclude_option
 @click.pass_obj
-def run(obj: ContextObj):
+def run(obj: ContextObj, exclude: Tuple[str, ...]):
     """
     Run the list-deps stage and emit cache YAML to stdout.
     """
     _run_stage(obj)
+    excludes = _resolve_excludes(obj, exclude)
     click.echo(
-        yaml.safe_dump(_collect_cache_section(obj), default_flow_style=False),
+        yaml.safe_dump(
+            _collect_cache_section(obj, excludes), default_flow_style=False
+        ),
         nl=False,
     )
 
 
 @list_deps.command()
+@_exclude_option
 @click.pass_obj
-def show(obj: ContextObj):
+def show(obj: ContextObj, exclude: Tuple[str, ...]):
     """
     Emit cache YAML to stdout from existing artifacts (no stage run).
     """
+    excludes = _resolve_excludes(obj, exclude)
     click.echo(
-        yaml.safe_dump(_collect_cache_section(obj), default_flow_style=False),
+        yaml.safe_dump(
+            _collect_cache_section(obj, excludes), default_flow_style=False
+        ),
         nl=False,
     )
 
@@ -171,14 +221,16 @@ def show(obj: ContextObj):
     "path",
     type=click.Path(dir_okay=False, exists=True, path_type=Path),
 )
+@_exclude_option
 @click.pass_obj
-def update(obj: ContextObj, path: Path):
+def update(obj: ContextObj, path: Path, exclude: Tuple[str, ...]):
     """
     Merge cache.<dist>.packages into the given builder.yml (in-place).
 
     Writes a .bak backup first. Comments and formatting are lost on rewrite.
     """
-    cache_section = _collect_cache_section(obj)
+    excludes = _resolve_excludes(obj, exclude)
+    cache_section = _collect_cache_section(obj, excludes)
     backup = path.with_suffix(path.suffix + ".bak")
     shutil.copy2(path, backup)
     QubesBuilderLogger.warning(
