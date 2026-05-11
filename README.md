@@ -627,6 +627,38 @@ $ ./qb -o skip-git-fetch=true list-deps run
 If the source hash has not changed since the last run, the stage is skipped
 automatically and the cached result is used.
 
+**Exclude packages by name pattern:**
+
+By default, `qubes-*` packages are dropped from the output because they are
+built by the pipeline itself and cannot be pre-installed from upstream repos.
+Override the default in `builder.yml`:
+
+```yaml
+list-deps:
+  exclude:
+    - '^qubes-'
+    - '^xen-'
+```
+
+Set `exclude: []` to disable filtering. Patterns are Python regexes matched
+against the package name (without the version constraint). The CLI exposes a
+repeatable `--exclude` flag that appends to whatever is configured:
+
+```bash
+$ ./qb list-deps show --exclude '^xen-' --exclude '^perl-'
+```
+
+**Per-distribution caveats:**
+
+- **DEB**: `debian-parser` strips version constraints from `Build-Depends`,
+  so the cache always contains bare names (e.g. `python3-foo`, never
+  `python3-foo >= 1.2`). RPM and Arch keep `NAME OP VERSION` forms.
+- **RPM virtual provides**: dependencies like `pkgconfig(systemd)` or
+  `perl(File::Find)` are dropped by the safety filter (parentheses are
+  blocked to prevent shell injection). Anything satisfied only by
+  a virtual provide will not be pre-installed via
+  `cache.<dist>.packages`.
+
 ### Template
 
 Similarly, you can start building the templates defined in this development
