@@ -61,7 +61,7 @@ class ArchLinuxListDepsPlugin(ArchlinuxDistributionPlugin, ListDepsPlugin):
             f"-e 's|@BACKEND_VMM@|xen|g' {pkgbuild_in} > {pkgbuild}; "
             f"fi",
             f"bash -c 'source {pkgbuild} && "
-            f'printf "%s\\n" "${{makedepends[@]}}" "${{depends[@]}}"\' '
+            f'printf "%s\\n" "${{makedepends[@]}}" "${{checkdepends[@]}}"\' '
             f"| sed '/^$/d' | sort -u > {out_path}",
         ]
 
