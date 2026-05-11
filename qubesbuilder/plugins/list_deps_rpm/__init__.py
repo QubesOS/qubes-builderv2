@@ -56,7 +56,7 @@ class RPMListDepsPlugin(ListDepsPlugin):
         plugins_dir = self.executor.get_plugins_dir()
         return [
             f"{plugins_dir}/source_rpm/scripts/generate-spec "
-            f"{source_dir} {source_dir / build}.in {source_dir / build} || true",
+            f"{source_dir} {source_dir / build}.in {source_dir / build}",
             f"{plugins_dir}/list_deps_rpm/scripts/get-build-deps "
             f"{source_dir / build} {dist_tag} > {out_path}",
         ]
