@@ -593,6 +593,38 @@ def test_component_host_fc37_prep(artifacts_dir):
     assert info.get("srpm", None) == example_data_srpm()
 
 
+def test_component_host_fc37_list_deps(artifacts_dir):
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "host-fc37",
+        "package",
+        "fetch",
+    )
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "host-fc37",
+        "list-deps",
+        "run",
+    )
+
+    stage_dir = example_component_dir(artifacts_dir, "host-fc37", "list-deps")
+    artifacts = sorted(stage_dir.glob("*.list-deps.yml"))
+    assert artifacts, f"no list-deps artifacts under {stage_dir}"
+    for path in artifacts:
+        with open(path) as f:
+            info = yaml.safe_load(f)
+        assert info.get("build-deps"), f"empty build-deps in {path}"
+        assert HASH_RE.match(info.get("source-hash", ""))
+
+
 def test_component_host_fc37_build(artifacts_dir):
     # Clean stale build artifacts and local repository so the build is not
     # skipped and the repository/ dir is repopulated with the correct release.
@@ -1136,6 +1168,38 @@ def test_component_vm_bookworm_prep(artifacts_dir):
         info.get("package-release-name-full", None)
         == EXAMPLE_PKG_RELEASE_NAME_FULL
     )
+
+
+def test_component_vm_bookworm_list_deps(artifacts_dir):
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "vm-bookworm",
+        "package",
+        "fetch",
+    )
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "vm-bookworm",
+        "list-deps",
+        "run",
+    )
+
+    stage_dir = example_component_dir(artifacts_dir, "vm-bookworm", "list-deps")
+    artifacts = sorted(stage_dir.glob("*.list-deps.yml"))
+    assert artifacts, f"no list-deps artifacts under {stage_dir}"
+    for path in artifacts:
+        with open(path) as f:
+            info = yaml.safe_load(f)
+        assert info.get("build-deps"), f"empty build-deps in {path}"
+        assert HASH_RE.match(info.get("source-hash", ""))
 
 
 def test_component_vm_bookworm_build(artifacts_dir):
@@ -1810,6 +1874,40 @@ def test_component_vm_archlinux_prep(artifacts_dir):
     assert EXAMPLE_ARCH_PKG in info.get("packages", [])
     assert info.get("source-archive", None) == EXAMPLE_ARCH_ARCHIVE
     assert HASH_RE.match(info.get("source-hash", None))
+
+
+def test_component_vm_archlinux_list_deps(artifacts_dir):
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "vm-archlinux",
+        "package",
+        "fetch",
+    )
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "vm-archlinux",
+        "list-deps",
+        "run",
+    )
+
+    stage_dir = example_component_dir(
+        artifacts_dir, "vm-archlinux", "list-deps"
+    )
+    artifacts = sorted(stage_dir.glob("*.list-deps.yml"))
+    assert artifacts, f"no list-deps artifacts under {stage_dir}"
+    for path in artifacts:
+        with open(path) as f:
+            info = yaml.safe_load(f)
+        assert info.get("build-deps"), f"empty build-deps in {path}"
+        assert HASH_RE.match(info.get("source-hash", ""))
 
 
 def test_component_vm_archlinux_build(artifacts_dir):
