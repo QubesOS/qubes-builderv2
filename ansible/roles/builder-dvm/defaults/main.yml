@@ -10,3 +10,13 @@ bind_dirs_root: /rw/bind-dirs
 
 # rc.local path for persistent startup configuration.
 rc_local_path: /rw/config/rc.local
+
+# Install Archlinux devtools (provides archbuild) so the qube executor can
+# build Archlinux packages. Mirrors the qubes-builder fedora docker image.
+builder_dvm_enable_archlinux: true
+
+# Repo and pinned commit for archlinux devtools. The pin matches the version
+# baked into the qubes-builder fedora docker image.
+archlinux_devtools_repo: https://gitlab.archlinux.org/fepitre/devtools
+archlinux_devtools_version: f91a1ac64d96a7cb38dc581eb4bd2ba0118d234c
+archlinux_devtools_src: /usr/local/src/devtools

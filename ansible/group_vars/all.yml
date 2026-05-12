@@ -81,6 +81,20 @@ builder_host_packages_qubes:
 # Path where Qubes RPC policy files are stored.
 qubes_policy_dir: /etc/qubes/policy.d
 
+# Enable docker executor support: installs docker on the builder qube template
+# and persists /var/lib/docker + /var/lib/containerd via bind-dirs on the
+# deployed builder qube.
+builder_qube_enable_docker: false
+
+# Packages providing docker on the builder qube template.
+builder_qube_docker_packages:
+  - moby-engine
+
+# Where to add 'user' to the docker group:
+#   true  -> usermod on the template (persists via /etc/group on template root)
+#   false -> usermod in /rw/config/rc.local on the deployed builder qube (needed since /etc/group is reset from the template on every AppVM boot)
+builder_qube_docker_group_in_template: true
+
 # Set to true to enable Windows policy, windows template validation,
 # and signing-vault setup.
 enable_windows: false

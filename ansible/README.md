@@ -89,6 +89,10 @@ Variables are in [group_vars/all.yml](group_vars/all.yml). Common overrides:
 | `configure_split_gpg` | derived from `gpg_client` | Configure `~/.rpmmacros` for Split GPG; set automatically when `gpg_client` is `qubes-gpg-client-wrapper` |
 | `skip_resize_dvm_volume` | `false` | Skip resizing `builder-dvm` private volume |
 | `skip_resize_qube_volume` | `false` | Skip resizing builder AppVM private volume |
+| `builder_dvm_enable_archlinux` | `true` | Install Archlinux `devtools` from `archlinux_devtools_repo` (pinned to `archlinux_devtools_version`) on the builder DVM (under `/usr/local`, so it inherits into disposables), and symlink `archbuild` as `qubes-x86_64-build` |
+| `builder_qube_enable_docker` | `false` | Install docker on the builder qube template, enable docker.service gated on `qvm-service ... docker on`, and persist `/var/lib/docker` + `/var/lib/containerd` via bind-dirs on the builder qube |
+| `builder_qube_docker_packages` | `[moby-engine]` | Packages providing docker on the template |
+| `builder_qube_docker_group_in_template` | `true` | If `true`, add `user` to the `docker` group on the template (persistent via `/etc/group`); if `false`, re-apply via `/rw/config/rc.local` on each builder qube boot |
 | `enable_windows` | `false` | Enable Windows executor policy/validation and vault setup |
 | `vault_windows_name` | `vault-sign` | Windows signing vault qube |
 | `vault_windows_template` | `fedora-42-minimal` | Template for the vault qube |
@@ -105,6 +109,21 @@ Pass overrides with `-e key=value` or `-e @vars.yml`.
 
 When `enable_windows=true`, this playbook validates `windows_builder_dvm_name` and enforces `template_for_dispvms=true` so it can be used by the `windows` executor.
 By default, Ansible auto-creates `win-builder-dvm` from `windows-10` before applying disposable-template settings.
+
+## Docker executor
+
+Set `builder_qube_enable_docker=true` to enable the docker executor on the builder qube. The playbook then:
+
+- installs `builder_qube_docker_packages` (default `moby-engine`) on `builder_qube_template`;
+- drops `/etc/systemd/system/docker.service.d/10-qubes-service.conf` with `ConditionPathExists=/var/run/qubes-service/docker` and `systemctl enable docker.service` so the daemon only starts in qubes that have the qubes-service flag set;
+- runs `qvm-service <vm> docker on` for each builder qube in dom0;
+- on each builder qube, configures bind-dirs to persist `/var/lib/docker` and `/var/lib/containerd` (both are required because modern docker uses the containerd image store);
+- patches `/rw/config/rc.local` to remount `/var/lib/docker` with `dev,suid` (overlay storage uses loop devices).
+
+Group membership for `user` follows `builder_qube_docker_group_in_template`:
+
+- `true` (default): `usermod -aG docker user` on the template; persists via `/etc/group` on the template root.
+- `false`: a `usermod` line is added to `/rw/config/rc.local` on the builder qube, since `/etc/group` is reset from the template on every AppVM boot.
 
 ## Playbook
 

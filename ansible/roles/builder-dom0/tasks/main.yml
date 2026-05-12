@@ -42,6 +42,15 @@
   changed_when: true
   tags: [builder_qube]
 
+- name: Enable qubes-service "docker" on builder qubes
+  ansible.builtin.command: qvm-service {{ item }} docker on
+  loop: "{{ builder_qube_names_resolved }}"
+  loop_control:
+    label: "{{ item }}"
+  when: builder_qube_enable_docker | bool
+  changed_when: true
+  tags: [builder_qube]
+
 - name: Create Windows disposable template qube (optional)
   qubesos:
     guest: "{{ windows_builder_dvm_name }}"
