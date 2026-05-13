@@ -265,6 +265,20 @@ def test_copy_out_error_ignored(executor):
 # executor specific tests
 
 
+def test_container_unknown_client_type():
+    with pytest.raises(ExecutorError) as e:
+        ContainerExecutor("toto", "fedora:latest")
+    assert "Unknown container client 'toto'" in str(e.value)
+
+
+def test_container_executor_get_user_get_group():
+    executor = ContainerExecutor(
+        "docker", "fedora:latest", user="titi", group="toto"
+    )
+    assert executor.get_user() == "titi"
+    assert executor.get_group() == "toto"
+
+
 def test_container_not_running():
     executor = ContainerExecutor(
         "docker", "fedora:latest", base_url="tcp://127.0.0.1:1234"
