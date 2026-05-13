@@ -310,19 +310,30 @@ class DEBPublishPlugin(DEBRepoPlugin, PublishPlugin):
             if source_only:
                 filter_parts.append("$Architecture (==source)")
             filter_expr = ", ".join(filter_parts)
-            cmd = [
-                f"reprepro {reprepro_options} removefilter {debian_suite} '{filter_expr}'"
-            ]
-            if source_only:
-                # Tracking DB holds independent refs; removefilter alone
-                # leaves orig.tar.gz pinned in the shared pool.
-                cmd.append(
-                    f"reprepro {reprepro_options} removetrack {debian_suite} {source_name} {source_version}"
-                )
-            executor.run(cmd)
+            executor.run(
+                [
+                    f"reprepro {reprepro_options} removefilter {debian_suite} '{filter_expr}'"
+                ]
+            )
         except ExecutorError as e:
             msg = f"{self.component}:{dist}:{directory}: Failed to unpublish packages."
             raise PublishError(msg) from e
+        if source_only:
+            # Tracking DB holds independent refs; removefilter alone leaves
+            # orig.tar.gz pinned in the shared pool. Tolerate a missing
+            # tracking entry: the source-unpublish may have happened in an
+            # earlier pass or via manual reprepro intervention.
+            try:
+                executor.run(
+                    [
+                        f"reprepro {reprepro_options} removetrack {debian_suite} {source_name} {source_version}"
+                    ]
+                )
+            except ExecutorError as e:
+                self.log.warning(
+                    f"{self.component}:{dist}:{directory}: "
+                    f"removetrack ignored ({e})"
+                )
 
         release_file = target_dir / "dists" / debian_suite / "Release"
         if release_file.exists():
