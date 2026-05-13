@@ -625,6 +625,34 @@ def test_component_host_fc37_list_deps(artifacts_dir):
         assert HASH_RE.match(info.get("source-hash", ""))
 
 
+def test_component_host_fc37_list_deps_skip(artifacts_dir):
+    out = qb_call_output(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "host-fc37",
+        "list-deps",
+        "run",
+    ).decode()
+    assert "Source hash unchanged" in out
+
+
+def test_component_host_fc37_list_deps_no_packages(artifacts_dir):
+    rc = qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "builder-rpm",
+        "-d",
+        "host-fc37",
+        "list-deps",
+        "run",
+    )
+    assert rc == 0
+
+
 def test_component_host_fc37_build(artifacts_dir):
     # Clean stale build artifacts and local repository so the build is not
     # skipped and the repository/ dir is repopulated with the correct release.
