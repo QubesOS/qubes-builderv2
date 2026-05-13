@@ -102,6 +102,7 @@ def test_is_safe_dep_accepts_legitimate_tokens(line):
         "paquet-\xe9clair",
         "a" * 101,
         "",
+        "foo/../bar >= 1.0",
     ],
 )
 def test_is_safe_dep_rejects_dangerous_tokens(line):
@@ -446,6 +447,36 @@ def test_cli_show_builder_conf_exclude_overrides_default(tmp_path):
     assert rc == 0, out
     pkgs = yaml.safe_load(out)["cache"]["host-fc41"]["packages"]
     assert pkgs == ["gcc", "qubes-foo"]
+
+
+def test_cli_update_skips_non_dict_cache_entry(tmp_path):
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir()
+    verrel = _provide_component(artifacts_dir, "core-vchan-xen")
+    _make_artifact(
+        artifacts_dir,
+        "core-vchan-xen",
+        verrel,
+        "host-fc41",
+        "rpm_spec_libvchan.spec",
+        ["gcc"],
+    )
+    conf = tmp_path / "builder.yml"
+    conf.write_text(
+        BUILDER_CONF.format(
+            artifacts_dir=artifacts_dir,
+            component="core-vchan-xen",
+            dist="host-fc41",
+        )
+    )
+    target = tmp_path / "target.yml"
+    target.write_text("cache:\n  vm-bookworm: ~\n")
+
+    rc, _ = _qb(conf, "list-deps", "update", str(target))
+    assert rc == 0
+    raw = target.read_text()
+    # vm-bookworm has None and must produces null (PyYAML)
+    assert "vm-bookworm: null" in raw
 
 
 def test_cli_update_errors_on_missing_target(tmp_path):
