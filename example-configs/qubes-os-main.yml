@@ -176,6 +176,7 @@ components:
   - linux-scrypt
   - qubes-release
   - dist-upgrade
+  - pykickstart
   - blivet
   - lorax-templates
   - anaconda
