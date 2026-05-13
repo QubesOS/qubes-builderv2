@@ -3,16 +3,22 @@ https://yum.qubes-os.org/
 https://ftp.acc.umu.se/mirror/qubes-os.org/repo/yum
 https://ftp.halifax.rwth-aachen.de/qubes/repo/yum
 https://mirrors.dotsrc.org/qubes/repo/yum
-https://mirror.hackingand.coffee/qubes/repo/yum
 https://mirrors.ukfast.co.uk/sites/qubes-os.org/repo/yum
 https://mirrors.gigenet.com/qubes/repo/yum
-https://mirror.linux.pizza/qubes-os.org/repo/yum
-https://quantum-mirror.hu/mirrors/pub/qubes/repo/yum
 https://ftp.cc.uoc.gr/mirrors/linux/qubes/repo/yum
 https://ftp.icm.edu.pl/pub/os/qubes/repo/yum
-https://mirrors.dgplug.org/qubes/repo/yum
-https://mirrors.phx.ms/qubes/repo/yum
-https://qubesos-mirror.applied-privacy.net/repo/yum
+https://mirror.accum.se/mirror/qubes-os.org/repo/yum
+https://ftp.rnl.tecnico.ulisboa.pt/pub/qubesos/repo/yum
+https://polish-mirror.evolution-host.com/qubes/repo/yum
+https://mirror.vulnseeker.org/pub/qubes/repo/yum
+https://mirror.hosthink.net/qubes/repo/yum
+https://is.mirror.flokinet.net/qubes/repo/yum
+https://mirror.ipb.de/qubes/repo/yum
+https://mirror.diyarciftci.xyz/qubes/repo/yum
+https://mirror.library.ucy.ac.cy/linux/qubes/repo/yum
+https://mirrors.tuna.tsinghua.edu.cn/qubesos/repo/yum
+https://mirrors.nju.edu.cn/qubes/repo/yum
+https://qubes-mirror.igniterefereeing.com.au/repo/yum
 
 # disabling .onion by default
 #http://ftp.qubesos4rrrrz6n4.onion/repo/yum
