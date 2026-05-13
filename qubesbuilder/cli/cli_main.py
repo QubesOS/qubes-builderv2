@@ -173,6 +173,7 @@ def init_context_obj(builder_conf: str, option: List = None):
 )
 @click.option(
     "--builder-conf",
+    "-b",
     default="builder.yml",
     help="Path to configuration file (default: builder.yml).",
 )
