@@ -3,7 +3,7 @@
 admin.vm.CreateDisposable * {{ source }} dom0                allow target=dom0
 admin.vm.CreateDisposable * {{ source }} {{ builder_dvm_name }} allow target=dom0
 {% if enable_windows | default(false) | bool %}
-admin.vm.CreateDisposable * {{ source }} {{ windows_builder_name }} allow target=dom0
+admin.vm.CreateDisposable * {{ source }} {{ windows_builder_dvm_name }} allow target=dom0
 {% endif %}
 
 admin.vm.CurrentState * {{ source }} @tag:disp-created-by-{{ source }} allow target=dom0

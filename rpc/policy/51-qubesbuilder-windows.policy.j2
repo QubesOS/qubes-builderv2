@@ -8,14 +8,14 @@ qubesbuilder.WinFileCopyOut      *  {{ source }}  @tag:disp-created-by-{{ source
 
 admin.vm.device.block.Available  *  {{ source }}  {{ source }}  allow  target=dom0
 
-admin.vm.CreateDisposable        *  {{ source }}  {{ windows_builder_name }}  allow  target=dom0
-admin.vm.CurrentState            *  {{ source }}  {{ windows_builder_name }}  allow  target=dom0
-admin.vm.List                    *  {{ source }}  {{ windows_builder_name }}  allow  target=dom0
-admin.vm.Start                   *  {{ source }}  {{ windows_builder_name }}  allow  target=dom0
-admin.vm.device.block.Attached   *  {{ source }}  {{ windows_builder_name }}  allow  target=dom0
-admin.vm.device.block.Assigned   *  {{ source }}  {{ windows_builder_name }}  allow  target=dom0
-admin.vm.device.block.Attach     *  {{ source }}  {{ windows_builder_name }}  allow  target=dom0
-admin.vm.device.block.Assign     *  {{ source }}  {{ windows_builder_name }}  allow  target=dom0
+admin.vm.CreateDisposable        *  {{ source }}  {{ windows_builder_dvm_name }}  allow  target=dom0
+admin.vm.CurrentState            *  {{ source }}  {{ windows_builder_dvm_name }}  allow  target=dom0
+admin.vm.List                    *  {{ source }}  {{ windows_builder_dvm_name }}  allow  target=dom0
+admin.vm.Start                   *  {{ source }}  {{ windows_builder_dvm_name }}  allow  target=dom0
+admin.vm.device.block.Attached   *  {{ source }}  {{ windows_builder_dvm_name }}  allow  target=dom0
+admin.vm.device.block.Assigned   *  {{ source }}  {{ windows_builder_dvm_name }}  allow  target=dom0
+admin.vm.device.block.Attach     *  {{ source }}  {{ windows_builder_dvm_name }}  allow  target=dom0
+admin.vm.device.block.Assign     *  {{ source }}  {{ windows_builder_dvm_name }}  allow  target=dom0
 
 qubesbuilder.WinSign.QueryKey   +Qubes__Windows__Tools  {{ source }}  {{ vault_windows_name }}  allow
 qubesbuilder.WinSign.CreateKey  +Qubes__Windows__Tools  {{ source }}  {{ vault_windows_name }}  allow
