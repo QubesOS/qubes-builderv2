@@ -1996,6 +1996,224 @@ def test_publish_deb_no_source_conflict_cross_dist(artifacts_dir_single):
         )
 
 
+TEST_POOL = PROJECT_PATH / "tests/fixtures/devel-vm/pool/main/q/qubes-utils"
+
+
+def test_publish_deb_stale_tracking_upstream():
+    """
+    reproduce DB_NOTFOUND files from deb.qubes-os.org/devel.
+
+    qubes-utils devel8 was published to bookworm-testing but
+    its tracking.db entry was later removed. When devel9 tries
+    to publish, the cleanup calls removetrack on the already-gone entry.
+    """
+    SRC = "qubes-utils"
+    VER8 = "4.3.16+deb12u1+devel8"
+    VER9 = "4.3.16+deb12u1+devel9"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = pathlib.Path(tmpdir)
+
+        subprocess.run(
+            [
+                str(
+                    PROJECT_PATH
+                    / "qubesbuilder/plugins/publish_deb/scripts/create-skeleton"
+                ),
+                "devel",
+                "debian",
+                str(base),
+            ],
+            check=True,
+        )
+        repo = base / "devel/vm"
+
+        def reprepro(*args, **kw):
+            return subprocess.run(
+                ["reprepro", "-b", str(repo)] + list(args), **kw
+            )
+
+        reprepro(
+            "--ignore=wrongdistribution",
+            "--ignore=surprisingbinary",
+            "--ignore=surprisingarch",
+            "includedsc",
+            "bookworm-testing",
+            str(TEST_POOL / f"{SRC}_{VER8}.dsc"),
+            check=True,
+        )
+
+        out = reprepro(
+            "listfilter",
+            "bookworm-testing",
+            f"$Source (=={SRC}), $Architecture (==source)",
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert VER8 in out.stdout
+
+        # tracking entry gone, source still indexed.
+        reprepro("removetrack", "bookworm-testing", SRC, VER8, check=True)
+
+        OPTS = [
+            "--ignore=surprisingbinary",
+            "--ignore=surprisingarch",
+            "--delete",
+        ]
+
+        # removefilter succeeds and frees the pool file (--delete)
+        reprepro(
+            *OPTS,
+            "removefilter",
+            "bookworm-testing",
+            f"$Source (=={SRC}), $Version (=={VER8}), $Architecture (==source)",
+            check=True,
+        )
+
+        # removetrack gets DB_NOTFOUND (entry already gone)
+        rt = reprepro(*OPTS, "removetrack", "bookworm-testing", SRC, VER8)
+        assert rt.returncode != 0, "removetrack must fail when entry is absent"
+
+        # pool file is now free devel9 can be included
+        reprepro(
+            "--ignore=wrongdistribution",
+            "--ignore=surprisingbinary",
+            "--ignore=surprisingarch",
+            "includedsc",
+            "bookworm-testing",
+            str(TEST_POOL / f"{SRC}_{VER9}.dsc"),
+            check=True,
+        )
+
+        out = reprepro(
+            "listfilter",
+            "bookworm-testing",
+            f"$Source (=={SRC}), $Architecture (==source)",
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert VER9 in out.stdout
+        assert VER8 not in out.stdout
+
+
+def test_publish_deb_stale_tracking_entry(artifacts_dir_single):
+    """
+    tracking.db entry gone but publish.yml still claims published
+    """
+    env = os.environ.copy()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        gnupghome = f"{tmpdir}/gnupg"
+        shutil.copytree(PROJECT_PATH / "tests/gnupg", gnupghome)
+        os.chmod(gnupghome, 0o700)
+        env["GNUPGHOME"] = gnupghome
+        env["HOME"] = tmpdir
+
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir_single,
+            "--option",
+            "increment-devel-versions=true",
+            "-c",
+            "example-advanced",
+            "-d",
+            "vm-bookworm",
+            "package",
+            "fetch",
+            "prep",
+            "build",
+            "sign",
+            env=env,
+        )
+
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir_single,
+            "--option",
+            "increment-devel-versions=true",
+            "-c",
+            "example-advanced",
+            "-d",
+            "vm-bookworm",
+            "repository",
+            "publish",
+            "current-testing",
+            env=env,
+        )
+
+        repository_dir = artifacts_dir_single / "repository-publish/deb/r4.2/vm"
+        packages = deb_packages_list(repository_dir, "bookworm-testing")
+        src_entry = next(
+            p
+            for p in packages
+            if "|main|source: qubes-example-advanced" in p and "devel1" in p
+        )
+        version = src_entry.rsplit(" ", 1)[-1]
+
+        # remove the tracking entry without touching publish.yml or the Sources index.
+        subprocess.run(
+            [
+                "reprepro",
+                "-b",
+                str(repository_dir),
+                "removetrack",
+                "bookworm-testing",
+                "qubes-example-advanced",
+                version,
+            ],
+            check=True,
+            capture_output=True,
+            env=env,
+        )
+
+        (artifacts_dir_single / "sources/example-advanced/hello").write_text(
+            "world", encoding="utf8"
+        )
+
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir_single,
+            "--option",
+            "increment-devel-versions=true",
+            "-c",
+            "example-advanced",
+            "-d",
+            "vm-bookworm",
+            "package",
+            "fetch",
+            "prep",
+            "build",
+            "sign",
+            env=env,
+        )
+
+        # removetrack DB_NOTFOUND is caught and warned, not raised.
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir_single,
+            "--option",
+            "increment-devel-versions=true",
+            "-c",
+            "example-advanced",
+            "-d",
+            "vm-bookworm",
+            "repository",
+            "publish",
+            "current-testing",
+            env=env,
+        )
+
+        packages = deb_packages_list(repository_dir, "bookworm-testing")
+        assert any(
+            "qubes-example-advanced" in p and "devel2" in p for p in packages
+        )
+        assert not any(
+            "|main|source: qubes-example-advanced" in p and "devel1" in p
+            for p in packages
+        )
+
+
 #
 # Pipeline for example-advanced and vm-archlinux
 #
