@@ -1752,16 +1752,247 @@ def test_publish_deb_no_source_conflict(artifacts_dir_single):
             "|main|source: qubes-example-advanced" in p for p in packages
         )
 
-        # The stale devel=1 publication must have been cleaned from current-testing
-        # (its orig.tar.gz removed from the pool) before devel=2 could be published.
+        # The stale devel=1 source must have been cleaned from current-testing
+        # (orig.tar.gz freed from the shared pool) before devel=2 could be
+        # published to unstable, but the devel=1 binaries that were explicitly
+        # published to current-testing remain.
         packages_testing = deb_packages_list(repository_dir, "trixie-testing")
-        assert not any(
-            "qubes-example-advanced" in p and "devel1" in p
+        assert any(
+            "|main|amd64:" in p
+            and "qubes-example-advanced" in p
+            and "devel1" in p
             for p in packages_testing
         )
         assert not any(
             "|main|source: qubes-example-advanced" in p and "devel1" in p
             for p in packages_testing
+        )
+
+
+def test_publish_deb_no_source_conflict_cross_dist(artifacts_dir_single):
+    # QubesOS/qubes-issues#10555: a stale devel source in another suite of
+    # the shared reprepro pool must not block re-publishing the same
+    # source from a different one, and the peer's binary .debs must stay
+    # in place.
+    env = os.environ.copy()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        gnupghome = f"{tmpdir}/gnupg"
+        shutil.copytree(PROJECT_PATH / "tests/gnupg", gnupghome)
+        os.chmod(gnupghome, 0o700)
+        env["GNUPGHOME"] = gnupghome
+        env["HOME"] = tmpdir
+
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir_single,
+            "--option",
+            "increment-devel-versions=true",
+            "-c",
+            "example-advanced",
+            "-d",
+            "vm-bookworm",
+            "-d",
+            "vm-trixie",
+            "package",
+            "fetch",
+            "prep",
+            "build",
+            "sign",
+            env=env,
+        )
+
+        assert (
+            artifacts_dir_single / "components/example-advanced/noversion/devel"
+        ).read_text(encoding="utf-8") == "1"
+
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir_single,
+            "--option",
+            "increment-devel-versions=true",
+            "-c",
+            "example-advanced",
+            "-d",
+            "vm-bookworm",
+            "-d",
+            "vm-trixie",
+            "repository",
+            "publish",
+            "current-testing",
+            env=env,
+        )
+
+        repository_dir = artifacts_dir_single / "repository-publish/deb/r4.2/vm"
+        for suite in ("bookworm-testing", "trixie-testing"):
+            packages = deb_packages_list(repository_dir, suite)
+            assert any(
+                "qubes-example-advanced" in p and "devel1" in p
+                for p in packages
+            ), f"{suite} should contain devel1 before the source change"
+
+        # Bump source so the next orig.tar.gz checksum differs.
+        (artifacts_dir_single / "sources/example-advanced/hello").write_text(
+            "world", encoding="utf8"
+        )
+
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir_single,
+            "--option",
+            "increment-devel-versions=true",
+            "-c",
+            "example-advanced",
+            "-d",
+            "vm-bookworm",
+            "package",
+            "fetch",
+            env=env,
+        )
+
+        assert (
+            artifacts_dir_single / "components/example-advanced/noversion/devel"
+        ).read_text(encoding="utf-8") == "2"
+
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir_single,
+            "--option",
+            "increment-devel-versions=true",
+            "-c",
+            "example-advanced",
+            "-d",
+            "vm-bookworm",
+            "package",
+            "prep",
+            "build",
+            "sign",
+            env=env,
+        )
+
+        # Before the fix this fails: trixie-testing still pins the old
+        # orig.tar.gz so reprepro rejects the new one with conflicting
+        # checksums.
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir_single,
+            "--option",
+            "increment-devel-versions=true",
+            "-c",
+            "example-advanced",
+            "-d",
+            "vm-bookworm",
+            "repository",
+            "publish",
+            "current-testing",
+            env=env,
+        )
+
+        bookworm_pkgs = deb_packages_list(repository_dir, "bookworm-testing")
+        assert any(
+            "qubes-example-advanced" in p and "devel2" in p
+            for p in bookworm_pkgs
+        )
+        assert any(
+            "|main|source: qubes-example-advanced" in p and "devel2" in p
+            for p in bookworm_pkgs
+        )
+        assert not any(
+            "qubes-example-advanced" in p and "devel1" in p
+            for p in bookworm_pkgs
+        )
+
+        # trixie-testing keeps its devel1 binary .debs (only the source
+        # triple was dropped so the shared orig.tar.gz could be freed).
+        trixie_pkgs = deb_packages_list(repository_dir, "trixie-testing")
+        assert any(
+            "|main|amd64:" in p
+            and "qubes-example-advanced" in p
+            and "devel1" in p
+            for p in trixie_pkgs
+        )
+        assert not any(
+            "|main|source: qubes-example-advanced" in p and "devel1" in p
+            for p in trixie_pkgs
+        )
+
+        # Second pipeline scenario: bookworm already has a prior publish
+        # (devel2 above), source changes again, bookworm re-publishes
+        # devel3 while trixie still pins its devel1 orig in the pool.
+        # This exercises the `if publish_info` branch, which must also
+        # run the cross-dist source cleanup.
+        (artifacts_dir_single / "sources/example-advanced/hello").write_text(
+            "world2", encoding="utf8"
+        )
+
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir_single,
+            "--option",
+            "increment-devel-versions=true",
+            "-c",
+            "example-advanced",
+            "-d",
+            "vm-bookworm",
+            "package",
+            "fetch",
+            env=env,
+        )
+
+        assert (
+            artifacts_dir_single / "components/example-advanced/noversion/devel"
+        ).read_text(encoding="utf-8") == "3"
+
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir_single,
+            "--option",
+            "increment-devel-versions=true",
+            "-c",
+            "example-advanced",
+            "-d",
+            "vm-bookworm",
+            "package",
+            "prep",
+            "build",
+            "sign",
+            env=env,
+        )
+
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir_single,
+            "--option",
+            "increment-devel-versions=true",
+            "-c",
+            "example-advanced",
+            "-d",
+            "vm-bookworm",
+            "repository",
+            "publish",
+            "current-testing",
+            env=env,
+        )
+
+        bookworm_pkgs = deb_packages_list(repository_dir, "bookworm-testing")
+        assert any(
+            "qubes-example-advanced" in p and "devel3" in p
+            for p in bookworm_pkgs
+        )
+        assert not any(
+            "qubes-example-advanced" in p and "devel2" in p
+            for p in bookworm_pkgs
+        )
+
+        trixie_pkgs = deb_packages_list(repository_dir, "trixie-testing")
+        assert any(
+            "|main|amd64:" in p
+            and "qubes-example-advanced" in p
+            and "devel1" in p
+            for p in trixie_pkgs
+        )
+        assert not any(
+            "|main|source: qubes-example-advanced" in p and "devel1" in p
+            for p in trixie_pkgs
         )
 
 
