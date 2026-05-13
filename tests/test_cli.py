@@ -1101,6 +1101,26 @@ def test_component_host_fc37_unpublish(artifacts_dir):
     assert "[qb.upload.host-fc37]" in result
 
 
+def test_component_host_fc37_init_cache_install_packages(artifacts_dir):
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-d",
+        "host-fc37",
+        "-o",
+        "cache:host-fc37:install-packages=true",
+        "-o",
+        "cache:host-fc37:packages+rpm-build",
+        "package",
+        "init-cache",
+    )
+    install_cache = (
+        artifacts_dir
+        / "cache/chroot/host-fc37/fedora-37-x86_64/root_cache_install/cache.tar.gz"
+    )
+    assert install_cache.exists()
+
+
 #
 # Pipeline for example-advanced and vm-bookworm
 #
@@ -1566,6 +1586,26 @@ def test_component_vm_bookworm_unpublish(artifacts_dir):
                 f"{codename}|main|source: qubes-example-advanced {EXAMPLE_DEB_VER}",
             ]
         assert set(packages) == set(expected_packages)
+
+
+def test_component_vm_bookworm_init_cache_install_packages(artifacts_dir):
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-d",
+        "vm-bookworm",
+        "-o",
+        "cache:vm-bookworm:install-packages=true",
+        "-o",
+        "cache:vm-bookworm:packages+make",
+        "package",
+        "init-cache",
+    )
+    base_tgz = (
+        artifacts_dir
+        / "cache/chroot/vm-bookworm/debian-12-amd64/pbuilder/base.tgz"
+    )
+    assert base_tgz.exists()
 
 
 def test_increment_component_fetch(artifacts_dir):
@@ -2157,6 +2197,25 @@ repository-upload-remote-host:
         assert not (
             pathlib.Path(tmpdir) / "repo/deb/r4.2/vm/dists/bookworm-unstable"
         ).exists()
+
+
+def test_component_vm_archlinux_init_cache_install_packages(artifacts_dir):
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-d",
+        "vm-archlinux",
+        "-o",
+        "cache:vm-archlinux:install-packages=true",
+        "-o",
+        "cache:vm-archlinux:packages+base-devel",
+        "package",
+        "init-cache",
+    )
+    assert (
+        artifacts_dir
+        / "cache/chroot/vm-archlinux/archlinux-rolling-x86_64/root.tar.gz"
+    ).exists()
 
 
 #
