@@ -30,6 +30,7 @@ from qubesbuilder.cli.cli_cleanup import cleanup
 from qubesbuilder.cli.cli_config import config
 from qubesbuilder.cli.cli_exc import CliError
 from qubesbuilder.cli.cli_installer import installer
+from qubesbuilder.cli.cli_list_deps import list_deps
 from qubesbuilder.cli.cli_package import package
 from qubesbuilder.cli.cli_repository import repository
 from qubesbuilder.cli.cli_template import template
@@ -125,6 +126,8 @@ def parse_dict_from_cli(s, value=None, append=False):
 
             if value.lower() in ("true", "false", "1", "0"):
                 value = str_to_bool(value)
+            elif value in ("", "{}"):
+                value = {}
 
             if append:
                 value = [value]
@@ -284,3 +287,4 @@ main.add_command(repository)
 main.add_command(installer)
 main.add_command(config)
 main.add_command(cleanup)
+main.add_command(list_deps)

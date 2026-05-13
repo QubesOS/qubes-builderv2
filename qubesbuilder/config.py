@@ -69,7 +69,7 @@ def deep_merge(a: dict, b: dict, allow_append: bool = False) -> dict:
     result = deepcopy(a)
     for b_key, b_value in b.items():
         a_value = result.get(b_key, None)
-        if isinstance(a_value, dict) and isinstance(b_value, dict):
+        if isinstance(a_value, dict) and isinstance(b_value, dict) and b_value:
             result[b_key] = deep_merge(a_value, b_value, allow_append)
         else:
             if isinstance(result.get(b_key, None), list) and allow_append:
@@ -200,8 +200,10 @@ class Config:
                     "stages",
                     "plugins",
                 ):
-                    if isinstance(combined_conf[key], dict) and isinstance(
-                        options[key], dict
+                    if (
+                        isinstance(combined_conf[key], dict)
+                        and isinstance(options[key], dict)
+                        and options[key]
                     ):
                         combined_conf[key] = deep_merge(
                             combined_conf[key], options[key]

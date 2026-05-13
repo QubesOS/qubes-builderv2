@@ -593,6 +593,66 @@ def test_component_host_fc37_prep(artifacts_dir):
     assert info.get("srpm", None) == example_data_srpm()
 
 
+def test_component_host_fc37_list_deps(artifacts_dir):
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "host-fc37",
+        "package",
+        "fetch",
+    )
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "host-fc37",
+        "list-deps",
+        "run",
+    )
+
+    stage_dir = example_component_dir(artifacts_dir, "host-fc37", "list-deps")
+    artifacts = sorted(stage_dir.glob("*.list-deps.yml"))
+    assert artifacts, f"no list-deps artifacts under {stage_dir}"
+    for path in artifacts:
+        with open(path) as f:
+            info = yaml.safe_load(f)
+        assert info.get("build-deps"), f"empty build-deps in {path}"
+        assert HASH_RE.match(info.get("source-hash", ""))
+
+
+def test_component_host_fc37_list_deps_skip(artifacts_dir):
+    out = qb_call_output(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "host-fc37",
+        "list-deps",
+        "run",
+    ).decode()
+    assert "Source hash unchanged" in out
+
+
+def test_component_host_fc37_list_deps_no_packages(artifacts_dir):
+    rc = qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "builder-rpm",
+        "-d",
+        "host-fc37",
+        "list-deps",
+        "run",
+    )
+    assert rc == 0
+
+
 def test_component_host_fc37_build(artifacts_dir):
     # Clean stale build artifacts and local repository so the build is not
     # skipped and the repository/ dir is repopulated with the correct release.
@@ -1069,6 +1129,26 @@ def test_component_host_fc37_unpublish(artifacts_dir):
     assert "[qb.upload.host-fc37]" in result
 
 
+def test_component_host_fc37_init_cache_install_packages(artifacts_dir):
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-d",
+        "host-fc37",
+        "-o",
+        "cache:host-fc37:install-packages=true",
+        "-o",
+        "cache:host-fc37:packages+rpm-build",
+        "package",
+        "init-cache",
+    )
+    install_cache = (
+        artifacts_dir
+        / "cache/chroot/host-fc37/fedora-37-x86_64/root_cache_install/cache.tar.gz"
+    )
+    assert install_cache.exists()
+
+
 #
 # Pipeline for example-advanced and vm-bookworm
 #
@@ -1136,6 +1216,38 @@ def test_component_vm_bookworm_prep(artifacts_dir):
         info.get("package-release-name-full", None)
         == EXAMPLE_PKG_RELEASE_NAME_FULL
     )
+
+
+def test_component_vm_bookworm_list_deps(artifacts_dir):
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "vm-bookworm",
+        "package",
+        "fetch",
+    )
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "vm-bookworm",
+        "list-deps",
+        "run",
+    )
+
+    stage_dir = example_component_dir(artifacts_dir, "vm-bookworm", "list-deps")
+    artifacts = sorted(stage_dir.glob("*.list-deps.yml"))
+    assert artifacts, f"no list-deps artifacts under {stage_dir}"
+    for path in artifacts:
+        with open(path) as f:
+            info = yaml.safe_load(f)
+        assert info.get("build-deps"), f"empty build-deps in {path}"
+        assert HASH_RE.match(info.get("source-hash", ""))
 
 
 def test_component_vm_bookworm_build(artifacts_dir):
@@ -1502,6 +1614,26 @@ def test_component_vm_bookworm_unpublish(artifacts_dir):
                 f"{codename}|main|source: qubes-example-advanced {EXAMPLE_DEB_VER}",
             ]
         assert set(packages) == set(expected_packages)
+
+
+def test_component_vm_bookworm_init_cache_install_packages(artifacts_dir):
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-d",
+        "vm-bookworm",
+        "-o",
+        "cache:vm-bookworm:install-packages=true",
+        "-o",
+        "cache:vm-bookworm:packages+make",
+        "package",
+        "init-cache",
+    )
+    base_tgz = (
+        artifacts_dir
+        / "cache/chroot/vm-bookworm/debian-12-amd64/pbuilder/base.tgz"
+    )
+    assert base_tgz.exists()
 
 
 def test_increment_component_fetch(artifacts_dir):
@@ -2043,6 +2175,40 @@ def test_component_vm_archlinux_prep(artifacts_dir):
     assert HASH_RE.match(info.get("source-hash", None))
 
 
+def test_component_vm_archlinux_list_deps(artifacts_dir):
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "vm-archlinux",
+        "package",
+        "fetch",
+    )
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "-d",
+        "vm-archlinux",
+        "list-deps",
+        "run",
+    )
+
+    stage_dir = example_component_dir(
+        artifacts_dir, "vm-archlinux", "list-deps"
+    )
+    artifacts = sorted(stage_dir.glob("*.list-deps.yml"))
+    assert artifacts, f"no list-deps artifacts under {stage_dir}"
+    for path in artifacts:
+        with open(path) as f:
+            info = yaml.safe_load(f)
+        assert info.get("build-deps"), f"empty build-deps in {path}"
+        assert HASH_RE.match(info.get("source-hash", ""))
+
+
 def test_component_vm_archlinux_build(artifacts_dir):
     qb_call(
         DEFAULT_BUILDER_CONF,
@@ -2290,6 +2456,25 @@ repository-upload-remote-host:
         assert not (
             pathlib.Path(tmpdir) / "repo/deb/r4.2/vm/dists/bookworm-unstable"
         ).exists()
+
+
+def test_component_vm_archlinux_init_cache_install_packages(artifacts_dir):
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-d",
+        "vm-archlinux",
+        "-o",
+        "cache:vm-archlinux:install-packages=true",
+        "-o",
+        "cache:vm-archlinux:packages+base-devel",
+        "package",
+        "init-cache",
+    )
+    assert (
+        artifacts_dir
+        / "cache/chroot/vm-archlinux/archlinux-rolling-x86_64/root.tar.gz"
+    ).exists()
 
 
 #

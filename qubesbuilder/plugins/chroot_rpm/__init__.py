@@ -63,10 +63,16 @@ class RPMChrootPlugin(ChrootPlugin):
 
         existing_packages = artifacts_info.get("packages", [])
 
-        additional_packages = (
-            self.config.get("cache", {})
-            .get(self.dist.distribution, {})
-            .get("packages", [])
+        cache_dist_conf = self.config.get("cache", {}).get(
+            self.dist.distribution, {}
+        )
+        additional_packages = cache_dist_conf.get("packages", [])
+        # True: install into the chroot; False: download to dnf_cache only.
+        install_into_chroot = bool(
+            cache_dist_conf.get("install-packages", False)
+        )
+        existing_install_into_chroot = bool(
+            artifacts_info.get("install-packages", False)
         )
 
         # Delete previous chroot if forced to do it or if packages set differs
@@ -76,6 +82,9 @@ class RPMChrootPlugin(ChrootPlugin):
                 recreate = True
             elif set(additional_packages) != set(existing_packages):
                 msg = f"{self.dist}: Existing packages in cache differs from requested ones. Recreating cache..."
+                recreate = True
+            elif install_into_chroot != existing_install_into_chroot:
+                msg = f"{self.dist}: install-packages flag toggled; recreating cache..."
                 recreate = True
             else:
                 msg = f"{self.dist}: Re-using existing cache. Use --force to force cleanup and recreation."
@@ -156,16 +165,50 @@ class RPMChrootPlugin(ChrootPlugin):
                     self.executor.get_cache_dir() / f"mock",
                 ),
             ]
-            copy_out = [
-                (
-                    self.executor.get_cache_dir()
-                    / f"mock/{self.dist.nva}/dnf_cache",
-                    chroot_dir / self.dist.nva,
-                )
-            ]
+            if install_into_chroot:
+                # Persist root + dnf_cache so future --no-clean builds start with packages installed.
+                copy_out = [
+                    (
+                        self.executor.get_cache_dir() / f"mock/{self.dist.nva}",
+                        chroot_dir,
+                    )
+                ]
+            else:
+                copy_out = [
+                    (
+                        self.executor.get_cache_dir()
+                        / f"mock/{self.dist.nva}/dnf_cache",
+                        chroot_dir / self.dist.nva,
+                    )
+                ]
             for package in additional_packages:
                 mock_cmd += ["--install", f"'{package}'"]
             cmd.append(" ".join(mock_cmd))
+            if install_into_chroot:
+                # mock's root_cache snapshot is taken at --init time and not
+                # updated by --install. Re-tar the live root into
+                # root_cache_install/cache.tar.gz so build_rpm can restore the
+                # post-install state, while root_cache/ remains the minimal init
+                # cache used by source_rpm (which does not need pre-installed deps).
+                build_root = f"/builder/build/{self.dist.nva}/root"
+                cache_root_cache_install = (
+                    self.executor.get_cache_dir()
+                    / f"mock/{self.dist.nva}/root_cache_install"
+                )
+                cmd.append(f"sudo mkdir -p {cache_root_cache_install}")
+                cmd.append(
+                    f"sudo rm -f {cache_root_cache_install}/cache.tar.gz "
+                    f"{cache_root_cache_install}/cache.tar"
+                )
+                cmd.append(
+                    f"sudo tar -C {build_root} -czf "
+                    f"{cache_root_cache_install}/cache.tar.gz ."
+                )
+                # chown so docker cp back to host does not fail on root-owned files.
+                cmd.append(
+                    f"sudo chown {self.executor.get_user()}:{self.executor.get_group()} "
+                    f"{cache_root_cache_install}/cache.tar.gz"
+                )
             try:
                 self.executor.run(
                     cmd,
@@ -183,6 +226,7 @@ class RPMChrootPlugin(ChrootPlugin):
         # Save packages info into artifacts file
         info = {
             "packages": additional_packages,
+            "install-packages": install_into_chroot,
         }
         self.save_artifacts_info(
             stage=self.stage,

@@ -193,6 +193,24 @@ def test_parse_config_entry_from_array_10():
     assert parsed_dict == expected_dict
 
 
+def test_parse_config_array_plus_only_recursion():
+    array = ["foo+bar"]
+    parsed_dict = parse_config_from_cli(array)
+    assert parsed_dict == {"foo": ["bar"]}
+
+
+def test_parse_config_array_colon_without_value_raises():
+    array = ["foo:bar"]
+    with pytest.raises(ValueError) as e:
+        parse_config_from_cli(array)
+    assert "Cannot find '=' or '+'" in e.value.args[0]
+
+
+def test_parse_config_array_empty_value_becomes_empty_dict():
+    assert parse_config_from_cli(["foo="]) == {"foo": {}}
+    assert parse_config_from_cli(["foo={}"]) == {"foo": {}}
+
+
 def test_deep_check_dict():
     data = {
         "key1": "value1",

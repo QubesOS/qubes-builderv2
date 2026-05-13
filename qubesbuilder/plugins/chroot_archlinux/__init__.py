@@ -124,10 +124,17 @@ class ArchlinuxChrootPlugin(ChrootPlugin):
 
         existing_packages = artifacts_info.get("packages", [])
 
-        additional_packages = (
-            self.config.get("cache", {})
-            .get(self.dist.distribution, {})
-            .get("packages", [])
+        cache_dist_conf = self.config.get("cache", {}).get(
+            self.dist.distribution, {}
+        )
+        additional_packages = cache_dist_conf.get("packages", [])
+        # Arch always installs into the chroot; the flag is recorded for
+        # symmetry with RPM/DEB and to invalidate cache on toggle.
+        install_into_chroot = bool(
+            cache_dist_conf.get("install-packages", False)
+        )
+        existing_install_into_chroot = bool(
+            artifacts_info.get("install-packages", False)
         )
 
         # Delete previous chroot if forced or package sets differ
@@ -139,6 +146,12 @@ class ArchlinuxChrootPlugin(ChrootPlugin):
                 msg = (
                     f"{self.dist}: Existing packages in cache differ from requested ones. "
                     f"Recreating cache..."
+                )
+                recreate = True
+            elif install_into_chroot != existing_install_into_chroot:
+                msg = (
+                    f"{self.dist}: install-packages flag toggled; "
+                    f"recreating cache..."
                 )
                 recreate = True
             else:
@@ -223,6 +236,7 @@ class ArchlinuxChrootPlugin(ChrootPlugin):
         # Save packages info into artifacts file
         info = {
             "packages": additional_packages,
+            "install-packages": install_into_chroot,
         }
         self.save_artifacts_info(
             stage=self.stage,

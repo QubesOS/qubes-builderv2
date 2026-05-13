@@ -16,6 +16,7 @@
 # with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
+import shlex
 import shutil
 
 from qubesbuilder.config import Config
@@ -62,10 +63,16 @@ class DEBChrootPlugin(ChrootPlugin):
 
         existing_packages = artifacts_info.get("packages", [])
 
-        additional_packages = (
-            self.config.get("cache", {})
-            .get(self.dist.distribution, {})
-            .get("packages", [])
+        cache_dist_conf = self.config.get("cache", {}).get(
+            self.dist.distribution, {}
+        )
+        additional_packages = cache_dist_conf.get("packages", [])
+        # True: install into base.tgz; False: download to aptcache only.
+        install_into_chroot = bool(
+            cache_dist_conf.get("install-packages", False)
+        )
+        existing_install_into_chroot = bool(
+            artifacts_info.get("install-packages", False)
         )
 
         # Delete previous chroot if forced or package sets differ
@@ -77,6 +84,12 @@ class DEBChrootPlugin(ChrootPlugin):
                 msg = (
                     f"{self.dist}: Existing packages in cache differ from requested ones. "
                     f"Recreating cache..."
+                )
+                recreate = True
+            elif install_into_chroot != existing_install_into_chroot:
+                msg = (
+                    f"{self.dist}: install-packages flag toggled; "
+                    f"recreating cache..."
                 )
                 recreate = True
             else:
@@ -139,7 +152,7 @@ class DEBChrootPlugin(ChrootPlugin):
             msg = f"{self.dist}: Failed to generate chroot: {str(e)}."
             raise ChrootError(msg) from e
 
-        # Create a second cage for downloading the packages
+        # Create a second cage to handle the additional packages.
         if additional_packages:
             copy_in = self.default_copy_in(
                 self.executor.get_plugins_dir(), self.executor.get_sources_dir()
@@ -149,22 +162,43 @@ class DEBChrootPlugin(ChrootPlugin):
                     self.executor.get_builder_dir() / "pbuilder",
                 )
             ]
-            copy_out = [
-                (
-                    self.executor.get_cache_dir() / "aptcache",
-                    pbuilder_dir,
-                )
-            ]
             cmd = [
                 f"sed -i '/qubes-deb/d' {self.executor.get_plugins_dir()}/chroot_deb/pbuilder/pbuilderrc",
                 f"mkdir -p {self.executor.get_cache_dir()}/aptcache",
             ]
-            pbuilder_cmd = [
-                f"sudo -E pbuilder execute --distribution {self.dist.name}",
-                f"--configfile {self.executor.get_plugins_dir()}/chroot_deb/pbuilder/pbuilderrc",
-                f"--bindmounts {self.executor.get_cache_dir()}/aptcache:/tmp/aptcache",
-                f"-- {self.executor.get_plugins_dir()}/chroot_deb/scripts/apt-download-packages {' '.join(additional_packages)}",
-            ]
+            if install_into_chroot:
+                copy_out = [
+                    (
+                        self.executor.get_builder_dir() / "pbuilder/base.tgz",
+                        pbuilder_dir,
+                    )
+                ]
+                if self.config.use_qubes_repo.get("version"):
+                    qubes_version = self.config.use_qubes_repo["version"]
+                    keyring_src = (
+                        f"{self.executor.get_plugins_dir()}/chroot_deb/keys/"
+                        f"qubes-{self.dist.fullname}-r{qubes_version}.asc"
+                    )
+                    keyring_dst = f"{self.executor.get_builder_dir()}/pbuilder/qubes-keyring.gpg"
+                    cmd += [f"gpg --dearmor < {keyring_src} > {keyring_dst}"]
+                pbuilder_cmd = [
+                    f"sudo -E pbuilder update --distribution {self.dist.name} --override-config",
+                    f"--configfile {self.executor.get_plugins_dir()}/chroot_deb/pbuilder/pbuilderrc",
+                    f"--extrapackages '{' '.join(additional_packages)}'",
+                ]
+            else:
+                copy_out = [
+                    (
+                        self.executor.get_cache_dir() / "aptcache",
+                        pbuilder_dir,
+                    )
+                ]
+                pbuilder_cmd = [
+                    f"sudo -E pbuilder execute --distribution {self.dist.name}",
+                    f"--configfile {self.executor.get_plugins_dir()}/chroot_deb/pbuilder/pbuilderrc",
+                    f"--bindmounts {self.executor.get_cache_dir()}/aptcache:/tmp/aptcache",
+                    f"-- {self.executor.get_plugins_dir()}/chroot_deb/scripts/apt-download-packages {' '.join(shlex.quote(p) for p in additional_packages)}",
+                ]
             cmd.append(" ".join(pbuilder_cmd))
             try:
                 self.executor.run(
@@ -176,13 +210,16 @@ class DEBChrootPlugin(ChrootPlugin):
                 )
             except ExecutorError as e:
                 msg = (
-                    f"{self.dist}: Failed to download extra packages: {str(e)}."
+                    f"{self.dist}: Failed to "
+                    f"{'install' if install_into_chroot else 'download'} "
+                    f"extra packages: {str(e)}."
                 )
                 raise ChrootError(msg) from e
 
         # Save packages info into artifacts file
         info = {
             "packages": additional_packages,
+            "install-packages": install_into_chroot,
         }
         self.save_artifacts_info(
             stage=self.stage,

@@ -364,6 +364,11 @@ pytest-cli-repository:
   variables:
     PYTEST_TARGETS: "tests/test_cli_repository.py -k test_repository_"
 
+pytest-cli-deps:
+  extends: .pytest
+  variables:
+    PYTEST_TARGETS: "tests/test_cli_list_deps.py"
+
 pytest-cli-component-host-fc37:
   extends: .pytest
   variables:

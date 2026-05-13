@@ -290,6 +290,12 @@ class DEBBuildPlugin(BuildPlugin):
             pbuilder_dir = chroot_dir / self.dist.nva / "pbuilder"
             aptcache_dir = pbuilder_dir / "aptcache"
             base_tgz = pbuilder_dir / "base.tgz"
+            cache_dist_conf = self.config.get("cache", {}).get(
+                self.dist.distribution, {}
+            )
+            install_into_chroot = bool(
+                cache_dist_conf.get("install-packages", False)
+            )
             if aptcache_dir.exists():
                 copy_in += [(
                     pbuilder_dir / "aptcache",
@@ -299,12 +305,13 @@ class DEBBuildPlugin(BuildPlugin):
                 copy_in += [
                     (base_tgz, self.executor.get_builder_dir() / "pbuilder")
                 ]
-                cmd += [
-                    f"sudo -E pbuilder update "
-                    f"--distribution {self.dist.name} "
-                    f"--configfile {self.executor.get_builder_dir()}/pbuilder/pbuilderrc "
-                    f"--othermirror \"{extra_sources}\""
-                ]
+                if not install_into_chroot:
+                    cmd += [
+                        f"sudo -E pbuilder update "
+                        f"--distribution {self.dist.name} "
+                        f"--configfile {self.executor.get_builder_dir()}/pbuilder/pbuilderrc "
+                        f"--othermirror \"{extra_sources}\""
+                    ]
             else:
                 cmd += [
                     f"sudo -E pbuilder create "
