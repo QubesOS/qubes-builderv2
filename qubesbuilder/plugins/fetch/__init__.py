@@ -462,7 +462,7 @@ class FetchPlugin(Plugin):
         cmd = [
             f"cd {str(executor.get_builder_dir())}",
             " ".join(get_sources_cmd),
-            f"{executor.get_plugins_dir()}/fetch/scripts/create-archive {source_dir} {archive_name} {archive_base}/",
+            f"{executor.get_plugins_dir()}/fetch/scripts/create-archive --no-gitignore {source_dir} {archive_name} {archive_base}/",
         ]
 
         copy_out = [(source_dir / archive_name, distfiles_dir)]
