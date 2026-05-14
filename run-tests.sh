@@ -177,6 +177,7 @@ run_pytest() {
         -rA
         -o truncation_limit_chars=0
         -o truncation_limit_lines=0
+        -o norecursedirs='artifacts*'
         -o junit_logging=all
         --junitxml=artifacts/qubesbuilder.xml
     )
