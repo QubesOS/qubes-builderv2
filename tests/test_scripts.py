@@ -1,11 +1,8 @@
 import importlib
-import os
-import pathlib
 import random
 import shutil
 import string
 import subprocess
-import tempfile
 from argparse import Namespace
 
 import pytest
@@ -15,29 +12,6 @@ from qubesbuilder.common import PROJECT_PATH
 get_and_verify_source = importlib.import_module(
     "qubesbuilder.plugins.fetch.scripts.get-and-verify-source"
 ).main
-
-
-@pytest.fixture
-def temp_directory():
-    # Create a temporary directory
-    temp_dir = pathlib.Path(tempfile.mkdtemp())
-    yield temp_dir
-    # Remove the temporary directory after the test
-    if temp_dir.exists():
-        shutil.rmtree(temp_dir)
-
-
-@pytest.fixture
-def home_directory(temp_directory):
-    gnupghome = f"{temp_directory}/gnupg"
-    shutil.copytree(PROJECT_PATH / "tests/gnupg", gnupghome)
-    os.chmod(gnupghome, 0o700)
-    # Initialize the conf
-    with open(f"{temp_directory}/.gitconfig", "w") as gitconfig:
-        gitconfig.write(
-            "[user]\nname=testuser\nemail=test@localhost\n[gpg]\nprogram=gpg2"
-        )
-    yield temp_directory
 
 
 def create_git_repository(repo_dir, env, sign_commit=False, sign_key=None):

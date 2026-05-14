@@ -7,6 +7,8 @@ import uuid
 
 import pytest
 
+from qubesbuilder.common import PROJECT_PATH
+
 # Redirect all temporary files to home
 _default_tmpdir = os.path.join(os.path.expanduser("~"), "qb-test-tmp")
 os.makedirs(_default_tmpdir, exist_ok=True)
@@ -120,3 +122,26 @@ def artifacts_dir(pytestconfig):
     if cache_dir:
         _seed_cache(cache_dir, root)
     yield root
+
+
+@pytest.fixture
+def home_directory(temp_directory):
+    gnupghome = f"{temp_directory}/gnupg"
+    shutil.copytree(PROJECT_PATH / "tests/gnupg", gnupghome)
+    os.chmod(gnupghome, 0o700)
+    # Initialize the conf
+    with open(f"{temp_directory}/.gitconfig", "w") as gitconfig:
+        gitconfig.write(
+            "[user]\nname=testuser\nemail=test@localhost\n[gpg]\nprogram=gpg2"
+        )
+    yield temp_directory
+
+
+@pytest.fixture
+def temp_directory():
+    # Create a temporary directory
+    temp_dir = pathlib.Path(tempfile.mkdtemp())
+    yield temp_dir
+    # Remove the temporary directory after the test
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir)
