@@ -479,6 +479,80 @@ def test_common_component_fetch_commit_fresh(artifacts_dir_single):
     assert info["git-commit-hash"] == commit_sha
 
 
+def create_source_repo(repo_dir, home_directory):
+    env = {"HOME": home_directory}
+    repo_dir.mkdir(exist_ok=False, parents=True)
+    (repo_dir / "README.md").touch()
+    (repo_dir / "test.txt").touch()
+    with open(repo_dir / ".gitignore", "w") as f:
+        f.write("*.md\n")
+        f.write("!README.md\n")
+    subprocess.check_call(["git", "-C", repo_dir, "init"], env=env)
+    subprocess.check_call(["git", "-C", repo_dir, "add", "."], env=env)
+    subprocess.check_call(
+        ["git", "-C", repo_dir, "commit", "-m", "Initial commit"], env=env
+    )
+    commit_sha = (
+        subprocess.check_output(["git", "-C", repo_dir, "rev-parse", "HEAD"])
+        .decode()
+        .strip()
+    )
+    return commit_sha
+
+
+def test_common_component_fetch_git_archive(
+    artifacts_dir_single, home_directory
+):
+    artifacts_dir = artifacts_dir_single
+    # download base component first
+    result = qb_call_output(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-c",
+        "example-advanced",
+        "package",
+        "fetch",
+    )
+    # create "upstream" source
+    repo_dir = artifacts_dir / "tmp" / "repo"
+    commit_sha = create_source_repo(repo_dir, home_directory)
+    with open(
+        artifacts_dir / "sources" / "example-advanced" / ".qubesbuilder", "w"
+    ) as f:
+        f.write("host:\n")
+        f.write("  rpm:\n")
+        f.write("    build:\n")
+        f.write("    - rpm_spec/example-dom0.spec\n")
+        f.write("source:\n")
+        f.write("  files:\n")
+        f.write(f"  - git-url: file://{repo_dir}\n")
+        f.write(f"    git-basename: repo-advanced-1.2.3\n")
+        f.write(f"    commit-id: {commit_sha}\n")
+    # re-download, with adjusted .qubesbuilder
+    result = qb_call_output(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "-o",
+        "skip-git-fetch=true",
+        "-o",
+        "executor:type=local",
+        "-c",
+        "example-advanced",
+        "package",
+        "fetch",
+    )
+    archive_path = (
+        artifacts_dir
+        / "distfiles"
+        / "example-advanced"
+        / "repo-advanced-1.2.3.tar.gz"
+    )
+    assert archive_path.exists()
+    contents = subprocess.check_output(["tar", "-tf", archive_path])
+    # file that is excluded by wildcard and later re-included by path
+    assert b"\nrepo-advanced-1.2.3/README.md" in contents
+
+
 def test_common_existent_command(artifacts_dir):
     result = qb_call(
         DEFAULT_BUILDER_CONF,
