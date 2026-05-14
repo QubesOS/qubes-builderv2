@@ -54,6 +54,16 @@ def create_git_repository(repo_dir, env, sign_commit=False, sign_key=None):
         env=env,
     )
 
+    if sign_commit and sign_key:
+        subprocess.run(
+            ["git", "config", "user.signingkey", sign_key],
+            capture_output=True,
+            text=True,
+            check=True,
+            env=env,
+            cwd=repo_dir,
+        )
+
     # Add some commits to the repository
     for i in range(1, 5):
         with open(repo_dir / f"file{i}.txt", "w") as file:
@@ -63,14 +73,6 @@ def create_git_repository(repo_dir, env, sign_commit=False, sign_key=None):
         )
         commit_cmd = ["git", "commit", "-m", f"Commit {i}"]
         if sign_commit and sign_key:
-            subprocess.run(
-                ["git", "config", "user.signingkey", sign_key],
-                capture_output=True,
-                text=True,
-                check=True,
-                env=env,
-                cwd=repo_dir,
-            )
             commit_cmd += ["-S"]
         subprocess.run(
             commit_cmd,
