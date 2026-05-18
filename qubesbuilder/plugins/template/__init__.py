@@ -79,6 +79,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 template.distribution.is_archlinux(),
                 template.distribution.is_ubuntu(),
                 template.distribution.is_gentoo(),
+                template.distribution.is_guix(),
             ]
         )
 
@@ -453,6 +454,32 @@ class TemplateBuilderPlugin(TemplatePlugin):
                     "CACHE_DIR": str(self.executor.get_cache_dir()),
                     "KEYS_DIR": str(
                         self.executor.get_sources_dir() / "builder-gentoo/keys"
+                    ),
+                }
+            )
+        elif self.template.distribution.is_guix():
+            component = self.config.get_component("builder-guix")
+            self.dependencies += [
+                JobDependency(
+                    JobReference(
+                        component=component,
+                        stage="fetch",
+                        build="source",
+                        dist=None,
+                        template=None,
+                    )
+                ),
+            ]
+            template_content_dir = str(
+                self.executor.get_sources_dir()
+                / "builder-guix/builder-v2-template"
+            )
+            self.environment.update(
+                {
+                    "TEMPLATE_CONTENT_DIR": template_content_dir,
+                    "CACHE_DIR": str(self.executor.get_cache_dir()),
+                    "KEYS_DIR": str(
+                        self.executor.get_sources_dir() / "builder-guix/keys"
                     ),
                 }
             )
