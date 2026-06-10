@@ -99,6 +99,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     iso_path = Path(args.file).resolve()
 
-    torrent = create_torrent_qubes(iso=iso_path, remote_hosts=args.remote)
+    torrent = create_torrent_qubes(iso=iso_path, remote_host=args.remote)
 
     iso_path.with_suffix(".torrent").write_bytes(torrent)

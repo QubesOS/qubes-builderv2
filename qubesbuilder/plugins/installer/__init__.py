@@ -743,7 +743,7 @@ class InstallerPlugin(Plugin):
 
             # Get WebSeed URL from config (or use default)
             webseed = self.config.repository_upload_remote_host.get(
-                "webseed", default="default"
+                "webseed", "default"
             )
 
             try:
