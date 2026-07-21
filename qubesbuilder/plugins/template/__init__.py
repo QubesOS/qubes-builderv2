@@ -471,7 +471,9 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 ),
             ]
             template_content_dir = str(
-                self.executor.get_sources_dir() / "builder-guix" / "builder-v2-template"
+                self.executor.get_sources_dir()
+                / "builder-guix"
+                / "builder-v2-template"
             )
             self.environment["TEMPLATE_CONTENT_DIR"] = template_content_dir
         else:
