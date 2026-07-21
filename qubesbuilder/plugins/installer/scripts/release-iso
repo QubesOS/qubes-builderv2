@@ -63,7 +63,7 @@ fi
 printf "ok\n"
 
 printf "Generating digests... "
-ALGOS="md5 sha1 sha256 sha512"
+ALGOS="sha256 sha512"
 
 if [ "${ISO_BASE}.iso" -nt "${ISO_BASE}.iso.DIGESTS" ]; then
     rm -f "${ISO_BASE}.iso.DIGESTS"
@@ -82,8 +82,7 @@ printf "ok\n"
 
 printf "Signing digests... "
 
-$GPG_CLIENT --local-user "$GPG_SIGN_KEY" -a --clearsign --output "${ISO_BASE}.iso.DIGESTS.signed" "${ISO_BASE}.iso.DIGESTS"
-mv "${ISO_BASE}.iso.DIGESTS.signed" "${ISO_BASE}.iso.DIGESTS"
+$GPG_CLIENT --local-user "$GPG_SIGN_KEY" -a --detach-sign --output "${ISO_BASE}.iso.DIGESTS.asc" "${ISO_BASE}.iso.DIGESTS"
 
 printf "ok\n"
 
@@ -102,4 +101,5 @@ printf "Done:\n"
 ls -l "${ISO_BASE}.iso" \
     "${ISO_BASE}.iso.asc" \
     "${ISO_BASE}.iso.DIGESTS" \
+    "${ISO_BASE}.iso.DIGESTS.asc" \
     "${ISO_BASE}.torrent"

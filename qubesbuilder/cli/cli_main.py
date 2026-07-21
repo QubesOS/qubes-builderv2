@@ -33,10 +33,12 @@ from qubesbuilder.cli.cli_installer import installer
 from qubesbuilder.cli.cli_list_deps import list_deps
 from qubesbuilder.cli.cli_package import package
 from qubesbuilder.cli.cli_repository import repository
+from qubesbuilder.cli.cli_self import self_group
 from qubesbuilder.cli.cli_template import template
 from qubesbuilder.common import STAGES, str_to_bool
 from qubesbuilder.config import Config, deep_merge
 from qubesbuilder.log import init_logger
+from qubesbuilder.self_upgrade import notify_if_update_available
 
 ALLOWED_KEY_PATTERN = r"[A-Za-z0-9_+-]+"
 
@@ -252,6 +254,11 @@ def main(
     # init QubesBuilderLogger
     init_logger(verbose=obj.config.verbose, log_file=log_file)
 
+    # Throttled update notice, build subcommands only (keeps query output clean).
+    # Run it on close so it prints at the end, after the build output.
+    if ctx.invoked_subcommand in ("package", "template", "installer"):
+        ctx.call_on_close(lambda: notify_if_update_available(obj.config))
+
 
 main.epilog = f"""Stages:
     {' '.join(STAGES)}
@@ -288,3 +295,4 @@ main.add_command(installer)
 main.add_command(config)
 main.add_command(cleanup)
 main.add_command(list_deps)
+main.add_command(self_group, name="self")

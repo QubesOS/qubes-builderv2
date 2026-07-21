@@ -21,4 +21,10 @@ qubes.VMShell       * {{ source }} @tag:disp-created-by-{{ source }} allow
 {% if not loop.last %}
 
 {% endif %}
+
+# Enable for secureboot signing
+#admin.vm.CreateDisposable * {{ source }} qubes-pesign-builder-dvm allow target=dom0
+#  adjust key-holding qube name (vault-pesign) and cert nickname (the service
+#  argument)
+#qubesbuilder.PESign +Qubes__OS__Unified__Kernel__Image__Signing__Key @tag:pesign-allow @default allow target=vault-pesign
 {% endfor %}

@@ -1,0 +1,10 @@
+[Unit]
+Description=Forward pesign call to vault
+
+[Socket]
+ListenStream=/run/qubes-pesign
+Accept=yes
+SocketGroup=qubes
+
+[Install]
+WantedBy=sockets.target

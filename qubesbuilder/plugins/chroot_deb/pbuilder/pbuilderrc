@@ -14,7 +14,7 @@ LOGLEVEL=I
 USECOLORS=auto
 
 case ${DISTRIBUTION} in
-    buster|bullseye|bookworm|trixie|sid|experimental)
+    buster|bullseye|bookworm|trixie|forky|sid|experimental)
         DIST_VENDOR=debian
         MIRRORSITE=https://deb.debian.org/debian
         ;;
@@ -61,7 +61,7 @@ BUILDRESULT="@BUILDER_DIR@/pbuilder/results"
 # components on Debian use "main contrib non-free" and on Ubuntu "main
 # restricted universe multiverse"
 case ${DISTRIBUTION} in
-    buster|bullseye|bookworm|trixie|sid|experimental)
+    buster|bullseye|bookworm|trixie|forky|sid|experimental)
         COMPONENTS="main"
         ;;
     bionic|focal|jammy|noble)

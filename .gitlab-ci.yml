@@ -352,7 +352,7 @@ pytest:
   tags:
     - qubes
   variables:
-    PYTEST_TARGETS: "tests/test_executors.py tests/test_functions.py tests/test_objects.py tests/test_scripts.py tests/test_log.py tests/test_plugins.py"
+    PYTEST_TARGETS: "tests/test_executors.py tests/test_functions.py tests/test_objects.py tests/test_scripts.py tests/test_log.py tests/test_plugins.py tests/test_self_upgrade.py"
 
 pytest-cli-cleanup:
   extends: .pytest

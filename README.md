@@ -152,6 +152,86 @@ Set `qubes-builder-dvm` as the default disposable template for `work-qubesos`:
 $ qvm-prefs work-qubesos default_dispvm qubes-builder-dvm
 ```
 
+### Qubes executor for secureboot signing
+
+The `vmm-xen-unified` component builds a signed unified Xen+Linux binary. It
+requires additional setup for the signing process. This approach will use
+separate disposable template for just `vmm-xen-unified` component and have that
+disposable access to the signing service.
+
+Building `vmm-xen-unified` with docker executor is currently not supported.
+
+First, you will need to generate (or otherwise obtain) signing key. This step
+is not specific to qubes-builderv2, can be done with any tool. See README in
+`vmm-xen-unified` for example approach. Store the keys in a separate
+(preferably network-disconnected) qube (if you use HSM or other hardware token
+- configure its usage in that qube). Later steps in this instruction use
+`vault-pesign` name for this qube, but it can be anything. Copy
+`rpc/qubesbuilder.PESign` to `/usr/local/etc/qubes-rpc` in the key-holding qube
+and make sure it's executable:
+```
+chmod +x /usr/local/etc/qubes-rpc/qubesbuilder.PESign
+```
+
+If extra parameters for using the key are needed for `pesign`, add `/home/user/.config/qubes-pesign/CERT_NICKNAME` (where `CERT_NICKNAME` is a name used for `KEY_NAME` value later in this instruciton) to set the arguments, for example:
+```
+# dbpath with pkcs11 module configured
+PESIGN_ARGS+=( "--certdir=$HOME/pesign-token-db" )
+# token name
+PESIGN_ARGS+=( "--token=token name" )
+# pinfile path, if relevant
+PESIGN_ARGS+=( "--pinfile=$HOME/pesign-token-pin.txt" )
+# you can also override CERTIFICATE
+CERTIFICATE="certificate name as on the token"
+```
+
+After doing that, create new disposable template following the above
+instructions, but name it `qubes-pesign-builder-dvm`.
+
+Then, in the `qubes-pesign-builder-dvm` do the following:
+```
+mkdir -p /rw/bind-dirs/etc/systemd/system/
+mkdir -p /usr/local/etc/default
+# adjust value if you used different key nickname, replace spaces with __
+echo 'KEY_NAME="Qubes__OS__Unified__Kernel__Image__Signing__Key"' > /usr/local/etc/default/qubes-pesign
+mkdir -p /rw/config/qubes-bind-dirs.d
+cat <<EOF > /rw/config/qubes-bind-dirs.d/50_qubes-pesign.conf
+binds+=( '/etc/systemd/system/qubes-pesign.socket' )
+binds+=( '/etc/systemd/system/qubes-pesign@.service' )
+EOF
+```
+
+Copy `rpc/qubes-pesign*` from qubes-builderv2 into `/rw/bind-dirs/etc/systemd/system/` in `qubes-pesign-builder-dvm` and set appropriate SELinux context (if SELinux is enabled there):
+```
+restorecon /rw/bind-dirs/etc/systemd/system/*
+```
+
+Add starting the service in `/rw/config/rc.local`:
+```
+systemctl daemon-reload
+systemctl start qubes-pesign.socket
+```
+
+Next step is to adjust qrexec policy to allow signing. To not depend on specific dispvm name, the policy will use tags. The `rpc/policy/50-qubesbuilder.policy` file contains commented-out example. Adjust key-holding qube name and possibly certificat nickname there.
+And then add appropriate tag to the `qubes-pesign-builder-dvm`:
+```
+qvm-tags qubes-pesign-builder-dvm add pesign-allow
+```
+
+And finally, enable building `vmm-xen-unified` using just configured disposable
+template by adding the following to your `builder.yml`:
+
+```
++components:
+  - vmm-xen-unified:
+      packages: true
+      stages:
+      - build:
+          executor:
+            type: qubes
+            options:
+              dispvm: qubes-pesign-builder-dvm
+```
 
 ## Windows executors and building Windows Tools
 
@@ -476,6 +556,7 @@ Commands:
   config      Config CLI
   cleanup     Cleanup CLI
   list-deps   List build dependencies
+  self        Self-management CLI (upgrade qubes-builderv2 in place)
 
 Stages:
     fetch prep build post verify sign publish upload
@@ -658,6 +739,81 @@ $ ./qb list-deps show --exclude '^xen-' --exclude '^perl-'
   blocked to prevent shell injection). Anything satisfied only by
   a virtual provide will not be pre-installed via
   `cache.<dist>.packages`.
+
+### Self-upgrade
+
+`qb self upgrade` fast-forwards the running qubes-builderv2 checkout in
+place by running the same fetch + signature-verification logic that is used
+for every other component. It is the only supported way to update
+qubes-builderv2 from `qb`.
+
+```bash
+$ ./qb self upgrade
+```
+
+This is a separate, non-chainable subcommand: it always runs on its own. Re-run
+`qb` afterwards so the freshly fetched code is loaded.
+
+- A dirty working tree blocks the upgrade. Commit or stash your changes first
+  (the merge is `--ff-only`, so real conflicts still fail).
+- The `artifacts/` directory is never touched.
+
+Configure in `builder.yml`:
+
+```yaml
+self-upgrade:
+  url: https://github.com/QubesOS/qubes-builderv2
+  branch: main
+  # maintainers: inherited from git.maintainers if omitted
+  # min-distinct-maintainers: 1    # distinct maintainer signatures required
+  # verification-mode: signed-tag | less-secure-signed-commits-sufficient | insecure-skip-checking
+  # check-for-updates: true        # automatic notice on build commands
+  # check-interval: 86400          # seconds between remote checks (once a day)
+```
+
+If `self-upgrade` is omitted, defaults are:
+- URL `https://github.com/QubesOS/qubes-builderv2`,
+- the current git branch when it exists on the remote and `main` otherwise,
+- maintainers taken from `git.maintainers`, `verification-mode: signed-tag`.
+
+An explicitly configured `branch` is used as-is (no fallback). Verification
+works like a component fetch: the commit or tag must be signed by a key listed
+in `maintainers` (inherited from `git.maintainers`), and nothing is trusted just
+for being bundled. Key files are looked up as `{KEYID}.asc` in the configured
+`key-dirs` and in the keys shipped under `qubesbuilder/plugins/fetch/keys/`.
+
+Branch handling:
+
+- The upgraded branch is your current branch when it exists on the remote,
+  otherwise `main`. An explicit `self-upgrade.branch` is never overridden.
+- When you upgrade from a different branch than the upgraded one (e.g. a dev
+  branch), `qb self upgrade` advances the target branch (e.g. local `main`)
+  and checks your original branch back out. Your branch is left untouched.
+  Merge or rebase it onto the updated branch yourself.
+
+#### Update notifications
+
+Build subcommands (`package`, `template`, `installer`) print a one-line notice
+at the end of the run when a newer qubes-builderv2 is available on the
+configured branch (at the end so it is not lost in the build output):
+
+- Queried with `git ls-remote` (no fetch) at most once per `check-interval`
+  (default daily). The last check is recorded in `artifacts/self-upgrade-check.json`.
+- *Available* means the remote tip is not yet in the history of the matching
+  local branch (e.g. local `main`), not the checked-out HEAD, so a divergent
+  dev branch does not fail the result. Local commits on top do not cause a
+  false notice.
+- No signatures are checked for the notice. An unsigned or badly signed commit
+  still shows, but `qb self upgrade` refuses to apply it.
+
+Disable with `self-upgrade.check-for-updates: false`, or per-invocation with
+`QUBES_BUILDER_NO_UPDATE_CHECK=1` (handy in CI).
+
+Check on demand (ignores the throttle, never modifies the checkout):
+
+```bash
+$ ./qb self check
+```
 
 ### Template
 

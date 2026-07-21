@@ -440,6 +440,148 @@ def test_cleanup_chroot_only_unused(artifacts_dir):
         assert (chroot_dir / distro).exists()
 
 
+def test_cleanup_installer_chroot_only_unused(artifacts_dir):
+    cache_dir = artifacts_dir / "cache"
+    installer_chroot = cache_dir / "installer" / "chroot" / "mock"
+    installer_chroot.mkdir(parents=True, exist_ok=True)
+
+    used = "fedora-37-x86_64"
+    unused = "fedora-99-x86_64"
+    (installer_chroot / used).mkdir(parents=True, exist_ok=True)
+    (installer_chroot / unused).mkdir(parents=True, exist_ok=True)
+
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "cleanup",
+        "cache",
+        "--installer-chroot-only-unused",
+    )
+
+    assert (installer_chroot / used).exists()
+    assert not (installer_chroot / unused).exists()
+
+
+def _write_template_rpm(directory, name):
+    path = directory / name
+    path.write_text("dummy")
+    return path
+
+
+def test_cleanup_installer_templates_only_old(artifacts_dir):
+    cache_dir = artifacts_dir / "cache"
+    templates_dir = cache_dir / "installer" / "templates"
+    templates_dir.mkdir(parents=True, exist_ok=True)
+
+    newer = _write_template_rpm(
+        templates_dir,
+        "qubes-template-fedora-43-xfce-4.2.0-202604010000.noarch.rpm",
+    )
+    older = _write_template_rpm(
+        templates_dir,
+        "qubes-template-fedora-43-xfce-4.2.0-202602010000.noarch.rpm",
+    )
+
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "--option",
+        "cache:templates+fedora-43-xfce",
+        "cleanup",
+        "cache",
+        "--installer-templates-only-old",
+    )
+
+    assert newer.exists()
+    assert not older.exists()
+
+
+def test_cleanup_installer_templates_only_unused(artifacts_dir):
+    cache_dir = artifacts_dir / "cache"
+    templates_dir = cache_dir / "installer" / "templates"
+    templates_dir.mkdir(parents=True, exist_ok=True)
+
+    active = _write_template_rpm(
+        templates_dir,
+        "qubes-template-fedora-43-xfce-4.2.0-202604010000.noarch.rpm",
+    )
+    stale = _write_template_rpm(
+        templates_dir,
+        "qubes-template-fedora-40-xfce-4.2.0-202504010000.noarch.rpm",
+    )
+
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "--option",
+        "cache:templates+fedora-43-xfce",
+        "cleanup",
+        "cache",
+        "--installer-templates-only-unused",
+    )
+
+    assert active.exists()
+    assert not stale.exists()
+
+
+def test_cleanup_all_prunes_outdated_installer(artifacts_dir):
+    (artifacts_dir / "logs").mkdir(parents=True, exist_ok=True)
+    cache_dir = artifacts_dir / "cache"
+    installer_chroot = cache_dir / "installer" / "chroot" / "mock"
+    installer_chroot.mkdir(parents=True, exist_ok=True)
+    (installer_chroot / "fedora-37-x86_64").mkdir()
+    (installer_chroot / "fedora-99-x86_64").mkdir()
+
+    templates_dir = cache_dir / "installer" / "templates"
+    templates_dir.mkdir(parents=True, exist_ok=True)
+    keep = _write_template_rpm(
+        templates_dir,
+        "qubes-template-fedora-43-xfce-4.2.0-202604010000.noarch.rpm",
+    )
+    drop_old = _write_template_rpm(
+        templates_dir,
+        "qubes-template-fedora-43-xfce-4.2.0-202602010000.noarch.rpm",
+    )
+    drop_unused = _write_template_rpm(
+        templates_dir,
+        "qubes-template-fedora-40-xfce-4.2.0-202504010000.noarch.rpm",
+    )
+
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "--option",
+        "cache:templates+fedora-43-xfce",
+        "cleanup",
+        "all",
+    )
+
+    assert (installer_chroot / "fedora-37-x86_64").exists()
+    assert not (installer_chroot / "fedora-99-x86_64").exists()
+    assert keep.exists()
+    assert not drop_old.exists()
+    assert not drop_unused.exists()
+
+
+def test_cleanup_all_no_installer_only_outdated(artifacts_dir):
+    (artifacts_dir / "logs").mkdir(parents=True, exist_ok=True)
+    cache_dir = artifacts_dir / "cache"
+    installer_chroot = cache_dir / "installer" / "chroot" / "mock"
+    installer_chroot.mkdir(parents=True, exist_ok=True)
+    stale = installer_chroot / "fedora-99-x86_64"
+    stale.mkdir()
+
+    qb_call(
+        DEFAULT_BUILDER_CONF,
+        artifacts_dir,
+        "cleanup",
+        "all",
+        "--no-installer-only-outdated",
+    )
+
+    assert stale.exists()
+
+
 def test_cleanup_distfiles_dry_run(artifacts_dir):
     distfiles_dir = artifacts_dir / "distfiles" / "example-advanced"
     distfiles_dir.mkdir(parents=True, exist_ok=True)

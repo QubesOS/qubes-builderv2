@@ -15,6 +15,10 @@ debug: true
 verbose: true
 qubes-release: devel
 
+self-upgrade:
+  url: https://github.com/QubesOS/qubes-builderv2
+  branch: main
+
 distributions:
   - host-fc41
   - vm-bookworm
@@ -96,6 +100,9 @@ components:
       url: https://github.com/QubesOS/qubes-linux-kernel
       branch: main
       timeout: 21600
+  - vmm-xen-unified:
+      # requires extra setup for signing, disable by default
+      packages: false
   - artwork
   - grub2
   - grub2-theme
@@ -108,6 +115,8 @@ components:
   - app-linux-split-gpg:
       branch: main
   - app-linux-split-gpg2:
+      branch: main
+  - app-linux-split-ssh:
       branch: main
   - app-linux-gpg-sign:
       branch: main

@@ -15,6 +15,9 @@ os.makedirs(_default_tmpdir, exist_ok=True)
 if tempfile.tempdir is None:
     tempfile.tempdir = os.environ.get("TMPDIR", _default_tmpdir)
 
+# Disable the self-upgrade update check in the suite (inherited by qb).
+os.environ.setdefault("QUBES_BUILDER_NO_UPDATE_CHECK", "1")
+
 
 def _seed_cache(cache_dir: pathlib.Path, artifacts_dir: pathlib.Path):
     """

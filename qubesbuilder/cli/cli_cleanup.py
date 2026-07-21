@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from datetime import datetime, timedelta
 
@@ -7,6 +8,11 @@ import click
 from qubesbuilder.cli.cli_base import aliased_group, ContextObj
 from qubesbuilder.common import get_archive_name
 from qubesbuilder.component import QubesComponent, ComponentError, QubesVersion
+
+TEMPLATE_RPM_RE = re.compile(
+    r"^(?P<name>qubes-template-.+?)-"
+    r"(?P<version>[0-9][^-]*)-(?P<release>[^-]+)\.noarch\.rpm$"
+)
 
 
 @aliased_group("cleanup", chain=True)
@@ -62,6 +68,35 @@ def distfiles(obj: ContextObj):
                 else:
                     click.secho(file)
                     file.unlink()
+
+
+def _installer_active_chroots(obj: ContextObj) -> set:
+    host_dists = [
+        d for d in obj.config.get_distributions() if d.package_set == "host"
+    ]
+    return {d.nva for d in host_dists}
+
+
+def _installer_active_template_prefixes(obj: ContextObj) -> set:
+    try:
+        release = obj.config.parse_qubes_release().group(1)
+    except Exception:
+        return set()
+    return {
+        f"qubes-template-{t}-{release}.0"
+        for t in obj.config.get("cache", {}).get("templates", [])
+    }
+
+
+def _group_template_rpms_by_name(rpms):
+    groups: dict = {}
+    for rpm in rpms:
+        m = TEMPLATE_RPM_RE.match(rpm.name)
+        if not m:
+            continue
+        prefix = f"{m.group('name')}-{m.group('version')}"
+        groups.setdefault(prefix, []).append(rpm)
+    return groups
 
 
 @click.command("build-artifacts")
@@ -183,6 +218,24 @@ def tmp(obj: ContextObj, force: bool):
     is_flag=True,
     help="Cleanup installer bootstrap cache (prep stage cache content).",
 )
+@click.option(
+    "--installer-chroot-only-unused",
+    default=False,
+    is_flag=True,
+    help="Cleanup installer chroot cache entries for dists no longer configured.",
+)
+@click.option(
+    "--installer-templates-only-unused",
+    default=False,
+    is_flag=True,
+    help="Cleanup cached templates no longer listed in cache.templates.",
+)
+@click.option(
+    "--installer-templates-only-old",
+    default=False,
+    is_flag=True,
+    help="Keep only the most recent RPM for each cached template name.",
+)
 @click.pass_obj
 def cache(
     obj: ContextObj,
@@ -193,6 +246,9 @@ def cache(
     installer_chroot: bool,
     installer_templates: bool,
     installer_bootstrap: bool,
+    installer_chroot_only_unused: bool,
+    installer_templates_only_unused: bool,
+    installer_templates_only_old: bool,
 ):
     """
     Cleanup cache files and directories.
@@ -200,6 +256,10 @@ def cache(
     if all:
         chroot = True
         installer = True
+
+    installer_cache = obj.config.cache_dir / "installer"
+    installer_chroot_dir = installer_cache / "chroot" / "mock"
+    installer_templates_dir = installer_cache / "templates"
 
     to_delete = []
     if chroot:
@@ -210,31 +270,55 @@ def cache(
             if chroot_dir.name not in distributions:
                 to_delete.append(chroot_dir)
     if installer:
-        to_delete.append(obj.config.cache_dir / "installer")
+        to_delete.append(installer_cache)
     if installer_chroot:
-        to_delete.append(obj.config.cache_dir / "installer" / "chroot" / "mock")
+        to_delete.append(installer_chroot_dir)
     if installer_templates:
-        to_delete.append(obj.config.cache_dir / "installer" / "templates")
-    if installer_bootstrap:
+        to_delete.append(installer_templates_dir)
+    if installer_bootstrap and installer_cache.exists():
         bootstrap_dirs = sorted(
             [
                 bootstrap_dir
-                for bootstrap_dir in (
-                    obj.config.cache_dir / "installer"
-                ).iterdir()
+                for bootstrap_dir in installer_cache.iterdir()
                 if bootstrap_dir.name.startswith("Qubes-")
             ],
             reverse=True,
         )
         to_delete += bootstrap_dirs[1:]
+    if installer_chroot_only_unused and installer_chroot_dir.exists():
+        active = _installer_active_chroots(obj)
+        for entry in installer_chroot_dir.iterdir():
+            if entry.name not in active:
+                to_delete.append(entry)
+    if (
+        installer_templates_only_unused or installer_templates_only_old
+    ) and installer_templates_dir.exists():
+        rpms = [
+            p
+            for p in installer_templates_dir.iterdir()
+            if p.is_file() and p.suffix == ".rpm"
+        ]
+        groups = _group_template_rpms_by_name(rpms)
+        active = _installer_active_template_prefixes(obj)
+        for name, files in groups.items():
+            if installer_templates_only_unused and name not in active:
+                to_delete.extend(files)
+                continue
+            if installer_templates_only_old and name in active:
+                files.sort(reverse=True)
+                to_delete.extend(files[1:])
 
-    for cache_dir in to_delete:
-        if cache_dir.exists():
-            if obj.dry_run:
-                click.secho(f"DRY-RUN: {cache_dir}")
+    for path in to_delete:
+        if not path.exists():
+            continue
+        if obj.dry_run:
+            click.secho(f"DRY-RUN: {path}")
+        else:
+            click.secho(path)
+            if path.is_dir():
+                shutil.rmtree(path)
             else:
-                click.secho(cache_dir)
-                shutil.rmtree(cache_dir)
+                path.unlink()
 
 
 @click.command()
@@ -287,6 +371,13 @@ def cache(
     help="Cleanup installer bootstrap cache (prep stage cache content).",
 )
 @click.option(
+    "--installer-only-outdated/--no-installer-only-outdated",
+    default=True,
+    is_flag=True,
+    help="Prune outdated installer chroot/templates cache entries "
+    "(ignored when --all-cache or --everything is set).",
+)
+@click.option(
     "--everything",
     default=False,
     is_flag=True,
@@ -304,6 +395,7 @@ def all(
     installer_chroot,
     installer_templates,
     installer_bootstrap,
+    installer_only_outdated,
     everything,
 ):
     """
@@ -314,6 +406,8 @@ def all(
         log_retention_days = 0
         force_tmp = True
         all_cache = True
+
+    prune_outdated = installer_only_outdated and not all_cache
 
     ctx.invoke(distfiles)
     ctx.invoke(build_artifacts, keep_versions=keep_versions)
@@ -326,7 +420,10 @@ def all(
         installer=installer,
         installer_chroot=installer_chroot,
         installer_templates=installer_templates,
-        installer_bootstrap=installer_bootstrap,
+        installer_bootstrap=installer_bootstrap or prune_outdated,
+        installer_chroot_only_unused=prune_outdated,
+        installer_templates_only_unused=prune_outdated,
+        installer_templates_only_old=prune_outdated,
     )
 
 

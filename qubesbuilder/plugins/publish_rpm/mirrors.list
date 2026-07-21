@@ -5,7 +5,7 @@ https://ftp.halifax.rwth-aachen.de/qubes/repo/yum
 https://mirrors.dotsrc.org/qubes/repo/yum
 https://mirrors.ukfast.co.uk/sites/qubes-os.org/repo/yum
 https://mirrors.gigenet.com/qubes/repo/yum
-https://ftp.cc.uoc.gr/mirrors/linux/qubes/repo/yum
+#https://ftp.cc.uoc.gr/mirrors/linux/qubes/repo/yum
 https://ftp.icm.edu.pl/pub/os/qubes/repo/yum
 https://mirror.accum.se/mirror/qubes-os.org/repo/yum
 https://ftp.rnl.tecnico.ulisboa.pt/pub/qubesos/repo/yum

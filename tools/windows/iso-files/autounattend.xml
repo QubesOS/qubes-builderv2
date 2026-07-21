@@ -145,6 +145,58 @@
                     <Order>16</Order>
                     <Path>reg.exe add "HKLM\SYSTEM\CurrentControlSet\Control\Network\NewNetworkWindowOff" /f</Path>
                 </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>17</Order>
+                    <Path>cmd.exe /c "&gt;&gt;"%TEMP%\regini.txt" echo HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Sense"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>18</Order>
+                    <Path>cmd.exe /c "&gt;&gt;"%TEMP%\regini.txt" echo     "Start" = REG_DWORD 4"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>19</Order>
+                    <Path>cmd.exe /c "&gt;&gt;"%TEMP%\regini.txt" echo HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WdBoot"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>20</Order>
+                    <Path>cmd.exe /c "&gt;&gt;"%TEMP%\regini.txt" echo     "Start" = REG_DWORD 4"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>21</Order>
+                    <Path>cmd.exe /c "&gt;&gt;"%TEMP%\regini.txt" echo HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WdFilter"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>22</Order>
+                    <Path>cmd.exe /c "&gt;&gt;"%TEMP%\regini.txt" echo     "Start" = REG_DWORD 4"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>23</Order>
+                    <Path>cmd.exe /c "&gt;&gt;"%TEMP%\regini.txt" echo HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WdNisDrv"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>24</Order>
+                    <Path>cmd.exe /c "&gt;&gt;"%TEMP%\regini.txt" echo     "Start" = REG_DWORD 4"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>25</Order>
+                    <Path>cmd.exe /c "&gt;&gt;"%TEMP%\regini.txt" echo HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WdNisSvc"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>26</Order>
+                    <Path>cmd.exe /c "&gt;&gt;"%TEMP%\regini.txt" echo     "Start" = REG_DWORD 4"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>27</Order>
+                    <Path>cmd.exe /c "&gt;&gt;"%TEMP%\regini.txt" echo HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WinDefend"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>28</Order>
+                    <Path>cmd.exe /c "&gt;&gt;"%TEMP%\regini.txt" echo     "Start" = REG_DWORD 4"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>29</Order>
+                    <Path>regini.exe "%TEMP%\regini.txt"</Path>
+                </RunSynchronousCommand>
             </RunSynchronous>
         </component>
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
