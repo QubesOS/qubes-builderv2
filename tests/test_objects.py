@@ -290,6 +290,8 @@ def test_dist_non_default_arch():
     assert str(dist) == "vm-debian-13.ppc64el"
     assert repr(dist) == repr_str
 
+
+def test_dist_guix():
     dist = QubesDistribution("vm-guix")
     assert dist.version == "rolling"
     assert dist.fullname == "guix"
@@ -301,6 +303,7 @@ def test_dist_non_default_arch():
     assert dist.to_str() == "vm-guix-rolling.x86_64"
     assert str(dist) == "vm-guix-rolling.x86_64"
     assert repr(dist) == repr_str
+
 
 def test_dist_unknown_package_set():
     with pytest.raises(DistributionError) as e:
@@ -329,7 +332,11 @@ def test_template_plugin_supports_guix():
     assert TemplateBuilderPlugin.supported_template(template)
 
 
-def test_template_plugin_guix_parameters(temp_config_dir):
+@pytest.mark.parametrize(
+    ("template_name", "flavor"),
+    (("guix", ""), ("guix-minimal", "minimal")),
+)
+def test_template_plugin_guix_jobs(temp_config_dir, template_name, flavor):
     config_file = temp_config_dir / "guix-template.yml"
     config_file.write_text(
         f"""
@@ -339,45 +346,63 @@ components:
   - builder-guix:
       packages: false
 templates:
-  - guix-minimal:
+  - {template_name}:
       dist: guix
-      flavor: minimal
+      flavor: "{flavor}"
 executor:
   type: local
 """,
         encoding="ascii",
     )
     config = Config(config_file)
-    template = config.get_templates(["guix-minimal"])[0]
-
-    plugin = TemplateBuilderPlugin(
-        template=template, config=config, stage="prep"
+    template = config.get_templates([template_name])[0]
+    jobs = config.get_jobs(
+        components=[],
+        distributions=[],
+        templates=[template],
+        stages=["sign"],
     )
+
+    assert [
+        (
+            job.name,
+            job.component.name if job.component else None,
+            job.template.name if job.template else None,
+            job.stage,
+        )
+        for job in jobs
+    ] == [
+        ("fetch", "builder-guix", None, "fetch"),
+        ("template", None, template_name, "prep"),
+        ("template", None, template_name, "build"),
+        ("template", None, template_name, "sign"),
+    ]
+
+    plugin = next(job for job in jobs if job.stage == "prep")
+    assert [
+        (
+            dependency.reference.component.name,
+            dependency.reference.stage,
+            dependency.reference.build,
+        )
+        for dependency in plugin.dependencies
+        if isinstance(dependency, JobDependency)
+        and dependency.reference.component is not None
+    ] == [("builder-guix", "fetch", "source")]
 
     sources_dir = plugin.executor.get_sources_dir()
     assert plugin.environment["TEMPLATE_CONTENT_DIR"] == str(
-        sources_dir / "builder-guix/builder-v2-template"
-    )
-    assert plugin.environment["KEYS_DIR"] == str(
-        sources_dir / "builder-guix/keys"
+        sources_dir / "builder-guix" / "builder-v2-template"
     )
     assert plugin.environment["CACHE_DIR"] == str(
-        plugin.executor.get_cache_dir()
+        plugin.executor.get_cache_dir() / "cache_guix"
     )
-    assert plugin.environment["TEMPLATE_FLAVOR_DIR"] == (
-        f"+minimal:{sources_dir}/builder-guix/builder-v2-template/minimal"
-    )
-
-    fetch_dependencies = [
-        dep.reference
-        for dep in plugin.dependencies
-        if isinstance(dep, JobDependency)
-        and dep.reference.component is not None
-    ]
-    assert len(fetch_dependencies) == 1
-    assert fetch_dependencies[0].component.name == "builder-guix"
-    assert fetch_dependencies[0].stage == "fetch"
-    assert fetch_dependencies[0].build == "source"
+    assert "KEYS_DIR" not in plugin.environment
+    expected_flavor_dir = ""
+    if flavor:
+        flavor_dir = sources_dir / "builder-guix" / "builder-v2-template" / flavor
+        expected_flavor_dir = f"+{flavor}:{flavor_dir}"
+    assert plugin.environment["TEMPLATE_FLAVOR_DIR"] == expected_flavor_dir
 
 
 #

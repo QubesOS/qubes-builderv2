@@ -471,23 +471,15 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 ),
             ]
             template_content_dir = str(
-                self.executor.get_sources_dir()
-                / "builder-guix/builder-v2-template"
+                self.executor.get_sources_dir() / "builder-guix" / "builder-v2-template"
             )
-            self.environment.update(
-                {
-                    "TEMPLATE_CONTENT_DIR": template_content_dir,
-                    "CACHE_DIR": str(self.executor.get_cache_dir()),
-                    "KEYS_DIR": str(
-                        self.executor.get_sources_dir() / "builder-guix/keys"
-                    ),
-                }
-            )
+            self.environment["TEMPLATE_CONTENT_DIR"] = template_content_dir
         else:
             raise TemplateError("Unsupported template.")
         template_flavor_dir += [
             f"+{option}:{template_content_dir}/{option}"
             for option in template_options
+            if option
         ]
         self.environment["TEMPLATE_FLAVOR_DIR"] = " ".join(template_flavor_dir)
 
