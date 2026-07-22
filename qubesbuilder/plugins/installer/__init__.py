@@ -259,6 +259,73 @@ class InstallerPlugin(Plugin):
                 continue
             yield rpm_path, self.executor.get_repository_dir()
 
+    @staticmethod
+    def comps_template_group(family, template_names):
+        packagelist = "\n".join(
+            f"      <packagereq>qubes-template-{name}</packagereq>"
+            for name in template_names
+        )
+        return (
+            "  <group>\n"
+            f"    <id>{family}</id>\n"
+            f"    <name>{family} templates</name>\n"
+            f"    <description>{family} templates</description>\n"
+            "    <default>false</default>\n"
+            "    <uservisible>false</uservisible>\n"
+            "    <packagelist>\n"
+            f"{packagelist}\n"
+            "    </packagelist>\n"
+            "  </group>"
+        )
+
+    def iso_templates(self):
+        # Templates the ISO installs. These render into the comps groups and
+        # are resolved at prep time from the builder-local repository
+        # (locally built templates, installer templates cache) or from the
+        # template repositories the kickstart enables.
+        return (self.config.get("iso", {}) or {}).get("templates", [])
+
+    def cache_templates(self):
+        # Templates to pre-download into the installer cache at init-cache,
+        # from the template repositories the kickstart enables. Independent
+        # from iso.templates: nothing is added to this list automatically.
+        return (self.config.get("cache", {}) or {}).get("templates", [])
+
+    def render_comps(self):
+        # Group ISO templates by family so @fedora/@debian/@whonix resolve.
+        content = self.comps_path.read_text()
+        if "@QUBES_TEMPLATES@" not in content:
+            return self.comps_path
+        families: Dict[str, List[str]] = {}
+        for name in self.iso_templates():
+            families.setdefault(name.split("-", 1)[0], []).append(name)
+        groups = "\n".join(
+            self.comps_template_group(family, names)
+            for family, names in families.items()
+        )
+        rendered = content.replace("@QUBES_TEMPLATES@", groups)
+        out_dir = Path(tempfile.mkdtemp(dir=self.config.temp_dir))
+        out = out_dir / self.comps_path.name
+        out.write_text(rendered)
+        return out
+
+    def kickstart_variables(self):
+        # @QUBES_RELEASE@ defaults to the release version. The rest come from config.
+        variables = {
+            "QUBES_RELEASE": self.config.qubes_release.removeprefix("r")
+        }
+        variables.update(self.config.get("iso", {}).get("kickstart-vars", {}))
+        return variables
+
+    def kickstart_render_cmd(self):
+        # Fill @NAME@ placeholders in every conf kickstart, so includes render too.
+        conf_dir = self.executor.get_sources_dir() / "qubes-release" / "conf"
+        exprs = " ".join(
+            f"-e 's|@{name}@|{value}|g'"
+            for name, value in self.kickstart_variables().items()
+        )
+        return [f"sed -i {exprs} {conf_dir}/*.ks"]
+
     def run(
         self,
         iso_timestamp: str = None,
@@ -280,6 +347,7 @@ class InstallerPlugin(Plugin):
                 )
             if not self.comps_path.exists():
                 raise InstallerError(f"Cannot find comps: '{self.comps_path}'")
+            self.comps_path = self.render_comps()
 
         self.update_parameters(stage=self.stage, iso_timestamp=iso_timestamp)
 
@@ -316,9 +384,13 @@ class InstallerPlugin(Plugin):
                 f"Cannot determine template version: {str(e)}"
             ) from e
 
+        # init-cache downloads cache.templates only. Templates the ISO
+        # installs (iso.templates) are not cached automatically: locally
+        # built ones are copied from artifacts/templates at prep, the rest
+        # come from the repositories the kickstart enables.
         templates = [
             f"qubes-template-{t}-{parsed_release.group(1)}.0"
-            for t in self.config.get("cache", {}).get("templates", [])
+            for t in self.cache_templates()
         ]
 
         if self.stage == "init-cache":
@@ -432,6 +504,7 @@ class InstallerPlugin(Plugin):
                 ]
                 cmd = [
                     f"mv {self.executor.get_builder_dir() / self.kickstart_path.name} {self.executor.get_sources_dir()}/qubes-release/conf/_builder_{self.kickstart_path.name}",
+                    *self.kickstart_render_cmd(),
                     f"sudo --preserve-env={','.join(self.environment.keys())} make -C {self.executor.get_plugins_dir()}/installer iso-parse-kickstart iso-templates-cache",
                 ]
                 try:
@@ -489,7 +562,8 @@ class InstallerPlugin(Plugin):
 
             # Prepare cmd
             cmd = [
-                f"mv {self.executor.get_builder_dir() / self.kickstart_path.name} {self.executor.get_sources_dir()}/qubes-release/conf/_builder_{self.kickstart_path.name}"
+                f"mv {self.executor.get_builder_dir() / self.kickstart_path.name} {self.executor.get_sources_dir()}/qubes-release/conf/_builder_{self.kickstart_path.name}",
+                *self.kickstart_render_cmd(),
             ]
 
             # Create builder-local repository (could be empty) inside the cage
@@ -633,7 +707,8 @@ class InstallerPlugin(Plugin):
 
             # Prepare installer cmd
             cmd = [
-                f"mv {self.executor.get_builder_dir() / self.kickstart_path.name} {self.executor.get_sources_dir()}/qubes-release/conf/_builder_{self.kickstart_path.name}"
+                f"mv {self.executor.get_builder_dir() / self.kickstart_path.name} {self.executor.get_sources_dir()}/qubes-release/conf/_builder_{self.kickstart_path.name}",
+                *self.kickstart_render_cmd(),
             ]
 
             # Add prepared chroot cache
