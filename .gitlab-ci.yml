@@ -300,6 +300,8 @@ builderv2-github:
   artifacts:
     paths:
       - artifacts/installer
+  variables:
+    BUILDER_CONF: tests/builder-ci.yml
   before_script:
     - cp -Tr tests/gnupg ~/.gnupg
     - chmod 700 ~/.gnupg
@@ -307,8 +309,8 @@ builderv2-github:
     - docker tag registry.gitlab.com/qubesos/docker-images/qubes-builder-fedora:latest qubes-builder-fedora:latest
     - sudo dnf install -y python3-debian dpkg-dev openssl tree mktorrent
   script:
-    - ./qb --builder-conf tests/builder-ci.yml -c qubes-release package fetch
-    - 'sh -c "$EXPECT_FAILURE ./qb --builder-conf tests/builder-ci.yml -o iso:kickstart=$KICKSTART_FILE installer init-cache all"'
+    - ./qb --builder-conf $BUILDER_CONF -c qubes-release package fetch
+    - 'sh -c "$EXPECT_FAILURE ./qb --builder-conf $BUILDER_CONF -o iso:kickstart=$KICKSTART_FILE installer init-cache all"'
   after_script:
     - rm -rf artifacts/cache
     - tree artifacts
@@ -674,3 +676,16 @@ installer-iso-unknown-key:
     KICKSTART_FILE: conf/iso-unknown-key.ks
     EXPECT_FAILURE: "!"
   extends: .installer_iso
+
+installer-iso-devel:
+  extends: .installer_iso
+  tags:
+    - qubes
+  variables:
+    BUILDER_CONF: tests/builder-ci-devel.yml
+    KICKSTART_FILE: conf/iso-online-testing-no-templates.ks
+    EXPECT_FAILURE: ""
+  script:
+    - ./qb --builder-conf $BUILDER_CONF -c builder-rpm -c qubes-release package fetch
+    - ./qb --builder-conf $BUILDER_CONF -t fedora-43-minimal --option executor:type=qubes --option executor:options:dispvm=builder-dvm template all
+    - 'sh -c "$EXPECT_FAILURE ./qb --builder-conf $BUILDER_CONF -o iso:kickstart=$KICKSTART_FILE installer init-cache all"'

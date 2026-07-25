@@ -1,0 +1,80 @@
+git:
+  baseurl: https://github.com
+  prefix: QubesOS/qubes-
+  maintainers:
+    # marmarek
+    - '0064428F455451B3EBE78A7F063938BA42CFA724'
+    # simon
+    - '274E12AB03F2FE293765FC06DA0434BC706E1FCF'
+    # fepitre's ITL
+    - '77EEEF6D0386962AEA8CF84A9B8273F80AC219E6'
+    # fepitre's Qubes OS
+    - '9FA64B92F95E706BF28E2CA6484010B5CDC576E2'
+
+backend-vmm: xen
+
+debug: true
+verbose: true
+qubes-release: devel
+
+use-qubes-repo:
+  version: devel
+  testing: true
+
+gpg-client: gpg
+
+sign-key:
+  rpm: 632F8C69E01B25C9E0C3ADF2F360C0D259FB650C
+  iso: 632F8C69E01B25C9E0C3ADF2F360C0D259FB650C
+
+iso:
+  kickstart: conf/iso-online-testing-no-templates.ks
+  templates:
+    - fedora-43-minimal
+
+distributions:
+  - host-fc41
+
+# ISO template set. A single minimal template keeps the job short enough
+# to restart cheaply.
+templates:
+  - fedora-43-minimal:
+      dist: fc43
+      flavor: minimal
+
+components:
+  - builder-rpm:
+      packages: False
+  - qubes-release:
+      packages: False
+      branch: main
+
+less-secure-signed-commits-sufficient:
+  - builder-rpm
+  - qubes-release
+
+repository-publish:
+  components: current-testing
+  templates: templates-itl-testing
+
+executor:
+  type: docker
+  options:
+    image: "qubes-builder-fedora:latest"
+
+stages:
+  - fetch
+  - prep
+  - pre
+  - build
+  - post
+  - verify
+  - sign:
+      executor:
+        type: local
+  - publish:
+      executor:
+        type: local
+  - upload:
+      executor:
+        type: local
