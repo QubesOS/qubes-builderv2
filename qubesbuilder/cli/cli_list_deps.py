@@ -29,7 +29,6 @@ from qubesbuilder.cli.cli_base import aliased_group, ContextObj
 from qubesbuilder.cli.cli_package import _component_stage
 from qubesbuilder.log import QubesBuilderLogger
 
-
 DEFAULT_EXCLUDES: Tuple[str, ...] = ("^qubes-",)
 
 

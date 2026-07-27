@@ -20,6 +20,7 @@
 """
 QubesBuilder command-line interface - base module.
 """
+
 import asyncio
 import signal
 import sys
