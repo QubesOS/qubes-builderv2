@@ -17,13 +17,12 @@ distributions:
   - host-fc41
   - vm-bookworm
   - vm-trixie
-  - vm-fc42
   - vm-fc43
   - vm-fc44
 
 templates:
-  - fedora-42-xfce:
-      dist: fc42
+  - fedora-44-xfce:
+      dist: fc44
       flavor: xfce
       options:
         - selinux
