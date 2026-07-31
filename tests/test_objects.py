@@ -405,6 +405,44 @@ executor:
     assert plugin.environment["TEMPLATE_FLAVOR_DIR"] == expected_flavor_dir
 
 
+def test_template_plugin_fedora_empty_flavor(temp_config_dir):
+    config_file = temp_config_dir / "fedora-template.yml"
+    config_file.write_text(
+        f"""
+qubes-release: r4.3
+artifacts-dir: {temp_config_dir / "artifacts"}
+components:
+  - builder-rpm:
+      packages: false
+templates:
+  - fedora-42:
+      dist: fc42
+executor:
+  type: local
+""",
+        encoding="ascii",
+    )
+    config = Config(config_file)
+    template = config.get_templates(["fedora-42"])[0]
+    plugin = next(
+        job
+        for job in config.get_jobs(
+            components=[],
+            distributions=[],
+            templates=[template],
+            stages=["prep"],
+        )
+        if job.stage == "prep"
+    )
+
+    assert plugin.environment["TEMPLATE_FLAVOR"] == ""
+    assert plugin.environment["TEMPLATE_OPTIONS"] == ""
+    assert plugin.environment["TEMPLATE_FLAVOR_DIR"] == ""
+    assert plugin.environment["TEMPLATE_CONTENT_DIR"] == str(
+        plugin.executor.get_sources_dir() / "builder-rpm" / "template_rpm"
+    )
+
+
 #
 # QubesTemplate
 #
