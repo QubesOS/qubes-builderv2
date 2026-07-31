@@ -20,6 +20,7 @@
 """
 QubesBuilder command-line interface.
 """
+
 import re
 from typing import List, Dict, Any
 
