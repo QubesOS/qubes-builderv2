@@ -4,6 +4,7 @@ import pathlib
 import re
 import shutil
 import subprocess
+import tarfile
 import tempfile
 
 import pytest
@@ -147,6 +148,61 @@ def test_repository_create_vm_bookworm(artifacts_dir, release):
             assert (
                 repository_dir / "dists" / codename / "Release.gpg"
             ).exists()
+
+
+@pytest.mark.parametrize("release", releases)
+def test_repository_create_vm_archlinux(artifacts_dir, release):
+    env = os.environ.copy()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        gnupghome = f"{tmpdir}/gnupg"
+        shutil.copytree(PROJECT_PATH / "tests/gnupg", gnupghome)
+        os.chmod(gnupghome, 0o700)
+
+        env["GNUPGHOME"] = gnupghome
+        env["HOME"] = tmpdir
+
+        qb_call(
+            DEFAULT_BUILDER_CONF,
+            artifacts_dir,
+            release,
+            "-d",
+            "vm-archlinux",
+            "repository",
+            "create",
+            "current-testing",
+            env=env,
+        )
+
+        metadata_dir = (
+            artifacts_dir
+            / f"repository-publish/archlinux/{release}/current-testing/vm/archlinux/pkgs"
+        )
+        repository_db = (
+            metadata_dir / f"qubes-{release}-current-testing.db.tar.gz"
+        )
+        repository_files = (
+            metadata_dir / f"qubes-{release}-current-testing.files.tar.gz"
+        )
+        repository_db_sig = repository_db.with_suffix(".gz.sig")
+        assert repository_db.exists()
+        assert repository_files.exists()
+        assert repository_db_sig.exists()
+        assert repository_db.with_name(
+            repository_db.name.removesuffix(".tar.gz")
+        ).is_symlink()
+        assert repository_files.with_name(
+            repository_files.name.removesuffix(".tar.gz")
+        ).is_symlink()
+        with tarfile.open(repository_db) as repository:
+            assert repository.getnames() == []
+        with tarfile.open(repository_files) as repository:
+            assert repository.getnames() == []
+        subprocess.run(
+            ["gpg2", "-q", "--verify", repository_db_sig, repository_db],
+            check=True,
+            capture_output=True,
+            env=env,
+        )
 
 
 @pytest.mark.parametrize("release", releases)
