@@ -67,6 +67,7 @@ def _component_stage(
             components=components,
             distributions=distributions,
             templates=[],
+            installers=[],
             stages=["fetch"],
         ):
             if (
@@ -91,6 +92,7 @@ def _component_stage(
         components=components,
         distributions=distributions,
         templates=[],
+        installers=[],
         stages=stages,
         with_dependencies=True,
     ):
@@ -292,6 +294,7 @@ def pipeline(obj: ContextObj, stages, fmt, no_deps):
         components=obj.components,
         distributions=obj.distributions,
         templates=[],
+        installers=[],
         stages=list(stages),
         with_dependencies=not no_deps,
     )

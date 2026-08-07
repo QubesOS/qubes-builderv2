@@ -68,10 +68,11 @@ vm:
     (src_dir / "version").write_text("1.2.3")
     (src_dir / "rel").write_text("4")
     return config.get_jobs(
-        stages=["prep"],
         components=config.get_components(),
         distributions=config.get_distributions(),
         templates=[],
+        installers=[],
+        stages=["prep"],
     )
 
 

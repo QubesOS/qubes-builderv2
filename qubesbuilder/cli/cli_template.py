@@ -47,7 +47,11 @@ def _template_stage(
 
     # Qubes templates
     jobs = config.get_jobs(
-        templates=templates, components=[], distributions=[], stages=stages
+        templates=templates,
+        components=[],
+        distributions=[],
+        installers=[],
+        stages=stages,
     )
     for job in jobs:
         if (
@@ -183,6 +187,7 @@ def pipeline(obj: ContextObj, stages, fmt):
         components=[],
         distributions=[],
         templates=obj.templates,
+        installers=[],
         stages=list(stages),
     )
     jobs = pl.sorted_jobs(obj.config)

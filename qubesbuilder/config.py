@@ -45,7 +45,7 @@ from qubesbuilder.plugins import (
 )
 from qubesbuilder.template import QubesTemplate
 
-QUBES_RELEASE_RE = re.compile(r"r([1-9]\.[0-9]+).*")
+QUBES_RELEASE_RE = re.compile(r"r([1-9][0-9]*\.[0-9]+).*")
 QUBES_RELEASE_DEFAULT = "r4.2"
 
 
@@ -616,7 +616,7 @@ class Config:
     def parse_qubes_release(self):
         qubes_release = self.qubes_release
         if qubes_release == "devel":
-            qubes_release = "99.0"
+            qubes_release = "r99.0"
         parsed_release = QUBES_RELEASE_RE.match(
             qubes_release
         ) or QUBES_RELEASE_RE.match(QUBES_RELEASE_DEFAULT)
@@ -702,21 +702,25 @@ class Config:
         components: List[QubesComponent],
         distributions: List[QubesDistribution],
         templates: List[QubesTemplate],
+        installers: List[QubesDistribution],
         stages: List[str],
     ):
         factory = JobFactory(self)
-        return factory.create(components, distributions, templates, stages)
+        return factory.create(
+            components, distributions, templates, installers, stages
+        )
 
     def get_jobs(
         self,
         components: List[QubesComponent],
         distributions: List[QubesDistribution],
         templates: List[QubesTemplate],
+        installers: List[QubesDistribution],
         stages: List[str],
         with_dependencies: bool = True,
     ):
         pipeline = self.get_pipeline(
-            components, distributions, templates, stages
+            components, distributions, templates, installers, stages
         )
         if not with_dependencies:
             return list(pipeline)

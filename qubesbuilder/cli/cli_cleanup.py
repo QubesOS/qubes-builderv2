@@ -78,14 +78,14 @@ def _installer_active_chroots(obj: ContextObj) -> set:
 
 
 def _installer_active_template_prefixes(obj: ContextObj) -> set:
+    # The installer templates cache is populated from cache.templates only,
+    # so that is the reference list for pruning it.
     try:
         release = obj.config.parse_qubes_release().group(1)
     except Exception:
         return set()
-    return {
-        f"qubes-template-{t}-{release}.0"
-        for t in obj.config.get("cache", {}).get("templates", [])
-    }
+    cache_templates = obj.config.get("cache", {}).get("templates", [])
+    return {f"qubes-template-{t}-{release}.0" for t in cache_templates}
 
 
 def _group_template_rpms_by_name(rpms):

@@ -48,6 +48,7 @@ class JobReference:
     component: Optional[Any] = None
     dist: Optional[Any] = None
     template: Optional[Any] = None
+    installer: Optional[Any] = None
     stage: Optional[str] = None
     build: Optional[str] = None
 
@@ -63,6 +64,8 @@ class JobReference:
             parts.append(f"stage={self.stage}")
         if self.build is not None:
             parts.append(f"build={self.build}")
+        if self.installer is not None:
+            parts.append(f"installer={self.installer.distribution}")
         return (
             f"<JobReference({', '.join(parts)})>"
             if parts
@@ -89,6 +92,7 @@ class PluginContext(enum.Flag):
     COMPONENT = enum.auto()
     DIST = enum.auto()
     TEMPLATE = enum.auto()
+    INSTALLER = enum.auto()
 
 
 def get_relative_artifacts_path(job_ref: JobReference) -> Path:
@@ -188,6 +192,7 @@ class Plugin:
         component = kwargs.get("component")
         dist = kwargs.get("dist")
         template = kwargs.get("template")
+        installer = kwargs.get("installer")
 
         if PluginContext.COMPONENT in cls.context and not component:
             return False
@@ -195,12 +200,16 @@ class Plugin:
             return False
         if PluginContext.TEMPLATE in cls.context and not template:
             return False
+        if PluginContext.INSTALLER in cls.context and not installer:
+            return False
 
         if component and PluginContext.COMPONENT not in cls.context:
             return False
         if dist and PluginContext.DIST not in cls.context:
             return False
         if template and PluginContext.TEMPLATE not in cls.context:
+            return False
+        if installer and PluginContext.INSTALLER not in cls.context:
             return False
 
         if cls.dist_filter is not None and dist and not cls.dist_filter(dist):

@@ -27,10 +27,10 @@ builder_qube_names_resolved: >-
 builder_dvm_name: builder-dvm
 
 # Template VM that qubes-builder-dvm is based on.
-builder_executor_template: fedora-42-xfce
+builder_executor_template: fedora-43-xfce
 
 # Template VM that build-qubesos is based on (used to install host deps).
-builder_qube_template: fedora-42-xfce
+builder_qube_template: fedora-43-xfce
 
 # Label colours for created qubes.
 builder_qube_label: blue

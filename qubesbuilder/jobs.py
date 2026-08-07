@@ -96,6 +96,7 @@ class Pipeline:
                         dep.reference.component,
                         dep.reference.dist,
                         dep.reference.template,
+                        dep.reference.installer,
                         dep.reference.stage,
                         None,
                     )
@@ -109,7 +110,7 @@ class Pipeline:
                         deps.append(dep_job)
                 elif isinstance(dep, ComponentDependency):
                     dep_ref = JobReference(
-                        dep.reference, None, None, "fetch", None
+                        dep.reference, None, None, None, "fetch", None
                     )
                     dep_job = self.by_ref.get(dep_ref)
                     if dep_job and id(dep_job) not in seen:
@@ -239,6 +240,7 @@ class JobFactory:
                 component=ref.component,
                 dist=ref.dist,
                 template=ref.template,
+                installer=ref.installer,
             ):
                 continue
             kwargs = {"config": config, "stage": ref.stage}
@@ -248,6 +250,8 @@ class JobFactory:
                 kwargs["dist"] = ref.dist
             if ref.template is not None:
                 kwargs["template"] = ref.template
+            if ref.installer is not None:
+                kwargs["dist"] = ref.installer
             try:
                 job = plugin_cls(**kwargs)
                 if ref.component and ref.dist:
@@ -283,6 +287,7 @@ class JobFactory:
                     dep.reference.component,
                     dep.reference.dist,
                     dep.reference.template,
+                    dep.reference.installer,
                     dep.reference.stage,
                     None,
                 )
@@ -303,6 +308,7 @@ class JobFactory:
         components: List[QubesComponent],
         distributions: List[QubesDistribution],
         templates: List[QubesTemplate],
+        installers: List[QubesDistribution],
         stages: List[str],
     ) -> Pipeline:
         pipeline = Pipeline()
@@ -312,22 +318,27 @@ class JobFactory:
                 for comp in components:
                     self.add_job(
                         pipeline,
-                        JobReference(comp, dist, None, stage, None),
+                        JobReference(comp, dist, None, None, stage, None),
                     )
             for comp in components:
                 self.add_job(
                     pipeline,
-                    JobReference(comp, None, None, stage, None),
+                    JobReference(comp, None, None, None, stage, None),
                 )
             for dist in distributions:
                 self.add_job(
                     pipeline,
-                    JobReference(None, dist, None, stage, None),
+                    JobReference(None, dist, None, None, stage, None),
                 )
             for tmpl in templates:
                 self.add_job(
                     pipeline,
-                    JobReference(None, None, tmpl, stage, None),
+                    JobReference(None, None, tmpl, None, stage, None),
+                )
+            for inst in installers:
+                self.add_job(
+                    pipeline,
+                    JobReference(installer=inst, stage=stage),
                 )
 
         return pipeline

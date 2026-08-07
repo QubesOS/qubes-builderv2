@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import xml.etree.ElementTree as ET
 
 from jinja2 import Environment
 from pykickstart.commands.repo import F27_RepoData, F33_Repo, F33
@@ -67,7 +68,21 @@ def get_args():
     parser.add_argument("ks", metavar="PATH")
     parser.add_argument("-r", "--extract-repo-conf-to", metavar="PATH", required=False)
     parser.add_argument("-p", "--extract-packages-to", metavar="PATH", required=False)
+    parser.add_argument(
+        "-c",
+        "--comps",
+        metavar="PATH",
+        required=False,
+        help="Drop kickstart group selections not defined in this comps file.",
+    )
     return parser.parse_args()
+
+
+def get_comps_groups(path):
+    return {
+        group_id.text
+        for group_id in ET.parse(path).getroot().iterfind("group/id")
+    }
 
 
 def main():
@@ -95,11 +110,20 @@ def main():
                 return 1
 
         if args.extract_packages_to:
+            comps_groups = get_comps_groups(args.comps) if args.comps else None
+
             packages = []
             for pkg in ksparser.handler.packages.excludedList:
                 packages.append("--exclude=%s" % pkg)
 
             for group in ksparser.handler.packages.groupList:
+                if comps_groups is not None and group.name not in comps_groups:
+                    print(
+                        "Warning: dropping group '@%s': not defined in comps"
+                        % group.name,
+                        file=sys.stderr,
+                    )
+                    continue
                 packages.append("@%s" % group.name)
 
             for pkg in ksparser.handler.packages.packageList:

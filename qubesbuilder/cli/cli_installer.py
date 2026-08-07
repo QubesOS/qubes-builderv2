@@ -25,7 +25,7 @@ def _installer_stage(
     templates_only: bool = False,
 ):
     """
-    Generic function to trigger stage for a template component
+    Generic function to trigger a stage of the installer (ISO) build.
     """
     click.echo(f"Running installer stage: {stage_name}")
 
@@ -41,24 +41,41 @@ def _installer_stage(
     host_distributions = [
         d for d in config.get_distributions() if d.package_set == "host"
     ]
-
     if not len(host_distributions) == 1:
         raise CliError("One and only one host distribution must be provided.")
-
     dist = host_distributions[0]
-    installer_plugin = InstallerPlugin(
-        dist=dist, config=config, stage=stage_name, templates=templates or []
+
+    # 'fetch' is not an installer stage: it only pulls the installer's
+    #  source dependencies.
+    resolve_stage = (
+        InstallerPlugin.stages[0] if stage_name == "fetch" else stage_name
     )
-    if (
-        hasattr(installer_plugin, "executor")
-        and hasattr(installer_plugin.executor, "cleanup")
-        and root_group
+
+    for job in config.get_jobs(
+        components=[],
+        distributions=[],
+        templates=[],
+        installers=[dist],
+        stages=[resolve_stage],
+        with_dependencies=True,
     ):
-        root_group.add_cleanup(installer_plugin.executor.cleanup)
-    installer_plugin.run(
-        iso_timestamp=iso_timestamp,
-        cache_templates_only=templates_only,
-    )
+        if (
+            hasattr(job, "executor")
+            and hasattr(job.executor, "cleanup")
+            and root_group
+        ):
+            root_group.add_cleanup(job.executor.cleanup)
+        # 'installer fetch' only runs the source-fetch dependencies.
+        if stage_name == "fetch" and job.stage != "fetch":
+            continue
+        if job.name == "installer":
+            job.templates = templates or []
+            job.run(
+                iso_timestamp=iso_timestamp,
+                cache_templates_only=templates_only,
+            )
+        else:
+            job.run()
 
 
 @click.command(name="all", short_help="Run all template stages.")

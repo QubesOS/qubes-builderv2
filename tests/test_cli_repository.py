@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 
 import pytest
+import yaml
 
 from qubesbuilder.common import PROJECT_PATH
 
@@ -217,3 +218,50 @@ def test_repository_create_template(artifacts_dir, release):
 
         # ensure we don't have anything related to deb for template repository in clean artifacts dir
         assert not (artifacts_dir / "repository-publish/deb").exists()
+
+
+@pytest.mark.parametrize("release", releases)
+def test_repository_upload_template_does_not_rebuild(artifacts_dir, release):
+    env = os.environ.copy()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        gnupghome = f"{tmpdir}/gnupg"
+        shutil.copytree(PROJECT_PATH / "tests/gnupg", gnupghome)
+        os.chmod(gnupghome, 0o700)
+        env["GNUPGHOME"] = gnupghome
+        env["HOME"] = tmpdir
+
+        template_rpm = (
+            "qubes-template-fedora-43-xfce-4.2.0-202601010000.noarch.rpm"
+        )
+        published_rpm_dir = (
+            artifacts_dir
+            / f"repository-publish/rpm/{release}/templates-itl-testing/rpm"
+        )
+        published_rpm_dir.mkdir(parents=True)
+        (published_rpm_dir / template_rpm).write_bytes(b"placeholder\n")
+
+        remote = pathlib.Path(tmpdir) / "remote"
+
+        # No templates configured: upload must still push the published repo
+        conf = yaml.safe_load(DEFAULT_BUILDER_CONF.read_text())
+        conf["templates"] = []
+        conf["executor"]["options"]["image"] = "does-not-exist-must-not-build"
+        conf["repository-upload-remote-host"] = {"rpm": str(remote)}
+        builder_conf = tmpdir + "/builder.yml"
+        with open(builder_conf, "w") as builder_f:
+            yaml.safe_dump(conf, builder_f)
+
+        qb_call(
+            builder_conf,
+            artifacts_dir,
+            release,
+            "repository",
+            "upload",
+            "templates-itl-testing",
+            env=env,
+        )
+
+        # The already-published RPM was uploaded to the remote ...
+        assert (remote / "templates-itl-testing/rpm" / template_rpm).exists()
+        # ... and nothing was (re)built: no build RPM artifacts appeared.
+        assert not (artifacts_dir / "templates/rpm").exists()

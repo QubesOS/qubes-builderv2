@@ -843,6 +843,7 @@ executor:
                 components=config.get_components(),
                 distributions=config.get_distributions(),
                 templates=[],
+                installers=[],
                 stages=["fetch"],
             )
             executor = config.get_executor_from_config("build", jobs[0])
@@ -1153,3 +1154,37 @@ def test_config_path_from_config_with_home_relative_path(config):
     result = config.get_absolute_path_from_config(config_path_str)
     expected = Path(config_path_str).expanduser().resolve()
     assert result == expected
+
+
+def _config_with_release(temp_config_dir, qubes_release):
+    config_file = temp_config_dir / "release.yml"
+    if qubes_release is None:
+        config_file.write_text("{}")
+    else:
+        config_file.write_text(f"qubes-release: {qubes_release}\n")
+    return Config(config_file)
+
+
+@pytest.mark.parametrize(
+    "qubes_release, expected",
+    [
+        ("r4.2", "4.2"),
+        ("r4.3", "4.3"),
+        (None, "4.2"),
+        ("devel", "99.0"),
+    ],
+)
+def test_parse_qubes_release(temp_config_dir, qubes_release, expected):
+    config = _config_with_release(temp_config_dir, qubes_release)
+    assert config.parse_qubes_release().group(1) == expected
+
+
+def test_parse_qubes_release_devel_template_name(temp_config_dir):
+    config = _config_with_release(temp_config_dir, "devel")
+    release = config.parse_qubes_release().group(1)
+    # This is the template NVR the ISO installer requests from the repository
+    # (see installer plugin). For devel it must resolve to a numeric version.
+    assert (
+        f"qubes-template-fedora-42-{release}.0"
+        == "qubes-template-fedora-42-99.0.0"
+    )

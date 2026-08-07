@@ -55,6 +55,30 @@ class TemplateError(PluginError):
     pass
 
 
+def upload_template_repository(config, repository_publish, executor):
+    """
+    Upload a published template repository to the remote mirror
+    """
+    remote_path = config.repository_upload_remote_host.get("rpm", None)
+    if not remote_path:
+        QubesBuilderLogger.info(
+            f"{repository_publish}: No remote location defined. Skipping."
+        )
+        return
+    local_path = config.repository_publish_dir / "rpm" / config.qubes_release
+    try:
+        cmd = [
+            f"rsync --partial --progress --hard-links -OJair --mkpath -- "
+            f"{local_path / repository_publish}/ "
+            f"{remote_path}/{repository_publish}/"
+        ]
+        executor.run(cmd)
+    except ExecutorError as e:
+        raise TemplateError(
+            f"{repository_publish}: Failed to upload to remote host: {str(e)}"
+        ) from e
+
+
 class TemplateBuilderPlugin(TemplatePlugin):
     dist: QubesDistribution
     """
@@ -1091,38 +1115,9 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 )
 
         if self.stage == "upload":
-            remote_path = self.config.repository_upload_remote_host.get(
-                "rpm", None
+            upload_template_repository(
+                self.config, repository_publish, self.executor
             )
-            if not remote_path:
-                self.log.info(
-                    f"{self.dist}: No remote location defined. Skipping."
-                )
-                return
-
-            try:
-                local_path = (
-                    self.config.repository_publish_dir
-                    / "rpm"
-                    / self.config.qubes_release
-                )
-                # Repository dir relative to local path that will be the same on remote host
-                directories_to_upload = [repository_publish]
-
-                if not directories_to_upload:
-                    raise TemplateError(
-                        f"{self.dist}: Cannot determine directories to upload."
-                    )
-
-                for relative_dir in directories_to_upload:
-                    cmd = [
-                        f"rsync --partial --progress --hard-links -OJair --mkpath -- {local_path / relative_dir}/ {remote_path}/{relative_dir}/"
-                    ]
-                    self.executor.run(cmd)
-            except ExecutorError as e:
-                raise TemplateError(
-                    f"{self.dist}: Failed to upload to remote host: {str(e)}"
-                ) from e
 
 
 PLUGINS = [TemplateBuilderPlugin]

@@ -113,7 +113,7 @@ iso-prepare:
 
 iso-parse-kickstart:
 	mkdir -p $(DNF_ROOT)/etc/yum.repos.d $(DNF_ROOT)/tmp
-	$(INSTALLER_DIR)/scripts/ksparser --extract-repo-conf-to $(DNF_REPO) --extract-packages-to $(DNF_PACKAGES) $(INSTALLER_KICKSTART)
+	$(INSTALLER_DIR)/scripts/ksparser --comps $(COMPS_FILE) --extract-repo-conf-to $(DNF_REPO) --extract-packages-to $(DNF_PACKAGES) $(INSTALLER_KICKSTART)
 
 #
 # CAGE -> MOCK
