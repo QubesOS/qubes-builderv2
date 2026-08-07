@@ -50,6 +50,7 @@ class ArchlinuxRepoPlugin(Plugin):
         self.log_prefix = f"{self.name}:{self.dist}"
 
     def get_repository_db(self, repository_publish):
+        assert self.dist is not None
         target_dir = (
             self.config.repository_publish_dir
             / self.dist.type
@@ -115,6 +116,7 @@ class ArchlinuxRepoPlugin(Plugin):
         return repository_db
 
     def create_and_sign_repository_metadata(self, repository_publish):
+        assert self.dist is not None
         executor = self.config.get_executor_from_config("publish", self)
 
         sign_key = self.config.sign_key.get(
@@ -328,6 +330,7 @@ class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
         repository_publish: Optional[str] = None,
         ignore_min_age: bool = False,
         unpublish: bool = False,
+        create_and_sign_metadata_only: bool = False,
         **kwargs,
     ):
         """
