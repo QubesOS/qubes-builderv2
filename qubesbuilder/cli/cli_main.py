@@ -120,7 +120,7 @@ def parse_dict_from_cli(s, value=None, append=False):
             }
     else:
         if value is None:
-            result = s
+            raise ValueError(f"Cannot find '=' or '+' in '{s}'")
         else:
             key = s
 

@@ -206,6 +206,13 @@ def test_parse_config_array_colon_without_value_raises():
     assert "Cannot find '=' or '+'" in e.value.args[0]
 
 
+def test_parse_config_array_no_value_raises():
+    array = ["core-agent-linux"]
+    with pytest.raises(ValueError) as e:
+        parse_config_from_cli(array)
+    assert "Cannot find '=' or '+' in 'core-agent-linux'" in e.value.args[0]
+
+
 def test_parse_config_array_empty_value_becomes_empty_dict():
     assert parse_config_from_cli(["foo="]) == {"foo": {}}
     assert parse_config_from_cli(["foo={}"]) == {"foo": {}}
