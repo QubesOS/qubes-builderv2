@@ -685,7 +685,10 @@ installer-iso-devel:
     BUILDER_CONF: tests/builder-ci-devel.yml
     KICKSTART_FILE: conf/iso-online-testing-no-templates.ks
     EXPECT_FAILURE: ""
+    # qubes-release devel branch is used only by this job, so it is set
+    # here instead of the builder configuration.
+    QUBES_RELEASE_OVERRIDE: -o +components+qubes-release:branch=devel -o +components+qubes-release:url=https://github.com/fepitre/qubes-qubes-release
   script:
-    - ./qb --builder-conf $BUILDER_CONF -c builder-rpm -c qubes-release package fetch
+    - ./qb --builder-conf $BUILDER_CONF $QUBES_RELEASE_OVERRIDE -c builder-rpm -c qubes-release package fetch
     - ./qb --builder-conf $BUILDER_CONF -t fedora-43-minimal --option executor:type=qubes --option executor:options:dispvm=builder-dvm template all
-    - 'sh -c "$EXPECT_FAILURE ./qb --builder-conf $BUILDER_CONF -o iso:kickstart=$KICKSTART_FILE installer init-cache all"'
+    - 'sh -c "$EXPECT_FAILURE ./qb --builder-conf $BUILDER_CONF $QUBES_RELEASE_OVERRIDE -o iso:kickstart=$KICKSTART_FILE installer init-cache all"'
