@@ -76,6 +76,10 @@ class ArchlinuxRepoPlugin(Plugin):
         repository_files_link = repository_files.with_name(
             repository_files.name.removesuffix(".tar.gz")
         )
+        repository_db_sig = repository_db.with_suffix(".gz.sig")
+        repository_db_link_sig = repository_db.with_name(
+            repository_db.name.removesuffix(".tar.gz") + ".sig"
+        )
         repository_db.parent.mkdir(parents=True, exist_ok=True)
 
         for metadata in (
@@ -83,6 +87,8 @@ class ArchlinuxRepoPlugin(Plugin):
             repository_files,
             repository_db_link,
             repository_files_link,
+            repository_db_sig,
+            repository_db_link_sig,
         ):
             metadata.unlink(missing_ok=True)
 
@@ -167,14 +173,20 @@ class ArchlinuxRepoPlugin(Plugin):
     def sign_metadata(self, executor, directory, sign_key, repository_db):
         self.log.info(f"{self.log_prefix}:{directory}: Signing metadata.")
         repository_db_sig = repository_db.with_suffix(".gz.sig")
+        repository_db_link_sig = repository_db.with_name(
+            repository_db.name.removesuffix(".tar.gz") + ".sig"
+        )
         cmd = [
             f"{self.config.gpg_client} --batch --no-tty --yes --detach-sign --armor --output - -u {sign_key} {repository_db} > {repository_db_sig}",
         ]
         try:
             executor.run(cmd)
+            repository_db_link_sig.unlink(missing_ok=True)
+            repository_db_link_sig.symlink_to(repository_db_sig.name)
         except (ExecutorError, OSError) as e:
             # On error, it creates an empty file.
             repository_db_sig.unlink(missing_ok=True)
+            repository_db_link_sig.unlink(missing_ok=True)
             msg = f"{self.log_prefix}:{directory}:  Failed to sign metadata"
             raise PublishError(msg) from e
 

@@ -91,12 +91,20 @@ def test_repository_archlinux_metadata_with_packages(tmp_path):
     repository_db.parent.mkdir(parents=True)
     (repository_db.parent / "example.pkg.tar.zst").touch()
     (repository_db.parent / "example.pkg.tar.zst.sig").touch()
+    repository_db_sig = repository_db.with_suffix(".gz.sig")
+    repository_db_link_sig = repository_db.with_name(
+        repository_db.name.removesuffix(".tar.gz") + ".sig"
+    )
+    repository_db_sig.touch()
+    repository_db_link_sig.touch()
     executor = Mock()
 
     assert plugin.create_repository_metadata(executor, "current-testing") == repository_db
     command = executor.run.call_args.args[0][0]
     assert "repo-add" in command
     assert "! -name '*.sig'" in command
+    assert not repository_db_sig.exists()
+    assert not repository_db_link_sig.exists()
 
 
 def test_repository_archlinux_metadata_wraps_executor_error(tmp_path):
@@ -273,9 +281,14 @@ def test_repository_create_vm_archlinux(artifacts_dir, release):
             metadata_dir / f"qubes-{release}-current-testing.files.tar.gz"
         )
         repository_db_sig = repository_db.with_suffix(".gz.sig")
+        repository_db_link_sig = repository_db.with_name(
+            repository_db.name.removesuffix(".tar.gz") + ".sig"
+        )
         assert repository_db.exists()
         assert repository_files.exists()
         assert repository_db_sig.exists()
+        assert repository_db_link_sig.is_symlink()
+        assert repository_db_link_sig.resolve() == repository_db_sig
         assert repository_db.with_name(
             repository_db.name.removesuffix(".tar.gz")
         ).is_symlink()
