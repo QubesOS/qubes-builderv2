@@ -210,9 +210,6 @@ class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
             stage="build"
         )
 
-        # Publish repository
-        artifacts_dir = self.config.repository_publish_dir / self.dist.type
-
         # Read information from build stage
         build_info = self.get_dist_artifacts_info(
             stage="build", basename=directory_bn
@@ -246,19 +243,12 @@ class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
         # Publishing packages
         cmd = []
         try:
-            target_dir = (
-                artifacts_dir
-                / f"{self.config.qubes_release}/{repository_publish}/{self.dist.package_set}/{self.dist.name}"
-            )
-            repository_db = (
-                target_dir
-                / f"pkgs/qubes-{self.config.qubes_release}-{repository_publish}.db.tar.gz"
-            )
+            repository_db = self.get_repository_db(repository_publish)
             repository_db.parent.mkdir(parents=True, exist_ok=True)
             if not repository_db.exists():
                 cmd += [f"repo-add {repository_db}"]
             for pkg in packages_list:
-                target_path = target_dir / "pkgs" / pkg.name
+                target_path = repository_db.parent / pkg.name
                 target_sig_path = target_path.with_suffix(".zst.sig")
 
                 target_path.unlink(missing_ok=True)
@@ -284,9 +274,6 @@ class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
             stage="build"
         )
 
-        # Publish repository
-        artifacts_dir = self.config.repository_publish_dir / self.dist.type
-
         # Read information from build stage
         build_info = self.get_dist_artifacts_info(
             stage="build", basename=directory_bn
@@ -307,18 +294,11 @@ class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
         # Unpublishing packages
         cmd = []
         try:
-            target_dir = (
-                artifacts_dir
-                / f"{self.config.qubes_release}/{repository_publish}/{self.dist.package_set}/{self.dist.name}"
-            )
-            repository_db = (
-                target_dir
-                / f"pkgs/qubes-r{self.config.qubes_release}-{repository_publish}.db.tar.gz"
-            )
-            if not repository_db.exists:
+            repository_db = self.get_repository_db(repository_publish)
+            if not repository_db.exists():
                 return
             for pkg in packages_list:
-                target_path = target_dir / "pkgs" / pkg.name
+                target_path = repository_db.parent / pkg.name
                 target_sig_path = target_path.with_suffix(".zst.sig")
 
                 target_path.unlink(missing_ok=True)
