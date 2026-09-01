@@ -19,7 +19,7 @@ DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder-ci.yml"
 HASH_RE = re.compile(r"[a-f0-9]{40}")
 
 # Version constants: update these when bumping component/template versions
-EXAMPLE_VERSION = "1.0.2"
+EXAMPLE_VERSION = "1.0.4"
 EXAMPLE_RELEASE = "1"
 FEDORA_MINIMAL = "fedora-43-minimal"
 FEDORA_XFCE = "fedora-43-xfce"
@@ -457,21 +457,22 @@ def test_common_component_fetch_skip_files(artifacts_dir_single):
 def test_common_component_fetch_commit_fresh(artifacts_dir_single):
     artifacts_dir = artifacts_dir_single
     # Fetch a known tag and verify the exact commit hash is recorded.
-    commit_sha = "03e6ccfa71cf824fc063c97dbf22b52244011958"
+    commit_sha = "7afffde38a2142dc43a726fe783b5439fab3c3ee"
+    pinned_version = "1.0.3"
     qb_call_output(
         DEFAULT_BUILDER_CONF,
         artifacts_dir,
         "-c",
         "example-advanced",
         "-o",
-        f"+components+example-advanced:branch=v1.0.2-1",
+        f"+components+example-advanced:branch=v1.0.3-1",
         "package",
         "fetch",
     ).decode()
 
     fetch_artifact = (
         artifacts_dir
-        / f"components/example-advanced/{EXAMPLE_VERSION}-{EXAMPLE_RELEASE}/nodist/fetch/source.fetch.yml"
+        / f"components/example-advanced/{pinned_version}-{EXAMPLE_RELEASE}/nodist/fetch/source.fetch.yml"
     )
     assert fetch_artifact.exists()
     with open(fetch_artifact) as f:
