@@ -66,8 +66,10 @@ def _template_stage(
 @click.command(name="all", short_help="Run all template stages.")
 @click.pass_obj
 def _all_template_stage(obj: ContextObj):
-    stages = STAGES
-    if obj.config.automatic_upload_on_publish:
+    # STAGES is module level, and removing from it here would drop
+    # 'upload' from the stage ordering for the rest of the process.
+    stages = list(STAGES)
+    if obj.config.automatic_upload_on_publish and "upload" in stages:
         stages.remove("upload")
     _template_stage(
         config=obj.config,

@@ -17,9 +17,19 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from qubesbuilder.cli.cli_package import _component_stage
-from qubesbuilder.cli.cli_template import _template_stage
+from qubesbuilder.cli.cli_package import (
+    _all_package_stage,
+    _component_stage,
+)
+from qubesbuilder.cli.cli_template import (
+    _all_template_stage,
+    _template_stage,
+)
 from qubesbuilder.common import PROJECT_PATH, STAGES
+from types import SimpleNamespace
+
+import click
+
 from qubesbuilder.config import Config
 
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder-ci.yml"
@@ -181,3 +191,44 @@ def test_template_upload_skips_when_no_repository_configured(tmp_path):
     )
 
     assert not (tmp_path / "remote").exists()
+
+
+def test_all_stages_do_not_mutate_module_stages(tmp_path):
+    # 'stages = STAGES' followed by stages.remove("upload") dropped 'upload'
+    # from the module-level list, and so from the stage ordering in jobs.py,
+    # for the rest of the process.
+    cfg = _make_config(tmp_path)
+    cfg.set("automatic-upload-on-publish", True)
+    obj = SimpleNamespace(
+        config=cfg, templates=[], components=[], distributions=[]
+    )
+
+    with click.Context(_all_template_stage, obj=obj):
+        _all_template_stage.callback()
+    assert "upload" in STAGES
+
+    with click.Context(_all_package_stage, obj=obj):
+        _all_package_stage.callback()
+    assert "upload" in STAGES
+    assert "upload" in cfg.get_stages()
+
+
+def test_all_stages_survive_a_config_without_upload(tmp_path):
+    # get_stages() is the user's configured list and need not have 'upload'.
+    cfg = _make_config(tmp_path)
+    cfg.set("automatic-upload-on-publish", True)
+    cfg.set("stages", ["fetch", "prep", "build"])
+    obj = SimpleNamespace(
+        config=cfg, templates=[], components=[], distributions=[]
+    )
+    with click.Context(_all_package_stage, obj=obj):
+        _all_package_stage.callback()
+
+
+def test_component_stage_does_not_mutate_stages(tmp_path):
+    cfg = _make_config(tmp_path)
+    cfg.set("executor", {"type": "local"})
+    cfg.set("skip-git-fetch", True)
+    stages = ["fetch", "prep"]
+    _component_stage(config=cfg, components=[], distributions=[], stages=stages)
+    assert stages == ["fetch", "prep"]
