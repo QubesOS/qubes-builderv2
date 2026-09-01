@@ -773,10 +773,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
         #
 
         if self.stage == "prep":
-            force_prep = (
-                self.config.get("force-template-prep", False)
-                or template_timestamp is not None
-            )
+            force_prep = self.config.get("force-template-prep", False)
 
             if not force_prep:
                 # Try to detect existing prep artifacts.

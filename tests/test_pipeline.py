@@ -67,3 +67,35 @@ def test_fetch_runs_independently_per_component(tmp_path):
     assert (
         "example-advanced-clone" in fetch_done
     ), "example-advanced-clone not recorded - fetch was blocked by first component"
+
+
+def test_template_prep_skips_when_timestamp_is_passed(tmp_path):
+    # Regression: the github action passes a template timestamp on every
+    # stage call, and that alone used to force a full prep, rebuilding the
+    # root image even though the artifacts were already there.
+    cfg = _make_config(tmp_path)
+    cfg.set("executor", {"type": "local"})
+
+    templates = cfg.get_templates(["fedora-43-xfce"])
+    pipeline = cfg.get_pipeline(
+        components=[],
+        distributions=[],
+        templates=templates,
+        installers=[],
+        stages=["prep"],
+    )
+    prep = [j for j in pipeline.sorted_jobs(cfg) if j.stage == "prep"][0]
+
+    templates_dir = cfg.templates_dir
+    qubeized = templates_dir / "qubeized_images" / templates[0].name
+    qubeized.mkdir(parents=True)
+    (qubeized / "root.img").write_bytes(b"")
+    (templates_dir / f"{templates[0]}.prep.yml").write_text(
+        "timestamp: '202601010000'\n"
+    )
+
+    def fail(*args, **kwargs):
+        raise AssertionError("prep must not run the executor")
+
+    prep.executor.run = fail
+    prep.run(template_timestamp="202601010000")
