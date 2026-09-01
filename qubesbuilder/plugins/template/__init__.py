@@ -89,7 +89,8 @@ class TemplateBuilderPlugin(TemplatePlugin):
         - build - Create template RPM from qubeized image.
         - sign - Sign template RPM.
         - publish - Create repository to be published and uploaded to remote mirror.
-        - upload - Upload published repository for given distribution to remote mirror.
+
+    Uploading is UploadPlugin, shared with packages.
     """
 
     _publish_not_configured_warned = False
@@ -107,7 +108,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
         )
 
     name = "template"
-    stages = ["prep", "build", "sign", "publish", "upload"]
+    stages = ["prep", "build", "sign", "publish"]
 
     def __init__(
         self,
@@ -170,19 +171,6 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 )
             )
 
-        if stage == "upload":
-            self.dependencies.append(
-                JobDependency(
-                    JobReference(
-                        component=None,
-                        dist=None,
-                        stage="publish",
-                        build=None,
-                        template=template,
-                    )
-                )
-            )
-
     @classmethod
     def matches(cls, **kwargs) -> bool:
         if not super().matches(**kwargs):
@@ -190,7 +178,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
         config = kwargs.get("config")
         stage = kwargs.get("stage")
         template = kwargs.get("template")
-        if config and template and stage in ("publish", "upload"):
+        if config and template and stage == "publish":
             repository_publish = config.repository_publish.get("templates")
             if not repository_publish:
                 if not cls._publish_not_configured_warned:
@@ -934,7 +922,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
             )
 
         # Check that we have LocalExecutor for next stages
-        if self.stage in ("sign", "publish", "upload") and not isinstance(
+        if self.stage in ("sign", "publish") and not isinstance(
             self.executor, LocalExecutor
         ):
             raise TemplateError(
@@ -1000,7 +988,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
         # Publish
         #
 
-        if self.stage in ("publish", "upload"):
+        if self.stage == "publish":
             repository_publish = (
                 repository_publish
                 or self.config.repository_publish.get("templates")
@@ -1110,11 +1098,6 @@ class TemplateBuilderPlugin(TemplatePlugin):
                     basename=self.template.name,
                     artifacts_dir=self.config.templates_dir,
                 )
-
-        if self.stage == "upload":
-            upload_template_repository(
-                self.config, repository_publish, self.executor
-            )
 
 
 PLUGINS = [TemplateBuilderPlugin]

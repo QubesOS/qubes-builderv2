@@ -26,6 +26,8 @@ from qubesbuilder.plugins import (
     PluginError,
 )
 from qubesbuilder.plugins.publish_deb import DEBRepoPlugin
+from qubesbuilder.plugins.template import upload_template_repository
+from qubesbuilder.template import QubesTemplate
 
 
 class UploadError(PluginError):
@@ -35,10 +37,10 @@ class UploadError(PluginError):
 class UploadPlugin(Plugin):
     dist: QubesDistribution
     """
-    UploadPlugin manages generic distribution upload.
+    UploadPlugin manages generic distribution and template upload.
 
     Stages:
-        - upload - Upload published repository for given distribution to remote mirror.
+        - upload - Upload published repository to remote mirror.
     """
 
     name = "upload"
@@ -56,12 +58,44 @@ class UploadPlugin(Plugin):
     def supported_distribution(cls, distribution) -> bool:
         return cls.dist_filter(distribution)
 
-    def __init__(self, dist, config, stage, **kwargs):
-        super().__init__(dist=dist, config=config, stage=stage, **kwargs)
+    @classmethod
+    def matches(cls, **kwargs) -> bool:
+        if isinstance(kwargs.get("template"), QubesTemplate):
+            return (
+                kwargs.get("stage") in cls.stages
+                and kwargs.get("dist") is None
+                and kwargs.get("component") is None
+                and kwargs.get("installer") is None
+            )
+        return super().matches(**kwargs)
+
+    def __init__(self, config, stage, dist=None, template=None, **kwargs):
+        super().__init__(
+            dist=dist,
+            template=template,
+            config=config,
+            stage=stage,
+            **kwargs,
+        )
 
     def run(self, repository_publish: Optional[str] = None, **kwargs):
         if not isinstance(self.executor, LocalExecutor):
             raise UploadError("This plugin only supports local executor.")
+
+        if self.template:
+            repository_publish = (
+                repository_publish
+                or self.config.repository_publish.get("templates")
+            )
+            if not repository_publish:
+                self.log.info(
+                    f"{self.template}: 'repository-publish:templates' not set."
+                )
+                return
+            upload_template_repository(
+                self.config, repository_publish, self.executor
+            )
+            return
 
         remote_path = self.config.repository_upload_remote_host.get(
             self.dist.type, None

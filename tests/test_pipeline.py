@@ -18,7 +18,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from qubesbuilder.cli.cli_package import _component_stage
-from qubesbuilder.common import PROJECT_PATH
+from qubesbuilder.cli.cli_template import _template_stage
+from qubesbuilder.common import PROJECT_PATH, STAGES
 from qubesbuilder.config import Config
 
 DEFAULT_BUILDER_CONF = PROJECT_PATH / "tests/builder-ci.yml"
@@ -99,3 +100,84 @@ def test_template_prep_skips_when_timestamp_is_passed(tmp_path):
 
     prep.executor.run = fail
     prep.run(template_timestamp="202601010000")
+
+
+def _template_jobs(cfg, stages):
+    pipeline = cfg.get_pipeline(
+        components=[],
+        distributions=[],
+        templates=cfg.get_templates(["fedora-43-xfce"]),
+        installers=[],
+        stages=stages,
+    )
+    return [(job.stage, job.name) for job in pipeline.sorted_jobs(cfg)]
+
+
+def test_template_upload_depends_on_nothing(tmp_path):
+    # Upload was a stage of the template plugin, so it depended on publish
+    # and pulled fetch, prep, build, sign and publish.
+    cfg = _make_config(tmp_path)
+    assert _template_jobs(cfg, ["upload"]) == [("upload", "upload")]
+
+
+def test_template_upload_runs_last_in_a_full_pipeline(tmp_path):
+    cfg = _make_config(tmp_path)
+    assert _template_jobs(cfg, list(STAGES)) == [
+        ("fetch", "fetch"),
+        ("prep", "template"),
+        ("build", "template"),
+        ("sign", "template"),
+        ("publish", "template"),
+        ("upload", "upload"),
+    ]
+
+
+def test_package_upload_is_unaffected(tmp_path):
+    cfg = _make_config(tmp_path)
+    pipeline = cfg.get_pipeline(
+        components=[],
+        distributions=cfg.get_distributions(["host-fc37"]),
+        templates=[],
+        installers=[],
+        stages=["upload"],
+    )
+    jobs = pipeline.sorted_jobs(cfg)
+    assert [(j.stage, j.name) for j in jobs] == [("upload", "upload")]
+    assert jobs[0].template is None
+
+
+def test_template_upload_pushes_a_repository_with_nothing_published(tmp_path):
+    # Nothing was built or published into templates-itl in this run: the
+    # repository content is rsynced all the same.
+    cfg = _make_config(tmp_path)
+    cfg.set("executor", {"type": "local"})
+    cfg.set("repository-publish", {"templates": "templates-itl"})
+    cfg.set("repository-upload-remote-host", {"rpm": str(tmp_path / "remote")})
+    local = cfg.repository_publish_dir / "rpm" / cfg.qubes_release
+    (local / "templates-itl" / "repodata").mkdir(parents=True)
+
+    _template_stage(
+        config=cfg,
+        templates=cfg.get_templates(["fedora-43-xfce"]),
+        stages=["upload"],
+    )
+
+    assert (tmp_path / "remote" / "templates-itl" / "repodata").is_dir()
+
+
+def test_template_upload_skips_when_no_repository_configured(tmp_path):
+    # TemplateBuilderPlugin.matches used to drop the upload job when
+    # 'repository-publish:templates' was unset. Skip cleanly rather than
+    # failing on a missing repository name.
+    cfg = _make_config(tmp_path)
+    cfg.set("executor", {"type": "local"})
+    cfg.set("repository-publish", {"components": "current-testing"})
+    cfg.set("repository-upload-remote-host", {"rpm": str(tmp_path / "remote")})
+
+    _template_stage(
+        config=cfg,
+        templates=cfg.get_templates(["fedora-43-xfce"]),
+        stages=["upload"],
+    )
+
+    assert not (tmp_path / "remote").exists()
