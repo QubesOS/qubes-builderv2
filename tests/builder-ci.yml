@@ -93,7 +93,7 @@ components:
         - 77EEEF6D0386962AEA8CF84A9B8273F80AC219E6
   - example-advanced-clone:
       url: https://github.com/fepitre/qubes-example-advanced
-      branch: v1.0.1-1
+      branch: v1.0.3-1
       maintainers:
         # fepitre's @invisiblethingslab.com
         - 77EEEF6D0386962AEA8CF84A9B8273F80AC219E6
