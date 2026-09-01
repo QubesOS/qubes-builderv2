@@ -275,40 +275,27 @@ def main(args):
         env["GNUPGHOME"] = str(git_keyring_dir)
         git_keyring_dir.mkdir(parents=True, exist_ok=True)
         git_keyring_dir.chmod(0o700)
-        # We request a list to init the keyring. It looks like it does
-        # not do it on first import, so we just show available keys.
-        subprocess.run(
-            [gpg_client, "--list-keys"],
-            capture_output=True,
-            check=True,
-            env=env,
-        )
         if args.trust_all_keys:
             for file in keys_dir.glob("*"):
-                subprocess.run(
-                    [gpg_client, "--import", str(file)],
+                # read the fingerprints from the import itself
+                imported = subprocess.run(
+                    [gpg_client, "--import", "--status-fd=1", str(file)],
                     check=True,
                     env=env,
                     capture_output=True,
                 )
-            list_keys = subprocess.run(
-                [gpg_client, "--list-keys", "--with-colons"],
-                capture_output=True,
-                check=True,
-                env=env,
-            )
-            for line in list_keys.stdout.splitlines():
-                if not line.startswith(b"fpr:"):
-                    continue
-                keyid = line.decode().split(":")[9]
-                subprocess.run(
-                    [gpg_client, "--import-ownertrust"],
-                    input=f"{keyid}:6:\n",
-                    capture_output=True,
-                    text=True,
-                    env=env,
-                    check=True,
-                )
+                for line in imported.stdout.splitlines():
+                    if not line.startswith(b"[GNUPG:] IMPORT_OK"):
+                        continue
+                    keyid = line.decode().split()[3]
+                    subprocess.run(
+                        [gpg_client, "--import-ownertrust"],
+                        input=f"{keyid}:6:\n",
+                        capture_output=True,
+                        text=True,
+                        env=env,
+                        check=True,
+                    )
 
         for keyid in maintainers:
             key_path = keys_dir / f"{keyid}.asc"
