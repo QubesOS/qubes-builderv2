@@ -25,8 +25,37 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import List
+
+
+def gpg_import(gpg_client, env, path):
+    # Status goes on its own fd: stdout carries key descriptions, which must
+    # not be parsed as status lines.
+    status_r, status_w = os.pipe()
+    with tempfile.TemporaryFile() as errfile:
+        try:
+            proc = subprocess.Popen(
+                [gpg_client, "--import", f"--status-fd={status_w}", str(path)],
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=errfile,
+                pass_fds=(status_w,),
+            )
+        except BaseException:
+            os.close(status_r)
+            raise
+        finally:
+            os.close(status_w)
+        with os.fdopen(status_r, "rb") as status:
+            lines = status.readlines()
+        if proc.wait() != 0:
+            errfile.seek(0)
+            raise subprocess.CalledProcessError(
+                proc.returncode, proc.args, stderr=errfile.read()
+            )
+    return lines
 
 
 def verify_git_obj(gpg_client, keyring_dir, repository_dir, obj_type, obj_path):
@@ -278,13 +307,7 @@ def main(args):
         if args.trust_all_keys:
             for file in keys_dir.glob("*"):
                 # read the fingerprints from the import itself
-                imported = subprocess.run(
-                    [gpg_client, "--import", "--status-fd=1", str(file)],
-                    check=True,
-                    env=env,
-                    capture_output=True,
-                )
-                for line in imported.stdout.splitlines():
+                for line in gpg_import(gpg_client, env, file):
                     if not line.startswith(b"[GNUPG:] IMPORT_OK"):
                         continue
                     keyid = line.decode().split()[3]
