@@ -80,8 +80,8 @@ def _component_stage(
         fetch_done_set.update(component_keys)
         config.set("session-fetch-done", fetch_done_set)
 
-    if "fetch" in stages:
-        stages.remove("fetch")
+    # fetch ran above; don't run it again and don't mutate the caller's list
+    stages = [stage for stage in stages if stage != "fetch"]
 
     # Track jobs already run this session to avoid running dep jobs twice
     # when stages are chained (e.g. "package prep build").
@@ -122,8 +122,8 @@ def _component_stage(
 @click.command(name="all", short_help="Run all package stages.")
 @click.pass_obj
 def _all_package_stage(obj: ContextObj):
-    stages = obj.config.get_stages()
-    if obj.config.automatic_upload_on_publish:
+    stages = list(obj.config.get_stages())
+    if obj.config.automatic_upload_on_publish and "upload" in stages:
         stages.remove("upload")
     _component_stage(
         config=obj.config,
