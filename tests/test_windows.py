@@ -719,6 +719,7 @@ def test_build_run_debug_verbose_and_dummy_target_path(
     )
 
     captured_cmds = []
+    prepared_keys = []
 
     def _fake_run(cmds, *args, **kwargs):
         captured_cmds.append(cmds)
@@ -727,7 +728,12 @@ def test_build_run_debug_verbose_and_dummy_target_path(
     monkeypatch.setattr(plugin.executor, "run", _fake_run)
     monkeypatch.setattr(plugin.executor, "start_dispvm", lambda: "dvm-test")
     monkeypatch.setattr(plugin.executor, "kill_vm", lambda vm: None)
-    monkeypatch.setattr(plugin, "sign_prep", lambda *args, **kwargs: b"crt")
+    monkeypatch.setattr(
+        plugin,
+        "sign_prep",
+        lambda qube, key_name, test_sign: prepared_keys.append(key_name)
+        or b"crt",
+    )
     monkeypatch.setattr(plugin, "sign_sign", lambda *args, **kwargs: b"signed")
     monkeypatch.setattr(
         "qubesbuilder.plugins.build_windows.qrexec_call",
@@ -743,6 +749,7 @@ def test_build_run_debug_verbose_and_dummy_target_path(
     sln_cmd = next(cmd for cmd in captured_cmds[1] if "build-sln.ps1" in cmd)
     assert "-log" in sln_cmd
     assert "-noisy" in sln_cmd
+    assert prepared_keys == ["Qubes Windows Tools"]
 
 
 def test_build_run_skips_non_signable_and_skip_test_sign(
@@ -876,12 +883,22 @@ def test_build_run_success_with_signing_and_timestamping(
     monkeypatch.setattr(
         plugin,
         "get_config_stage_options",
-        lambda stage: {"sign-qube": "sign-vm", "test-sign": True},
+        lambda stage: {
+            "sign-qube": "sign-vm",
+            "sign-key-name": "prefix",
+            "test-sign": True,
+        },
+    )
+    monkeypatch.setattr(
+        "qubesbuilder.plugins.build_windows.secrets.token_hex",
+        lambda length: "0123456789abcdef",
     )
 
     artifacts_dir = plugin.get_dist_component_artifacts_dir("build")
     killed = []
     deleted = []
+    prepared = []
+    signed = []
 
     def _fake_run(*args, **kwargs):
         (artifacts_dir / "bin").mkdir(parents=True, exist_ok=True)
@@ -899,12 +916,16 @@ def test_build_run_success_with_signing_and_timestamping(
     monkeypatch.setattr(
         plugin,
         "sign_prep",
-        lambda qube, key_name, test_sign: b"certificate-bytes",
+        lambda qube, key_name, test_sign: prepared.append(
+            (qube, key_name, test_sign)
+        )
+        or b"certificate-bytes",
     )
     monkeypatch.setattr(
         plugin,
         "sign_sign",
-        lambda qube, key_name, file: b"signed-bytes",
+        lambda qube, key_name, file: signed.append(key_name)
+        or b"signed-bytes",
     )
     monkeypatch.setattr(
         plugin,
@@ -931,7 +952,14 @@ def test_build_run_success_with_signing_and_timestamping(
     )
     assert "component.exe" in build_info["files"]["bin"]
     assert killed == ["dvm-test"]
-    assert deleted == [("sign-vm", "Qubes Windows Tools")]
+    assert prepared == [
+        ("sign-vm", "prefix-0123456789abcdef", True)
+    ]
+    assert signed == [
+        "prefix-0123456789abcdef",
+        "prefix-0123456789abcdef",
+    ]
+    assert deleted == [("sign-vm", "prefix-0123456789abcdef")]
 
 
 #

@@ -396,7 +396,8 @@ sudo restorecon -R /usr/local/etc/qubes-rpc/
 ```
 
 Signing keys are stored in `/home/user/win-sign/keys/` inside the vault qube.
-For test signing, keys are generated automatically (ephemeral per component).
+For test signing, keys are generated automatically (ephemeral per component),
+with a random suffix to prevent collisions between parallel builds.
 For production signing, import your CA-signed key into that directory beforehand.
 
 **2 - Install the timestamp service in the Linux disposable template**
@@ -437,11 +438,11 @@ admin.vm.device.block.Assigned  * ${SOURCE_QUBE} ${WINDOWS_BUILDER} allow target
 admin.vm.device.block.Attach    * ${SOURCE_QUBE} ${WINDOWS_BUILDER} allow target=dom0
 admin.vm.device.block.Assign    * ${SOURCE_QUBE} ${WINDOWS_BUILDER} allow target=dom0
 
-qubesbuilder.WinSign.QueryKey  +Qubes__Windows__Tools ${SOURCE_QUBE} ${WINDOWS_VAULT} allow
-qubesbuilder.WinSign.CreateKey +Qubes__Windows__Tools ${SOURCE_QUBE} ${WINDOWS_VAULT} allow
-qubesbuilder.WinSign.DeleteKey +Qubes__Windows__Tools ${SOURCE_QUBE} ${WINDOWS_VAULT} allow
-qubesbuilder.WinSign.GetCert   +Qubes__Windows__Tools ${SOURCE_QUBE} ${WINDOWS_VAULT} allow
-qubesbuilder.WinSign.Sign      +Qubes__Windows__Tools ${SOURCE_QUBE} ${WINDOWS_VAULT} allow
+qubesbuilder.WinSign.QueryKey  * ${SOURCE_QUBE} ${WINDOWS_VAULT} allow
+qubesbuilder.WinSign.CreateKey * ${SOURCE_QUBE} ${WINDOWS_VAULT} allow
+qubesbuilder.WinSign.DeleteKey * ${SOURCE_QUBE} ${WINDOWS_VAULT} allow
+qubesbuilder.WinSign.GetCert   * ${SOURCE_QUBE} ${WINDOWS_VAULT} allow
+qubesbuilder.WinSign.Sign      * ${SOURCE_QUBE} ${WINDOWS_VAULT} allow
 EOF
 ```
 
@@ -1491,7 +1492,7 @@ distributions:
 
   - `configuration: str` --- build configuration (`debug` / `release`) (default: `release`).
   - `sign-qube: str` --- name of the vault qube performing code signing, see the Windows executor description above.
-  - `sign-key-name: str` --- name of the signing key to use. For test keys this becomes the subject of the self-signed certificate.
+  - `sign-key-name: str` --- name of the signing key to use. For test keys this is used as the prefix of the self-signed certificate subject, with a random suffix added for each build.
   - `test-sign: bool` --- code signing type, `true` (default) or `false`. Test signing generates ephemeral self-signed
     keys for each component. Production signing uses an already existing key signed by a public CA (TODO: HSM).
 
