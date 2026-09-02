@@ -144,6 +144,7 @@ components:
   - ansible
   - infrastructure:
       branch: main
+  - ansible-collections
   - repo-templates
   - meta-packages
   - manager
