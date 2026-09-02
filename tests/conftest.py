@@ -147,4 +147,8 @@ def temp_directory():
     yield temp_dir
     # Remove the temporary directory after the test
     if temp_dir.exists():
-        shutil.rmtree(temp_dir)
+        try:
+            shutil.rmtree(temp_dir)
+        except OSError:
+            subprocess.run(["ls", "-lAR", "--full-time", str(temp_dir)])
+            raise
