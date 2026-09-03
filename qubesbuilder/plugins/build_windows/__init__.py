@@ -19,6 +19,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import logging
 import os.path
+import secrets
 import shutil
 from enum import StrEnum
 from pathlib import Path
@@ -335,6 +336,8 @@ class WindowsBuildPlugin(BuildPlugin):
         sign_key_name = stage_options.get(
             "sign-key-name", "Qubes Windows Tools"
         )
+        if test_sign:
+            sign_key_name = f"{sign_key_name}-{secrets.token_hex(8)}"
 
         dvm: Optional[str] = None
         try:
