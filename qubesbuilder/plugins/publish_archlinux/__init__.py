@@ -18,6 +18,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import datetime
 import os
+import shlex
+import tarfile
 from typing import Optional
 
 from qubesbuilder.executors import ExecutorError
@@ -47,17 +49,144 @@ class ArchlinuxRepoPlugin(Plugin):
 
         self.log_prefix = f"{self.name}:{self.dist}"
 
+    def get_repository_db(self, repository_publish):
+        assert self.dist is not None
+        target_dir = (
+            self.config.repository_publish_dir
+            / self.dist.type
+            / self.config.qubes_release
+            / repository_publish
+            / self.dist.package_set
+            / self.dist.name
+            / "pkgs"
+        )
+        return (
+            target_dir
+            / f"qubes-{self.config.qubes_release}-{repository_publish}.db.tar.gz"
+        )
+
+    def create_repository_metadata(self, executor, repository_publish):
+        repository_db = self.get_repository_db(repository_publish)
+        repository_files = repository_db.with_name(
+            repository_db.name.replace(".db.tar.gz", ".files.tar.gz")
+        )
+        repository_db_link = repository_db.with_name(
+            repository_db.name.removesuffix(".tar.gz")
+        )
+        repository_files_link = repository_files.with_name(
+            repository_files.name.removesuffix(".tar.gz")
+        )
+        repository_db_sig = repository_db.with_suffix(".gz.sig")
+        repository_db_link_sig = repository_db.with_name(
+            repository_db.name.removesuffix(".tar.gz") + ".sig"
+        )
+        repository_db.parent.mkdir(parents=True, exist_ok=True)
+
+        for metadata in (
+            repository_db,
+            repository_files,
+            repository_db_link,
+            repository_files_link,
+            repository_db_sig,
+            repository_db_link_sig,
+        ):
+            metadata.unlink(missing_ok=True)
+
+        packages = [
+            package
+            for package in repository_db.parent.glob("*.pkg.tar.*")
+            if not package.name.endswith(".sig")
+        ]
+        if packages:
+            packages_dir = shlex.quote(str(repository_db.parent))
+            repository_db_quoted = shlex.quote(str(repository_db))
+            cmd = [
+                f"find {packages_dir} -maxdepth 1 -type f "
+                "-name '*.pkg.tar.*' ! -name '*.sig' -print0 | "
+                f"sort -zV | xargs -0 -r repo-add {repository_db_quoted}"
+            ]
+            try:
+                executor.run(cmd)
+            except ExecutorError as e:
+                msg = f"{self.log_prefix}: Failed to create metadata."
+                raise PublishError(msg) from e
+        else:
+            # repo-add no longer creates an empty repository, so initialize
+            # both metadata archives directly.
+            for metadata in (repository_db, repository_files):
+                with tarfile.open(metadata, "w:gz"):
+                    pass
+            repository_db_link.symlink_to(repository_db.name)
+            repository_files_link.symlink_to(repository_files.name)
+
+        return repository_db
+
+    def create_and_sign_repository_metadata(self, repository_publish):
+        assert self.dist is not None
+        executor = self.config.get_executor_from_config("publish", self)
+
+        sign_key = self.config.sign_key.get(
+            self.dist.distribution, None
+        ) or self.config.sign_key.get("archlinux", None)
+        if not sign_key:
+            self.log.info(f"{self.log_prefix}: No signing key found.")
+            return
+
+        if not self.config.gpg_client:
+            self.log.info(
+                f"{self.log_prefix}: Please specify GPG client to use!"
+            )
+            return
+
+        repository_db = self.create_repository_metadata(
+            executor=executor, repository_publish=repository_publish
+        )
+        self.sign_metadata(
+            executor=executor,
+            directory=repository_db.parent,
+            sign_key=sign_key,
+            repository_db=repository_db,
+        )
+
+    def create(self, repository_publish: Optional[str]):
+        if not repository_publish:
+            self.log.error("Cannot create repository without repository name!")
+            return
+
+        self.create_and_sign_repository_metadata(
+            repository_publish=repository_publish
+        )
+
+    def run(
+        self,
+        repository_publish: Optional[str] = None,
+        ignore_min_age: bool = False,
+        unpublish: bool = False,
+        create_and_sign_metadata_only: bool = False,
+        **kwargs,
+    ):
+        if create_and_sign_metadata_only:
+            self.create(repository_publish)
+        else:
+            super().run()
+
     def sign_metadata(self, executor, directory, sign_key, repository_db):
         self.log.info(f"{self.log_prefix}:{directory}: Signing metadata.")
         repository_db_sig = repository_db.with_suffix(".gz.sig")
+        repository_db_link_sig = repository_db.with_name(
+            repository_db.name.removesuffix(".tar.gz") + ".sig"
+        )
         cmd = [
-            f"{self.config.gpg_client} --batch --no-tty --yes --detach-sign --armor -u {sign_key} {repository_db} > {repository_db_sig}",
+            f"{self.config.gpg_client} --batch --no-tty --yes --detach-sign --armor --output - -u {sign_key} {repository_db} > {repository_db_sig}",
         ]
         try:
             executor.run(cmd)
+            repository_db_link_sig.unlink(missing_ok=True)
+            repository_db_link_sig.symlink_to(repository_db_sig.name)
         except (ExecutorError, OSError) as e:
             # On error, it creates an empty file.
             repository_db_sig.unlink(missing_ok=True)
+            repository_db_link_sig.unlink(missing_ok=True)
             msg = f"{self.log_prefix}:{directory}:  Failed to sign metadata"
             raise PublishError(msg) from e
 
@@ -80,9 +209,6 @@ class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
         build_artifacts_dir = self.get_dist_component_artifacts_dir(
             stage="build"
         )
-
-        # Publish repository
-        artifacts_dir = self.config.repository_publish_dir / self.dist.type
 
         # Read information from build stage
         build_info = self.get_dist_artifacts_info(
@@ -117,19 +243,12 @@ class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
         # Publishing packages
         cmd = []
         try:
-            target_dir = (
-                artifacts_dir
-                / f"{self.config.qubes_release}/{repository_publish}/{self.dist.package_set}/{self.dist.name}"
-            )
-            repository_db = (
-                target_dir
-                / f"pkgs/qubes-{self.config.qubes_release}-{repository_publish}.db.tar.gz"
-            )
+            repository_db = self.get_repository_db(repository_publish)
             repository_db.parent.mkdir(parents=True, exist_ok=True)
             if not repository_db.exists():
                 cmd += [f"repo-add {repository_db}"]
             for pkg in packages_list:
-                target_path = target_dir / "pkgs" / pkg.name
+                target_path = repository_db.parent / pkg.name
                 target_sig_path = target_path.with_suffix(".zst.sig")
 
                 target_path.unlink(missing_ok=True)
@@ -155,9 +274,6 @@ class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
             stage="build"
         )
 
-        # Publish repository
-        artifacts_dir = self.config.repository_publish_dir / self.dist.type
-
         # Read information from build stage
         build_info = self.get_dist_artifacts_info(
             stage="build", basename=directory_bn
@@ -178,18 +294,11 @@ class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
         # Unpublishing packages
         cmd = []
         try:
-            target_dir = (
-                artifacts_dir
-                / f"{self.config.qubes_release}/{repository_publish}/{self.dist.package_set}/{self.dist.name}"
-            )
-            repository_db = (
-                target_dir
-                / f"pkgs/qubes-r{self.config.qubes_release}-{repository_publish}.db.tar.gz"
-            )
-            if not repository_db.exists:
+            repository_db = self.get_repository_db(repository_publish)
+            if not repository_db.exists():
                 return
             for pkg in packages_list:
-                target_path = target_dir / "pkgs" / pkg.name
+                target_path = repository_db.parent / pkg.name
                 target_sig_path = target_path.with_suffix(".zst.sig")
 
                 target_path.unlink(missing_ok=True)
@@ -213,6 +322,7 @@ class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
         repository_publish: Optional[str] = None,
         ignore_min_age: bool = False,
         unpublish: bool = False,
+        create_and_sign_metadata_only: bool = False,
         **kwargs,
     ):
         """
@@ -398,4 +508,4 @@ class ArchlinuxPublishPlugin(ArchlinuxRepoPlugin, PublishPlugin):
                     )
 
 
-PLUGINS = [ArchlinuxPublishPlugin]
+PLUGINS = [ArchlinuxRepoPlugin, ArchlinuxPublishPlugin]
