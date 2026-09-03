@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import tempfile
 import uuid
+import psutil
 
 import pytest
 
@@ -140,6 +141,22 @@ def home_directory(temp_directory):
     yield temp_directory
 
 
+def _processes():
+    uid = os.getuid()
+    rows = []
+    attrs = ["pid", "ppid", "cwd", "cmdline", "uids"]
+    for proc in psutil.process_iter(attrs):
+        info = proc.info
+        if not info["cmdline"] or not info["uids"]:
+            continue
+        if info["uids"].real != uid:
+            continue
+        rows.append(
+            f"{info['pid']:>7} ppid={info['ppid']:<7} {info['cwd']} {" ".join(info["cmdline"])}"
+        )
+    return rows
+
+
 @pytest.fixture
 def temp_directory():
     # Create a temporary directory
@@ -147,8 +164,13 @@ def temp_directory():
     yield temp_dir
     # Remove the temporary directory after the test
     if temp_dir.exists():
+        before = _processes()
         try:
             shutil.rmtree(temp_dir)
         except OSError:
+            print("\nprocesses before cleanup:")
+            print("\n".join(before))
+            print("\nprocesses after failure:")
+            print("\n".join(_processes()))
             subprocess.run(["ls", "-lAR", "--full-time", str(temp_dir)])
             raise

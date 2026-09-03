@@ -97,7 +97,7 @@ builderv2-github:
       --cov-report xml:artifacts/coverage.xml
       --junitxml=artifacts/qubesbuilder.xml
   before_script:
-    - sudo dnf install -y python3-pip python3-pytest-cov python3-pytest python3-pytest-mock python3-lxml python3-wheel sequoia-sqv sequoia-sq python3-pycdlib
+    - sudo dnf install -y python3-pip python3-pytest-cov python3-pytest python3-pytest-mock python3-lxml python3-wheel sequoia-sqv sequoia-sq python3-pycdlib python3-psutil
     - sudo rm -rf ~/pytest-of-user/
     - docker pull registry.gitlab.com/qubesos/docker-images/qubes-builder-fedora:latest
     - docker tag registry.gitlab.com/qubesos/docker-images/qubes-builder-fedora:latest qubes-builder-fedora:latest
