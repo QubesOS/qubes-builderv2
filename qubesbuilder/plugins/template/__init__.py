@@ -104,6 +104,7 @@ class TemplateBuilderPlugin(TemplatePlugin):
                 template.distribution.is_archlinux(),
                 template.distribution.is_ubuntu(),
                 template.distribution.is_gentoo(),
+                template.distribution.is_guix(),
             ]
         )
 
@@ -468,11 +469,31 @@ class TemplateBuilderPlugin(TemplatePlugin):
                     ),
                 }
             )
+        elif self.template.distribution.is_guix():
+            component = self.config.get_component("builder-guix")
+            self.dependencies += [
+                JobDependency(
+                    JobReference(
+                        component=component,
+                        stage="fetch",
+                        build="source",
+                        dist=None,
+                        template=None,
+                    )
+                ),
+            ]
+            template_content_dir = str(
+                self.executor.get_sources_dir()
+                / "builder-guix"
+                / "builder-v2-template"
+            )
+            self.environment["TEMPLATE_CONTENT_DIR"] = template_content_dir
         else:
             raise TemplateError("Unsupported template.")
         template_flavor_dir += [
             f"+{option}:{template_content_dir}/{option}"
             for option in template_options
+            if option
         ]
         self.environment["TEMPLATE_FLAVOR_DIR"] = " ".join(template_flavor_dir)
 
