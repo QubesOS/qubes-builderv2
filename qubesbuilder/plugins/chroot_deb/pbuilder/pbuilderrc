@@ -123,6 +123,7 @@ DEBBUILDOPTS="-sa"
 APTCONFDIR=""
 
 export DEB_VENDOR=Qubes
+export DEB_BUILD_OPTIONS=hardening=+all
 
 unset MAKEFLAGS
 
