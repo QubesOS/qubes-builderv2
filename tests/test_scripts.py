@@ -3,7 +3,9 @@ import random
 import shutil
 import string
 import subprocess
+import threading
 from argparse import Namespace
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
@@ -140,6 +142,49 @@ def create_dummy_args(
     args.minimum_distinct_maintainers = minimum_distinct_maintainers
     args.trust_all_keys = trust_all_keys
     return args
+
+
+def test_repository_does_not_invoke_askpass(monkeypatch, temp_directory):
+    askpass = temp_directory / "askpass"
+    marker = temp_directory / "askpass-called"
+
+    askpass.write_text(
+        "#!/bin/sh\n"
+        "touch \"$ASKPASS_MARKER\"\n"
+        "exit 1\n"
+    )
+    askpass.chmod(0o755)
+
+    class UnauthorizedHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Basic realm="test"')
+            self.end_headers()
+
+        def log_message(self, format, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), UnauthorizedHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        monkeypatch.setenv("GIT_TERMINAL_PROMPT", "0")
+        monkeypatch.setenv("SSH_ASKPASS", str(askpass))
+        monkeypatch.setenv("ASKPASS_MARKER", str(marker))
+
+        args = create_dummy_args(
+            component_repository=f"http://127.0.0.1:{server.server_port}/repo.git",
+            component_directory=temp_directory / "repo",
+        )
+
+        with pytest.raises(subprocess.CalledProcessError):
+            get_and_verify_source(args)
+
+        assert not marker.exists()
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 def test_repository(temp_directory):

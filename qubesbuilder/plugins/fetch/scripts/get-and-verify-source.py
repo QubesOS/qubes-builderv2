@@ -30,6 +30,13 @@ from pathlib import Path
 from typing import List
 
 
+def git_environment():
+    env = os.environ.copy()
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    env["SSH_ASKPASS"] = "/bin/false"
+    return env
+
+
 def gpg_import(gpg_client, env, path):
     # Status goes on its own fd: stdout carries key descriptions, which must
     # not be parsed as status lines.
@@ -174,6 +181,7 @@ def main(args):
                 capture_output=True,
                 check=True,
                 cwd=repo,
+                env=git_environment(),
             )
         except subprocess.CalledProcessError as e:
             if ignore_missing:
@@ -229,6 +237,7 @@ def main(args):
                     capture_output=True,
                     cwd=repo,
                     check=True,
+                    env=git_environment(),
                 )
                 subprocess.run(
                     ["git", "reset", "-q", "--soft", "FETCH_HEAD"],
@@ -244,6 +253,7 @@ def main(args):
                     + ["--", git_url, str(repo)],
                     capture_output=True,
                     check=True,
+                    env=git_environment(),
                 )
         except subprocess.CalledProcessError as e:
             if ignore_missing:
@@ -511,6 +521,7 @@ def main(args):
             check=True,
             cwd=repo,
             capture_output=True,
+            env=git_environment(),
         )
 
 
