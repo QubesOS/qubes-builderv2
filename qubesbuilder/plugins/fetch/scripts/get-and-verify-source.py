@@ -108,6 +108,9 @@ def verify_git_obj(gpg_client, keyring_dir, repository_dir, obj_type, obj_path):
 
 
 def main(args):
+    git_env = os.environ.copy()
+    git_env["GIT_TERMINAL_PROMPT"] = "0"
+    git_env["SSH_ASKPASS"] = "/bin/false"
     # Sanity check on branch and repo
     if not re.match(r"^[A-Za-z0-9][A-Za-z0-9/._-]+$", args.git_branch):
         raise ValueError(f"Invalid branch {args.git_branch}")
@@ -174,6 +177,7 @@ def main(args):
                 capture_output=True,
                 check=True,
                 cwd=repo,
+                env=git_env,
             )
         except subprocess.CalledProcessError as e:
             if ignore_missing:
@@ -229,6 +233,7 @@ def main(args):
                     capture_output=True,
                     cwd=repo,
                     check=True,
+                    env=git_env,
                 )
                 subprocess.run(
                     ["git", "reset", "-q", "--soft", "FETCH_HEAD"],
@@ -244,6 +249,7 @@ def main(args):
                     + ["--", git_url, str(repo)],
                     capture_output=True,
                     check=True,
+                    env=git_env,
                 )
         except subprocess.CalledProcessError as e:
             if ignore_missing:
@@ -511,6 +517,7 @@ def main(args):
             check=True,
             cwd=repo,
             capture_output=True,
+            env=git_env,
         )
 
 
