@@ -1,12 +1,12 @@
 git:
   baseurl: https://github.com
   prefix: qubesos/qubes-
-  branch: main
+  branch: release4.3
 
 backend-vmm: xen
 debug: true
 verbose: true
-qubes-release: r4.2
+qubes-release: r4.3
 
 cache:
   vm-archlinux:
@@ -79,6 +79,7 @@ templates:
 components:
   - builder-archlinux:
       packages: False
+      branch: main
   - vmm-xen
   - core-vchan-xen
   - core-qubesdb
@@ -87,8 +88,10 @@ components:
   - core-agent-linux
   - gui-common
   - gui-agent-linux
-  - app-linux-split-gpg
-  - app-linux-input-proxy
+  - app-linux-split-gpg:
+      branch: main
+  - app-linux-input-proxy:
+      branch: main
   - app-linux-usb-proxy
   - meta-packages
 
