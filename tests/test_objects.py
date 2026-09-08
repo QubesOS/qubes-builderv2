@@ -817,7 +817,11 @@ branch: release4.2
         ]
 
 
-def test_config_example_configs():
+@pytest.mark.parametrize(
+    "example_config",
+    sorted(p.name for p in (PROJECT_PATH / "example-configs").glob("*.yml")),
+)
+def test_config_example_configs(example_config):
     with tempfile.TemporaryDirectory() as tmpdir:
         shutil.copytree(
             PROJECT_PATH / "example-configs", f"{tmpdir}/example-configs"
@@ -825,7 +829,7 @@ def test_config_example_configs():
         with tempfile.NamedTemporaryFile("w", dir=tmpdir) as config_file_main:
             config_file_main.write(
                 f"""include:
- - example-configs/qubes-os-r4.2.yml
+ - example-configs/{example_config}
 
 git:
   branch: main
