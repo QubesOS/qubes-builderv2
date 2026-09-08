@@ -587,7 +587,7 @@ Remark:
     components will produce template packages to be installed via qvm-template.
 ```
 
-You can use the provided `qubes-os-r4.2.yml` configuration file
+You can use the provided `qubes-os-r4.3.yml` configuration file
 under `example-configs` named `builder.yml` in the root of `qubes-builderv2`
 (like the legacy `qubes-builder`).
 
