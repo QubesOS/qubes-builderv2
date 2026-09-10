@@ -16,6 +16,8 @@ Local, Qubes and Windows executors are available.
 
 The `main` branch is the one Qubes OS uses to build its own packages, templates and ISO. It is supported. But a full build of a release takes a long time. Start with a small build, check that it works, then add more to the configuration. The Qubes OS documentation has a step by step guide at https://doc.qubes-os.org/en/latest/developer/building/qubes-builder-v2.html.
 
+Packages, templates and the ISO are three separate builds. You do not need to build packages before you build a template or an ISO. With `use-qubes-repo`, a template gets its Qubes packages from the official Qubes repositories. With an online kickstart, the ISO also gets its packages and templates from there. Build packages when you want your own changes in them, or when you want to rebuild everything from source yourself.
+
 1. Install the dependencies below and choose an executor. The Docker executor works on any Linux host. The Qubes executor needs a disposable template. See the "Qubes executor" section for how to set it up.
 2. Create `builder.yml` in the root of this repository. Include an example configuration instead of copying it, so that you get its updates when you update the builder. The examples use the Qubes executor. To use Docker instead, set the executor after the include:
 
@@ -29,7 +31,7 @@ The `main` branch is the one Qubes OS uses to build its own packages, templates 
        image: "qubes-builder-fedora:latest"
    ```
 
-3. Build one component for one distribution to check that the setup works:
+3. Optional: build one component for one distribution to check that the setup works:
 
    ```bash
    $ ./qb -c core-qrexec -d vm-fc44 package build
@@ -917,6 +919,8 @@ configuration with:
 $ ./qb template all
 ```
 
+You do not need to build packages first. With `use-qubes-repo` set, the template gets its Qubes packages from the official repositories.
+
 
 ### Installer
 
@@ -931,6 +935,8 @@ a cache first for Mock. To perform all these simply do:
 ```bash
 $ ./qb installer init-cache all
 ```
+
+You do not need to build packages or templates first. With the online kickstart `conf/iso-online.ks` set in `iso.kickstart`, packages and templates come from the official repositories. Templates that you built locally, in `artifacts/templates`, are used when they exist.
 
 The builder supports only one host distribution at a time. If multiple
 is provided in configuration file (e.g. for development purpose), simply call
