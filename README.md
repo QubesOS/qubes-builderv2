@@ -65,6 +65,7 @@ Example configurations under `example-configs`:
 - `qubes-os-main.yml`: the same for the development branch.
 - `qubes-os-r4.2.yml`: kept as a reference. Qubes OS 4.2 is not supported anymore.
 - `archlinux.yml`, `gentoo.yml`, `kali.yml`, `kicksecure.yml`, `ubuntu.yml`: community templates.
+- `linux-kernel.yml`: development configuration for the dom0 kernels only, from a branch or a fork of `qubes-linux-kernel`.
 - `windows-tools.yml`: Qubes Windows Tools.
 
 The configurations that Qubes OS uses for its own builds are published at https://github.com/QubesOS/qubes-release-configs. There is one directory per release (`R4.2`, `R4.3`, `Rdevel`) and one file per job: dom0 packages, Debian packages, Fedora packages, Archlinux packages, ISO, ITL templates and community templates. Each file includes the example configuration of the release and changes only what the job needs. So they show what is really built, and with which options.
@@ -742,6 +743,18 @@ $ ./qb package pipeline build
 $ ./qb package pipeline --format yaml upload
 $ ./qb package pipeline --no-deps sign   # show only the requested stage
 ```
+
+
+### Custom kernel
+
+`example-configs/linux-kernel.yml` is a development configuration. It builds only the dom0 kernels: `linux-kernel`, the long term kernel, shipped as the `kernel` package, and `linux-kernel-latest`, shipped as `kernel-latest`. The build dependencies come from the official repositories, so you do not need to build anything else first. Use `-c` to build only one of them:
+
+```bash
+$ cp example-configs/linux-kernel.yml builder.yml
+$ ./qb -c linux-kernel package build
+```
+
+The packages are written under `artifacts/components`. Choose the kernel version with `branch`: the `stable-*` branches of `qubes-linux-kernel` follow the long term kernels, `main` follows the latest kernel. To build your own changes, set `url` and `branch` to your fork. The commits of a fork are not signed by a Qubes maintainer. So add your key fingerprint to `maintainers`, put the public key as `<FINGERPRINT>.asc` in a directory listed in `key-dirs`, and set `verification-mode: less-secure-signed-commits-sufficient` on the component. `insecure-skip-checking` turns the verification off. These settings are in the configuration file as comments. You can also edit the sources under `artifacts/sources/linux-kernel` after the first fetch. They are kept as long as `skip-git-fetch` is true, and a changed source is built again.
 
 
 ### List-deps
