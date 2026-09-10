@@ -231,6 +231,11 @@ def main(
     Main CLI
 
     """
+    # subcommand help does not need a builder configuration
+    if ctx.meta.get("help_requested"):
+        ctx.obj = ContextObj()
+        return
+
     obj = init_context_obj(builder_conf=builder_conf, option=option)
 
     # verbose/debug modes are also provided by builder configuration
