@@ -748,6 +748,12 @@ def test_component_host_fc37_build(artifacts_dir):
         "package",
         "build",
     )
+    logs = list(
+        (artifacts_dir / "logs").glob("*-example-advanced-host-fc37.log")
+    )
+    assert logs
+    log = max(logs, key=lambda path: path.stat().st_mtime)
+    assert "Executing(%prep)" in log.read_text()
 
     build_dir = example_component_dir(artifacts_dir, "host-fc37", "build")
     repo_dir = example_repo_dir(artifacts_dir, "host-fc37")
