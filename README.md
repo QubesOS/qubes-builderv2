@@ -12,6 +12,63 @@ cage. (This will be improved in the future.) For now, only Docker, Podman,
 Local, Qubes and Windows executors are available.
 
 
+## Getting started
+
+The `main` branch is the one Qubes OS uses to build its own packages, templates and ISO. It is supported. But a full build of a release takes a long time. Start with a small build, check that it works, then add more to the configuration. The Qubes OS documentation has a step by step guide at https://doc.qubes-os.org/en/latest/developer/building/qubes-builder-v2.html.
+
+1. Install the dependencies below and choose an executor. The Docker executor works on any Linux host. The Qubes executor needs a disposable template. See the "Qubes executor" section for how to set it up.
+2. Create `builder.yml` in the root of this repository. Include an example configuration instead of copying it, so that you get its updates when you update the builder. The examples use the Qubes executor. To use Docker instead, set the executor after the include:
+
+   ```yaml
+   include:
+     - example-configs/qubes-os-r4.3.yml
+
+   executor:
+     type: docker
+     options:
+       image: "qubes-builder-fedora:latest"
+   ```
+
+3. Build one component for one distribution to check that the setup works:
+
+   ```bash
+   $ ./qb -c core-qrexec -d vm-fc44 package build
+   ```
+
+4. Build a template. Add `use-qubes-repo` to `builder.yml`, so that the template gets its Qubes packages from the official repositories. Without it, you must build every component first:
+
+   ```yaml
+   use-qubes-repo:
+     version: '4.3'
+   ```
+
+   ```bash
+   $ ./qb -t fedora-44-xfce template build
+   ```
+
+5. Build an ISO. Set the online kickstart of `qubes-release` in `builder.yml`, so that packages and templates come from the official repositories:
+
+   ```yaml
+   iso:
+     kickstart: conf/iso-online.ks
+   ```
+
+   ```bash
+   $ ./qb installer init-cache all
+   ```
+
+Example configurations under `example-configs`:
+
+- `qubes-os-r4.3.yml`: Qubes OS 4.3 components, templates and ISO.
+- `qubes-os-main.yml`: the same for the development branch.
+- `qubes-os-r4.2.yml`: kept as a reference. Qubes OS 4.2 is not supported anymore.
+- `archlinux.yml`, `gentoo.yml`, `kali.yml`, `kicksecure.yml`, `ubuntu.yml`: community templates.
+- `windows-tools.yml`: Qubes Windows Tools.
+
+The configurations that Qubes OS uses for its own builds are published at https://github.com/QubesOS/qubes-release-configs. There is one directory per release (`R4.2`, `R4.3`, `Rdevel`) and one file per job: dom0 packages, Debian packages, Fedora packages, Archlinux packages, ISO, ITL templates and community templates. Each file includes the example configuration of the release and changes only what the job needs. So they show what is really built, and with which options.
+
+If a build fails, see "Smaller builds and retries" below. For help, use the qubes-devel mailing list or the Qubes OS forum.
+
 ## Dependencies
 
 Fedora:
@@ -498,6 +555,41 @@ The devel version counter (`increment-devel-versions`) is bumped whenever
 fetch detects that the source has changed.
 
 
+### Smaller builds and retries
+
+Use the global filters to build only some parts. They can be repeated and work with every command:
+
+```bash
+$ ./qb -c core-qrexec -c core-admin -d host-fc41 package build
+$ ./qb -t debian-13-xfce template build
+```
+
+Use `-o` to change a configuration value from the command line, without editing `builder.yml`:
+
+```bash
+$ ./qb -o executor:type=docker -o executor:options:image=qubes-builder-fedora:latest package build
+$ ./qb -o use-qubes-repo:version=4.3 template build
+```
+
+Options that make a build smaller:
+
+- `use-qubes-repo`: get Qubes packages from the official repositories instead of building them. Templates need this unless you build every component first.
+- `skip-git-fetch: true` (the default): do not update the sources already in `artifacts/sources`. Set `force-fetch: true` to update them.
+- `skip-files-fetch: true`: do not download source tarballs. Builds that need them will fail. Useful only to check the git part.
+- `verification-mode` on a component: `signed-tag` (default), `less-secure-signed-commits-sufficient`, or `insecure-skip-checking`. Use the last one only for your own branches. It turns off the source verification for that component.
+- `timeout`: stop a stage after this number of seconds.
+
+Every stage saves a hash of the source it used. When you run the same command again, `prep` and `build` are skipped for sources that did not change, and the build continues with the rest. So after a failure, fix the problem and run the same command again. Logs are in `artifacts/logs`. Run with `--debug` to get the full traceback.
+
+`pipeline` shows what a command would run, without running it. The jobs of a component are known only after its sources are fetched, so run `fetch` first:
+
+```bash
+$ ./qb -c core-qrexec package fetch
+$ ./qb -c core-qrexec package pipeline build
+```
+
+To build a component again from zero, delete its directory under `artifacts/components` and run the build again. `./qb cleanup --dry-run all` shows what can be deleted to free disk space.
+
 ## Plugins
 
 - `fetch` --- fetch and verify sources
@@ -589,9 +681,9 @@ Remark:
 
 You can use the provided `qubes-os-r4.3.yml` configuration file
 under `example-configs` named `builder.yml` in the root of `qubes-builderv2`
-(like the legacy `qubes-builder`).
-
-> Remark: You can find official configuration files used to build packages and templates at https://github.com/QubesOS/qubes-release-configs.
+(like the legacy `qubes-builder`). See "Getting started" for the list of
+example configurations and for the per-release configurations at
+https://github.com/QubesOS/qubes-release-configs.
 
 Artifacts can be found under `artifacts` directory:
 
@@ -641,7 +733,7 @@ $ ./qb package init-cache
 `init-cache` is not part of `all` --- it runs automatically as a dependency
 of `prep` and `build` when needed.
 
-To inspect what would run without executing anything:
+To see what would run, without running it (fetch the sources first):
 
 ```bash
 $ ./qb package pipeline build
