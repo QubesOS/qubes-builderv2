@@ -142,6 +142,37 @@ def create_dummy_args(
     return args
 
 
+def test_repository_does_not_invoke_askpass(monkeypatch, temp_directory):
+    askpass = temp_directory / "askpass"
+    marker = temp_directory / "askpass-called"
+
+    askpass.write_text(
+        "#!/bin/sh\n"
+        "touch \"$ASKPASS_MARKER\"\n"
+        "exit 1\n"
+    )
+    askpass.chmod(0o755)
+
+    try:
+        monkeypatch.setenv("SSH_ASKPASS", str(askpass))
+        monkeypatch.setenv("ASKPASS_MARKER", str(marker))
+
+        args = create_dummy_args(
+            component_repository=(
+                "https://github.com/"
+                "QubesOS/this-repository-does-not-exist-hopefully.git"
+            ),
+            component_directory=temp_directory,
+        )
+
+        with pytest.raises(subprocess.CalledProcessError):
+            get_and_verify_source(args)
+
+        assert not marker.exists()
+    finally:
+        if marker.exists():
+            marker.unlink()
+
 def test_repository(temp_directory):
     args = create_dummy_args(
         component_repository="https://github.com/qubesos/qubes-core-vchan-xen",
