@@ -155,6 +155,7 @@ components:
   - ansible-collections
   - repo-templates
   - meta-packages
+  - gnome-software-plugin
   - manager
   - desktop-linux-common
   - desktop-linux-kde
