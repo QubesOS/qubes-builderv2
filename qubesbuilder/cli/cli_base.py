@@ -25,10 +25,11 @@ import asyncio
 import signal
 import sys
 import traceback
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 import click
 
+from qubesbuilder.cli.cli_exc import CliError
 from qubesbuilder.component import QubesComponent
 from qubesbuilder.config import Config
 from qubesbuilder.distribution import QubesDistribution
@@ -41,12 +42,18 @@ class ContextObj:
     Helper object for keeping state in :attr:`click.Context.obj`
     """
 
-    def __init__(self, config: Config):
-        self.config = config
+    def __init__(self, config: Optional[Config] = None):
+        self._config = config
         self.components: List[QubesComponent] = []
         self.distributions: List[QubesDistribution] = []
         self.templates: List[QubesTemplate] = []
         self.dry_run = False
+
+    @property
+    def config(self) -> Config:
+        if self._config is None:
+            raise CliError("No builder configuration loaded.")
+        return self._config
 
 
 class AliasedGroup(click.Group):
@@ -108,7 +115,11 @@ class AliasedGroup(click.Group):
             rv = self.main(*args, standalone_mode=False, **kwargs)  # type: ignore[call-overload]
             # Chained groups return a list of subcommand results; single
             # subcommands return whatever they returned (typically None).
-            if rv is None or (isinstance(rv, list) and set(rv) == {None}):
+            if (
+                rv is None
+                or rv == 0
+                or (isinstance(rv, list) and set(rv) == {None})
+            ):
                 rc = 0
         except Exception as exc:
             # Handle user interrupts and cleanup
@@ -151,6 +162,11 @@ class AliasedGroup(click.Group):
 
     def resolve_command(self, ctx, args):
         _, cmd, args = super().resolve_command(ctx, args)
+        # a group given without subcommand only prints its help
+        ctx.meta.setdefault(
+            "help_requested",
+            "--help" in args or (isinstance(cmd, click.Group) and not args),
+        )
         return cmd.name if cmd else None, cmd, args
 
     def add_alias(self, **kwargs):

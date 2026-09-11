@@ -722,6 +722,44 @@ titi: toto
         assert config.get("titi", None) == "toto"
 
 
+def test_config_merge_include_empty_dict():
+    with (
+        tempfile.NamedTemporaryFile("w") as config_file_main,
+        tempfile.NamedTemporaryFile("w") as config_file_included,
+    ):
+        config_file_included.write(
+            """use-qubes-repo:
+  version: '4.3'
+  testing: true
+"""
+        )
+        config_file_included.flush()
+        config_file_main.write(
+            f"""include:
+ - {config_file_included.name}
+
+use-qubes-repo: {{}}
+"""
+        )
+        config_file_main.flush()
+        config = Config(config_file_main.name)
+        assert config.use_qubes_repo == {}
+
+        config_file_main.seek(0)
+        config_file_main.truncate()
+        config_file_main.write(
+            f"""include:
+ - {config_file_included.name}
+
+use-qubes-repo:
+  testing: false
+"""
+        )
+        config_file_main.flush()
+        config = Config(config_file_main.name)
+        assert config.use_qubes_repo == {"version": "4.3", "testing": False}
+
+
 def test_config_merge_include_check_maintainers():
     with (
         tempfile.NamedTemporaryFile("w") as config_file_main,
@@ -817,7 +855,11 @@ branch: release4.2
         ]
 
 
-def test_config_example_configs():
+@pytest.mark.parametrize(
+    "example_config",
+    sorted(p.name for p in (PROJECT_PATH / "example-configs").glob("*.yml")),
+)
+def test_config_example_configs(example_config):
     with tempfile.TemporaryDirectory() as tmpdir:
         shutil.copytree(
             PROJECT_PATH / "example-configs", f"{tmpdir}/example-configs"
@@ -825,7 +867,7 @@ def test_config_example_configs():
         with tempfile.NamedTemporaryFile("w", dir=tmpdir) as config_file_main:
             config_file_main.write(
                 f"""include:
- - example-configs/qubes-os-r4.2.yml
+ - example-configs/{example_config}
 
 git:
   branch: main

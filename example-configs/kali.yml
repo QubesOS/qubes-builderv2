@@ -6,21 +6,21 @@ git:
 backend-vmm: xen
 debug: true
 verbose: true
-qubes-release: r4.2
+qubes-release: r4.3
 use-qubes-repo:
-  version: 4.2
+  version: '4.3'
   testing: true
 template-root-size: "30G"
 
 templates:
   - kali:
-      dist: bookworm
+      dist: trixie
       flavor: kali
   - kali-core:
-      dist: bookworm
+      dist: trixie
       flavor: kali-core
   - kali-large:
-      dist: bookworm
+      dist: trixie
       flavor: kali-large
 
 components:
@@ -28,6 +28,7 @@ components:
       packages: False
   - template-kali:
       packages: False
+      branch: trixie
       url: https://github.com/fepitre/qubes-template-kali
       maintainers:
         # fepitre's @qubes-os.org

@@ -13,6 +13,9 @@ debug: true
 verbose: true
 qubes-release: r4.3
 
+use-qubes-repo:
+  version: '4.3'
+
 distributions:
   - vm-trixie
 

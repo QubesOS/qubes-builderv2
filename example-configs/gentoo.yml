@@ -6,7 +6,7 @@ git:
 backend-vmm: xen
 debug: true
 verbose: true
-qubes-release: r4.2
+qubes-release: r4.3
 
 template-root-size: "30G"
 

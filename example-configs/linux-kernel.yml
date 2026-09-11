@@ -1,0 +1,54 @@
+# Development configuration: builds only the dom0 kernel packages.
+
+git:
+  baseurl: https://github.com
+  prefix: QubesOS/qubes-
+  # keys allowed to sign the sources, add your own fingerprint for a fork
+  maintainers:
+    # marmarek
+    - '0064428F455451B3EBE78A7F063938BA42CFA724'
+    # simon
+    - '274E12AB03F2FE293765FC06DA0434BC706E1FCF'
+
+# directories holding the maintainers public keys as <FINGERPRINT>.asc
+# key-dirs:
+#   - /home/user/keys
+
+backend-vmm: xen
+debug: true
+verbose: true
+qubes-release: r4.3
+
+# build dependencies come from the Qubes repositories, nothing else to build first
+use-qubes-repo:
+  version: '4.3'
+
+distributions:
+  - host-fc41
+
+components:
+  # long term kernel, shipped as kernel
+  - linux-kernel:
+      # point url and branch at your fork to build your own changes
+      url: https://github.com/QubesOS/qubes-linux-kernel
+      branch: stable-6.18
+      timeout: 21600
+      # a fork has no tag signed by a maintainer, accept signed commits instead
+      # verification-mode: less-secure-signed-commits-sufficient
+      # or skip the verification entirely
+      # verification-mode: insecure-skip-checking
+  # latest kernel, shipped as kernel-latest
+  - linux-kernel-latest:
+      url: https://github.com/QubesOS/qubes-linux-kernel
+      branch: main
+      timeout: 21600
+
+executor:
+  type: qubes
+  options:
+    dispvm: "@dispvm"
+
+stages:
+  - fetch
+  - prep
+  - build
