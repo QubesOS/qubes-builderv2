@@ -178,11 +178,12 @@ class Config:
                     combined_conf.setdefault(key, [])
                     combined_conf[key] += data[key]
                 else:
-                    # if conf top-level key is not defined or is a list we override by
-                    # the included values, else we merge the two dicts where included
-                    # values may override original ones.
-                    if combined_conf.get(key, None) and isinstance(
-                        combined_conf[key], dict
+                    # a non-empty dict is merged into the included one,
+                    # any other value (an empty dict included) replaces it
+                    if (
+                        isinstance(combined_conf.get(key, None), dict)
+                        and isinstance(data[key], dict)
+                        and data[key]
                     ):
                         combined_conf[key] = deep_merge(
                             combined_conf[key], data[key]

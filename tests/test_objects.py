@@ -722,6 +722,44 @@ titi: toto
         assert config.get("titi", None) == "toto"
 
 
+def test_config_merge_include_empty_dict():
+    with (
+        tempfile.NamedTemporaryFile("w") as config_file_main,
+        tempfile.NamedTemporaryFile("w") as config_file_included,
+    ):
+        config_file_included.write(
+            """use-qubes-repo:
+  version: '4.3'
+  testing: true
+"""
+        )
+        config_file_included.flush()
+        config_file_main.write(
+            f"""include:
+ - {config_file_included.name}
+
+use-qubes-repo: {{}}
+"""
+        )
+        config_file_main.flush()
+        config = Config(config_file_main.name)
+        assert config.use_qubes_repo == {}
+
+        config_file_main.seek(0)
+        config_file_main.truncate()
+        config_file_main.write(
+            f"""include:
+ - {config_file_included.name}
+
+use-qubes-repo:
+  testing: false
+"""
+        )
+        config_file_main.flush()
+        config = Config(config_file_main.name)
+        assert config.use_qubes_repo == {"version": "4.3", "testing": False}
+
+
 def test_config_merge_include_check_maintainers():
     with (
         tempfile.NamedTemporaryFile("w") as config_file_main,
