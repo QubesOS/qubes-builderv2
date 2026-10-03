@@ -16,7 +16,7 @@ python3-packaging
 python3-pathspec
 python3-podman
 python3-pyyaml
-rb_libtorrent-examples
+rb_libtorrent-python3
 reprepro
 rpm
 rpm-sign
