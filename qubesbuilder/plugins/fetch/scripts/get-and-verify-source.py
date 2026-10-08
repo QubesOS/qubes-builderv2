@@ -228,6 +228,7 @@ def main(args):
                 subprocess.run(
                     ["git", "fetch"]
                     + (["--tags"] if looks_like_commit else [])
+                    + ["--recurse-submodules=no"]
                     + git_options
                     + ["--", git_url, git_branch],
                     capture_output=True,
@@ -508,6 +509,12 @@ def main(args):
         print("--> Updating submodules")
         subprocess.run(
             ["git", "submodule", "init"],
+            check=True,
+            cwd=repo,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "submodule", "sync"],
             check=True,
             cwd=repo,
             capture_output=True,

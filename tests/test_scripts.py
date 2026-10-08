@@ -601,6 +601,42 @@ def test_repository_with_submodules(capsys, temp_directory, home_directory):
     assert "--> Updating submodules" in capsys.readouterr().out
 
 
+def test_repository_with_submodules_change_url(capsys, temp_directory, home_directory):
+    args = create_dummy_args(
+        component_repository="https://github.com/qubesos/qubes-vmm-xen-windows-pvdrivers.git",
+        component_directory=temp_directory,
+        git_commit="388c821c173f294812302318cd55da9c07ca63b7",
+        shallow_clone=False,
+    )
+    get_and_verify_source(args)
+    assert "--> Updating submodules" in capsys.readouterr().out
+    submodule = subprocess.run(
+        ["git", "submodule", "status", "xenbus"],
+        capture_output=True,
+        text=True,
+        cwd=temp_directory,
+        check=True,
+    ).stdout.strip()
+    assert "e76d03e37550a0889c08be8e2a2caaf299d588c8" in submodule
+
+    args = create_dummy_args(
+        component_repository="https://github.com/qubesos/qubes-vmm-xen-windows-pvdrivers.git",
+        component_directory=temp_directory,
+        git_commit="e84be892def1dc55f3f27322f0a72a22b83741de",
+        shallow_clone=False,
+    )
+    get_and_verify_source(args)
+    assert "--> Updating submodules" in capsys.readouterr().out
+    submodule = subprocess.run(
+        ["git", "submodule", "status", "xenbus"],
+        capture_output=True,
+        text=True,
+        cwd=temp_directory,
+        check=True,
+    ).stdout.strip()
+    assert "1647577a1f2efbbb65c14c62c09b457f5755d1b5" in submodule
+
+
 def test_repository_fetch_version_tag_earlier(capsys, temp_directory):
     component_repository = "https://github.com/fepitre/qubes-core-qrexec"
     # Fresh clone on branch having signed tag not being version tag
