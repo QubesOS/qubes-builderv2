@@ -172,6 +172,7 @@ def main(args):
         try:
             subprocess.run(
                 ["git", "fetch"]
+                + ["--recurse-submodules=no"]
                 + git_options
                 + ["-q", "--tags", "--", git_url, git_branch],
                 capture_output=True,
