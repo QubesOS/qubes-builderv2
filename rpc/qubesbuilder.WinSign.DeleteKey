@@ -28,6 +28,6 @@ if ! check_key_exists "${KEY_NAME}"; then
 fi
 set -e
 
-sudo rm -f \
+rm -f \
     "${KEYS_DIR}/${KEY_NAME}.key" \
     "${KEYS_DIR}/${KEY_NAME}.crt"

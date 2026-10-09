@@ -71,7 +71,7 @@ SELF=$(qubesdb-read /name)
 DISPVM=$(qrexec_call "dom0" admin.vm.CreateDisposable)
 
 qrexec_call "${DISPVM}" "admin.vm.Start"
-qrexec_call "${DISPVM}" "admin.vm.device.block.Attach+${SELF}+${LOOP_ID}" "read-only=true"
+qrexec_call "${DISPVM}" "admin.vm.device.block.Attach+${SELF}+${LOOP_ID}+_" "_read-only='true' port_id='${LOOP_ID}' devclass='block' device_id='*' mode='manual' backend_domain='${SELF}' frontend_domain='${DISPVM}'"
 qvm-copy-to-vm --without-progress "${DISPVM}" "${SCRIPT_DIR}/edit-iso-dispvm.sh"
 qvm-copy-to-vm --without-progress "${DISPVM}" "${FILES}"
 shell_call "${DISPVM}" "mv ~/QubesIncoming/${SELF}/edit-iso-dispvm.sh ~"

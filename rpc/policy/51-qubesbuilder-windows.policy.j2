@@ -2,6 +2,9 @@
 {% for source in policy_sources %}
 admin.vm.device.block.Attach     *  {{ source }}  @tag:disp-created-by-{{ source }}  allow  target=dom0
 admin.vm.device.block.Assign     *  {{ source }}  @tag:disp-created-by-{{ source }}  allow  target=dom0
+admin.vm.CurrentState            *  {{ source }}  @tag:disp-created-by-{{ source }}  allow  target=dom0
+admin.vm.Start                   *  {{ source }}  @tag:disp-created-by-{{ source }}  allow  target=dom0
+admin.vm.Remove                  *  {{ source }}  @tag:disp-created-by-{{ source }}  allow  target=dom0
 qubesbuilder.WinSign.Timestamp   *  {{ source }}  @tag:disp-created-by-{{ source }}  allow
 qubesbuilder.WinFileCopyIn       *  {{ source }}  @tag:disp-created-by-{{ source }}  allow
 qubesbuilder.WinFileCopyOut      *  {{ source }}  @tag:disp-created-by-{{ source }}  allow
