@@ -71,6 +71,7 @@ class QubesDistribution:
         is_ubuntu = UBUNTU.get(self.name, None)
         is_archlinux = self.name == "archlinux"
         is_gentoo = self.name == "gentoo"
+        is_guix = self.name == "guix"
         is_windows = WINDOWS.get(self.name, None)
         if is_fedora:
             self.fullname = "fedora"
@@ -108,6 +109,11 @@ class QubesDistribution:
             self.version = "rolling"
             self.tag = "gentoo"
             self.type = "gentoo"
+        elif is_guix:
+            self.fullname = "guix"
+            self.version = "rolling"
+            self.tag = "guix"
+            self.type = "guix"
         elif is_windows:
             self.fullname, self.version = WINDOWS[self.name]
             self.tag = "windows"
@@ -154,6 +160,9 @@ class QubesDistribution:
 
     def is_gentoo(self) -> bool:
         return self.name == "gentoo"
+
+    def is_guix(self) -> bool:
+        return self.name == "guix"
 
     def is_windows(self) -> bool:
         if WINDOWS.get(self.name, None):
