@@ -172,6 +172,7 @@ components:
   - zfs
   - zfs-dkms
   - xorg-x11-server
+  - xorg-x11-drv-libinput
   - linux-pvgrub2
   - linux-gbulb:
       branch: main
