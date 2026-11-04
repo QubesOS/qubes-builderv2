@@ -104,6 +104,7 @@ components:
       # requires extra setup for signing, disable by default
       packages: false
   - artwork
+  - lvm2
   - grub2
   - grub2-theme
   - gui-common
