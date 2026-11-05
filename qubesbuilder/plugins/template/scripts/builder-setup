@@ -12,8 +12,11 @@ REQUIRED_ENV=(
     TEMPLATE_CONTENT_DIR
     TEMPLATE_NAME
     TEMPLATE_SCRIPTS_DIR
-    KEYS_DIR
 )
+# Guix content has no distribution key directory.
+if [[ "${DIST_NAME:-}" != guix ]]; then
+    REQUIRED_ENV+=(KEYS_DIR)
+fi
 
 for var in "${REQUIRED_ENV[@]}"; do
     if [ -z "${!var}" ]; then

@@ -1,4 +1,5 @@
 import importlib
+import os
 import random
 import shutil
 import string
@@ -12,6 +13,105 @@ from qubesbuilder.common import PROJECT_PATH
 get_and_verify_source = importlib.import_module(
     "qubesbuilder.plugins.fetch.scripts.get-and-verify-source"
 ).main
+
+TEMPLATE_MAKEFILE = PROJECT_PATH / "qubesbuilder/plugins/template/Makefile"
+TEMPLATE_BUILDER_SETUP = (
+    PROJECT_PATH / "qubesbuilder/plugins/template/scripts/builder-setup"
+)
+TEMPLATE_KEYS_DIR_CASES = (
+    pytest.param("guix", None, True, id="guix-without-keys"),
+    pytest.param("fedora", None, False, id="fedora-without-keys"),
+    pytest.param("fedora", "/keys", True, id="fedora-with-keys"),
+)
+
+
+def template_script_environment(dist_name):
+    dist_codename, dist_version = {
+        "guix": ("guix", "rolling"),
+        "fedora": ("fc42", "42"),
+    }[dist_name]
+
+    return {
+        "DIST_CODENAME": dist_codename,
+        "DIST_NAME": dist_name,
+        "DIST_VER": dist_version,
+        "PLUGINS_DIR": "/plugins",
+        "ARTIFACTS_DIR": "/artifacts",
+        "CACHE_DIR": "/cache",
+        "TEMPLATE_CONTENT_DIR": "/template-content",
+        "TEMPLATE_NAME": "test-template",
+        "TEMPLATE_SCRIPTS_DIR": "/template-scripts",
+    }
+
+
+@pytest.mark.parametrize(
+    ("dist_name", "keys_dir", "succeeds"),
+    TEMPLATE_KEYS_DIR_CASES,
+)
+def test_template_makefile_keys_dir_requirement(dist_name, keys_dir, succeeds):
+    variables = template_script_environment(dist_name)
+    variables.update(
+        {
+            "PACKAGES_DIR": "/packages",
+            "TEMPLATE_VERSION": "4.3.0",
+        }
+    )
+    if keys_dir:
+        variables["KEYS_DIR"] = keys_dir
+
+    result = subprocess.run(
+        [
+            "make",
+            "--silent",
+            "--file",
+            str(TEMPLATE_MAKEFILE),
+            "check",
+            *(f"{name}={value}" for name, value in variables.items()),
+        ],
+        capture_output=True,
+        text=True,
+        env={"PATH": os.defpath},
+    )
+
+    assert (result.returncode == 0) is succeeds
+    if succeeds:
+        assert "Undefined KEYS_DIR" not in result.stderr
+    else:
+        assert "Undefined KEYS_DIR" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("dist_name", "keys_dir", "succeeds"),
+    TEMPLATE_KEYS_DIR_CASES,
+)
+def test_builder_setup_keys_dir_requirement(
+    temp_directory, dist_name, keys_dir, succeeds
+):
+    fake_id = temp_directory / "id"
+    fake_id.write_text("#!/bin/sh\nprintf '0\\n'\n", encoding="ascii")
+    fake_id.chmod(0o755)
+
+    environment = template_script_environment(dist_name)
+    environment["PATH"] = f"{temp_directory}{os.pathsep}{os.defpath}"
+    if keys_dir:
+        environment["KEYS_DIR"] = keys_dir
+
+    result = subprocess.run(
+        [TEMPLATE_BUILDER_SETUP],
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+    assert (result.returncode == 0) is succeeds
+    if succeeds:
+        assert (
+            "Please provide environment variable: KEYS_DIR" not in result.stdout
+        )
+    else:
+        assert (
+            result.stdout == "Please provide environment variable: KEYS_DIR\n"
+        )
 
 
 def create_git_repository(repo_dir, env, sign_commit=False, sign_key=None):
